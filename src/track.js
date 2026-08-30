@@ -4,7 +4,10 @@ import * as THREE from 'three';
 import { instance, materialsFor } from './assets.js';
 import { mergeGeometries } from 'three/utils/BufferGeometryUtils.js';
 
-export const TILE = 9;
+// Road tiles are scaled to this pitch while cars keep their absolute size,
+// so the tile size directly sets how wide the road feels: at 11, the tarmac
+// band (0.8 of a tile) is 8.8 units against a 1.44-unit car — six abreast.
+export const TILE = 11;
 
 // tan(camera elevation): how tall a prop may be per tile of clearance from the
 // track before it starts hiding cars. Matches ISO_DIR in engine.js.

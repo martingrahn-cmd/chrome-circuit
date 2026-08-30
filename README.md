@@ -112,7 +112,7 @@ Cars collide as capsules down their length rather than as one circle. A circle
 big enough to cover a 2.6-long car is 2.7 wide, so two cars "touch" from two
 car-widths apart and side-by-side racing becomes impossible. The capsule is 1.44
 wide, and the drivable band is 0.8 of a tile — the width of the actual tarmac on
-the Kenney road piece — which leaves room for five abreast. The AI holds a tighter
+the Kenney road piece — which leaves room for six abreast. The AI holds a tighter
 line than it used to and steers away from anyone alongside instead of squeezing
 them off.
 
