@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#14161f">
+<title>Chrome Circuit — isometric racing</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%F0%9F%8F%8E%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three/three.module.min.js",
+    "three/": "./vendor/three/"
+  }
+}
+</script>
+</head>
+<body>
+<canvas id="scene"></canvas>
+
+<!-- ------------------------------------------------------------------ HUD -->
+<div id="hud" class="hidden">
+  <div class="hud-corner hud-tl">
+    <div class="stat">
+      <span class="stat-label">Lap</span>
+      <span class="stat-value" id="hud-lap">1/3</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Pos</span>
+      <span class="stat-value" id="hud-pos">6th</span>
+      <span class="stat-sub" id="hud-pos-label">of 6</span>
+    </div>
+  </div>
+
+  <div class="hud-corner hud-tr">
+    <div class="stat stat--right">
+      <span class="stat-label">Lap time</span>
+      <span class="stat-value stat-value--mono" id="hud-time">0:00.00</span>
+    </div>
+    <div class="stat stat--right">
+      <span class="stat-label">Best</span>
+      <span class="stat-value stat-value--mono stat-value--dim" id="hud-best">--:--.--</span>
+    </div>
+    <canvas id="hud-map" width="168" height="168"></canvas>
+  </div>
+
+  <div class="hud-corner hud-bl">
+    <div id="hud-item" class="item-slot">
+      <span class="item-label" id="hud-item-label">—</span>
+      <span class="item-hint">Space</span>
+    </div>
+  </div>
+
+  <div class="hud-corner hud-br">
+    <div class="speedo">
+      <span class="speedo-value" id="hud-speed">0</span>
+      <span class="speedo-unit">km/h</span>
+      <div class="boost-track"><div class="boost-fill" id="hud-boost"></div></div>
+      <span class="draft" id="hud-draft">Slipstream</span>
+    </div>
+  </div>
+
+  <div id="hud-countdown" class="countdown"></div>
+  <div id="hud-messages" class="messages"></div>
+
+  <div id="touch" class="touch hidden">
+    <div class="touch-left">
+      <button class="touch-btn" data-touch="left" aria-label="Steer left">◀</button>
+      <button class="touch-btn" data-touch="right" aria-label="Steer right">▶</button>
+    </div>
+    <div class="touch-right">
+      <button class="touch-btn touch-btn--item" data-touch="item" aria-label="Use item">★</button>
+      <button class="touch-btn" data-touch="brake" aria-label="Brake">▼</button>
+      <button class="touch-btn touch-btn--gas" data-touch="gas" aria-label="Accelerate">▲</button>
+    </div>
+  </div>
+</div>
+
+<!-- -------------------------------------------------------------- Screens -->
+<div id="screens">
+
+  <section class="screen show" id="screen-loading">
+    <div class="loading">
+      <div class="loading-mark">CC</div>
+      <h1 class="loading-title">Chrome Circuit</h1>
+      <div class="loading-bar"><div class="loading-fill" id="loading-fill"></div></div>
+      <p class="loading-text" id="loading-text">Warming up the grid…</p>
+    </div>
+  </section>
+
+  <section class="screen" id="screen-menu">
+    <div class="menu">
+      <p class="eyebrow">Isometric arcade racing</p>
+      <h1 class="title">Chrome<span>Circuit</span></h1>
+      <p class="tagline">Six cars. Three laps. Rockets optional.</p>
+      <div class="menu-buttons">
+        <button class="btn btn--primary" data-action="race">Start a race</button>
+        <button class="btn" data-action="garage">Garage</button>
+        <button class="btn" data-action="howto">How to play</button>
+      </div>
+      <p class="credits">Models by <strong>Kenney</strong> (CC0) — Car Kit, City Kit Roads, City Kit, Suburban, Toy Car Kit.</p>
+    </div>
+  </section>
+
+  <section class="screen" id="screen-tracks">
+    <div class="panel">
+      <header class="panel-head">
+        <h2>Choose a circuit</h2>
+        <button class="btn btn--ghost" data-action="back-menu">Back</button>
+      </header>
+      <div class="card-grid" id="track-list"></div>
+      <footer class="panel-foot">
+        <label class="field">
+          <span>Difficulty</span>
+          <select id="difficulty">
+            <option value="0">Rookie</option>
+            <option value="1" selected>Pro</option>
+            <option value="2">Ace</option>
+            <option value="3">Legend</option>
+          </select>
+        </label>
+        <button class="btn btn--primary" data-action="to-cars">Next: pick a car</button>
+      </footer>
+    </div>
+  </section>
+
+  <section class="screen" id="screen-cars">
+    <div class="panel">
+      <header class="panel-head">
+        <h2>Pick your car</h2>
+        <button class="btn btn--ghost" data-action="back-tracks">Back</button>
+      </header>
+      <div class="card-grid card-grid--cars" id="car-list"></div>
+      <footer class="panel-foot">
+        <span class="foot-note" id="car-note"></span>
+        <button class="btn btn--primary" data-action="go">Race</button>
+      </footer>
+    </div>
+  </section>
+
+  <section class="screen" id="screen-results">
+    <div class="panel panel--narrow">
+      <header class="panel-head">
+        <h2 id="results-title">Race result</h2>
+      </header>
+      <ol class="results" id="results-list"></ol>
+      <footer class="panel-foot">
+        <button class="btn" data-action="back-menu">Menu</button>
+        <button class="btn" data-action="retry">Rematch</button>
+        <button class="btn btn--primary" data-action="next-track">Next circuit</button>
+      </footer>
+    </div>
+  </section>
+
+  <section class="screen" id="screen-howto">
+    <div class="panel panel--narrow">
+      <header class="panel-head">
+        <h2>How to play</h2>
+        <button class="btn btn--ghost" data-action="back-menu">Back</button>
+      </header>
+      <div class="howto">
+        <dl>
+          <dt>Accelerate / brake</dt><dd><kbd>W</kbd> <kbd>S</kbd> or <kbd>↑</kbd> <kbd>↓</kbd></dd>
+          <dt>Steer</dt><dd><kbd>A</kbd> <kbd>D</kbd> or <kbd>←</kbd> <kbd>→</kbd></dd>
+          <dt>Use item</dt><dd><kbd>Space</kbd></dd>
+          <dt>Handbrake</dt><dd><kbd>Shift</kbd></dd>
+          <dt>Pause</dt><dd><kbd>Esc</kbd> or <kbd>P</kbd></dd>
+        </dl>
+        <p>A gamepad works too: left stick or d-pad to steer, <strong>RT</strong> or <strong>A</strong> for the loud pedal,
+        <strong>LT</strong> to brake, <strong>X</strong> or <strong>Y</strong> to fire, <strong>RB</strong> for the handbrake
+        and <strong>Start</strong> to pause. The menus take the d-pad, <strong>A</strong> to choose and <strong>B</strong> to go back.</p>
+        <h3>Items</h3>
+        <ul class="item-legend">
+          <li><b style="--c:#4ade80">TURBO</b> A short, glorious overdose of speed.</li>
+          <li><b style="--c:#f87171">ROCKET</b> Fires forward and nudges toward whoever is ahead.</li>
+          <li><b style="--c:#fbbf24">OIL DRUM</b> Drops behind you. Whoever hits it, spins.</li>
+        </ul>
+        <p class="muted">Grass and dirt will slow you down and steal your grip. Barriers hurt more.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="screen" id="screen-paused">
+    <div class="panel panel--narrow">
+      <header class="panel-head"><h2>Paused</h2></header>
+      <footer class="panel-foot">
+        <button class="btn" data-action="back-menu">Quit to menu</button>
+        <button class="btn" data-action="retry">Restart</button>
+        <button class="btn btn--primary" data-action="resume">Resume</button>
+      </footer>
+    </div>
+  </section>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<button id="sound-toggle" class="sound-toggle" aria-label="Toggle sound">♪</button>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>

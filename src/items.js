@@ -1,0 +1,171 @@
+// Pickups (item boxes) and the three things you can do with them.
+import * as THREE from 'three';
+import { instance } from './assets.js';
+
+export const ITEMS = {
+  boost: { label: 'TURBO', colour: '#4ade80' },
+  missile: { label: 'ROCKET', colour: '#f87171' },
+  mine: { label: 'OIL DRUM', colour: '#fbbf24' },
+};
+
+const POOL = ['boost', 'boost', 'missile', 'missile', 'mine'];
+
+export class ItemField {
+  constructor(track, scene, rng) {
+    this.track = track;
+    this.scene = scene;
+    this.rng = rng;
+    this.boxes = [];
+    this.build();
+  }
+
+  build() {
+    const line = this.track.line;
+    const group = new THREE.Group();
+    // Rows of three boxes on the straights.
+    const spacing = Math.max(28, line.length / 7);
+    for (let d = spacing * 0.5; d < line.length; d += spacing) {
+      const i = Math.round(d / line.spacing);
+      if (line.curveAt(i) > 0.025) continue;
+      const p = line.point(i), t = line.tangent(i);
+      for (let k = -1; k <= 1; k++) {
+        const off = k * this.track.roadHalf * 0.62;
+        const mesh = instance('items', 'item-box');
+        mesh.scale.setScalar(4.4);
+        mesh.position.set(p.x + t.z * off, 0.2, p.z - t.x * off);
+        mesh.userData.baseY = 0.2;
+        group.add(mesh);
+        this.boxes.push({ mesh, x: mesh.position.x, z: mesh.position.z, cooldown: 0, phase: this.rng() * 6.28 });
+      }
+    }
+    this.group = group;
+    this.scene.add(group);
+  }
+
+  update(dt, cars, onPickup) {
+    for (const box of this.boxes) {
+      if (box.cooldown > 0) {
+        box.cooldown -= dt;
+        if (box.cooldown <= 0) { box.mesh.visible = true; box.mesh.scale.setScalar(4.4); }
+        else {
+          const t = 1 - box.cooldown / 4;
+          box.mesh.visible = true;
+          box.mesh.scale.setScalar(4.4 * Math.max(0, t * t));
+        }
+        continue;
+      }
+      box.phase += dt * 2.4;
+      box.mesh.rotation.y += dt * 1.8;
+      box.mesh.position.y = box.mesh.userData.baseY + Math.sin(box.phase) * 0.28;
+
+      for (const car of cars) {
+        if (car.item || car.finished) continue;
+        if (Math.hypot(car.x - box.x, car.z - box.z) > 2.1) continue;
+        box.cooldown = 4;
+        box.mesh.visible = false;
+        const kind = POOL[Math.floor(this.rng() * POOL.length)];
+        car.item = kind;
+        onPickup && onPickup(car, kind);
+        break;
+      }
+    }
+  }
+}
+
+export class Projectile {
+  constructor(owner, scene) {
+    this.owner = owner;
+    this.x = owner.x; this.z = owner.z;
+    const f = owner.forward;
+    this.heading = owner.heading;
+    this.speed = Math.max(30, owner.vLong + 22);
+    this.life = 3.2;
+    this.dead = false;
+    this.mesh = instance('cars', 'debris-bolt');
+    this.mesh.scale.setScalar(3.2);
+    this.mesh.position.set(this.x + f.x * 2, 0.5, this.z + f.z * 2);
+    scene.add(this.mesh);
+    this.x = this.mesh.position.x; this.z = this.mesh.position.z;
+  }
+
+  update(dt, cars, track) {
+    this.life -= dt;
+    if (this.life <= 0) { this.dead = true; return; }
+
+    // Gentle homing onto the nearest car ahead keeps rockets satisfying.
+    const target = this.findTarget(cars);
+    if (target) {
+      let want = Math.atan2(target.x - this.x, target.z - this.z) - this.heading;
+      while (want > Math.PI) want -= Math.PI * 2;
+      while (want < -Math.PI) want += Math.PI * 2;
+      this.heading += Math.max(-2.6 * dt, Math.min(2.6 * dt, want));
+    }
+    this.x += Math.sin(this.heading) * this.speed * dt;
+    this.z += Math.cos(this.heading) * this.speed * dt;
+    this.mesh.position.set(this.x, 0.5, this.z);
+    this.mesh.rotation.y = this.heading;
+    this.mesh.rotation.x += dt * 14;
+
+    for (const car of cars) {
+      if (car === this.owner || car.finished) continue;
+      if (Math.hypot(car.x - this.x, car.z - this.z) < car.radius + 0.8) {
+        car.spinOut(1.25);
+        this.dead = true;
+        this.hitCar = car;
+        return;
+      }
+    }
+    const loc = track.line.locate(this.x, this.z, null, 0);
+    if (loc.dist > track.wallHalf + 3) this.dead = true;
+  }
+
+  findTarget(cars) {
+    let best = null, bestD = 42;
+    for (const car of cars) {
+      if (car === this.owner || car.finished) continue;
+      const dx = car.x - this.x, dz = car.z - this.z;
+      const ahead = dx * Math.sin(this.heading) + dz * Math.cos(this.heading);
+      if (ahead < 1) continue;
+      const d = Math.hypot(dx, dz);
+      if (d < bestD) { bestD = d; best = car; }
+    }
+    return best;
+  }
+
+  dispose(scene) { scene.remove(this.mesh); }
+}
+
+export class Hazard {
+  constructor(owner, scene) {
+    const f = owner.forward;
+    this.x = owner.x - f.x * 3.4;
+    this.z = owner.z - f.z * 3.4;
+    this.owner = owner;
+    this.arm = 0.8;
+    this.life = 22;
+    this.dead = false;
+    this.mesh = instance('roads', 'dumpster');
+    this.mesh.scale.setScalar(5.5);
+    this.mesh.position.set(this.x, 0.16, this.z);
+    this.mesh.rotation.y = Math.random() * 6.28;
+    scene.add(this.mesh);
+  }
+
+  update(dt, cars) {
+    this.arm -= dt;
+    this.life -= dt;
+    if (this.life <= 0) { this.dead = true; return; }
+    this.mesh.position.y = 0.16 + Math.sin(this.life * 6) * 0.03;
+    for (const car of cars) {
+      if ((this.arm > 0 && car === this.owner) || car.finished) continue;
+      if (Math.hypot(car.x - this.x, car.z - this.z) < car.radius + 1.0) {
+        car.spinOut(1.0);
+        this.dead = true;
+        this.hitCar = car;
+        return;
+      }
+    }
+  }
+
+  dispose(scene) { scene.remove(this.mesh); }
+}
