@@ -553,6 +553,28 @@ select {
 /* The speedo occupies the same corner during a race. */
 body.racing .sound-toggle { display: none; }
 
+.version { opacity: 0.65; }
+
+.update-chip {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  padding: 9px 18px;
+  border-radius: 999px;
+  border: 1px solid var(--panel-edge);
+  background: var(--accent, #ffcc32);
+  color: #14161f;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+/* Never interrupt a race — the chip waits behind the menus. */
+body.racing .update-chip { display: none; }
+
 @media (max-width: 720px) {
   #hud-map { width: 108px; height: 108px; }
   .stat-value { font-size: 21px; }

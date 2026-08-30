@@ -11,6 +11,7 @@ import { Input } from './input.js';
 import * as audio from './audio.js';
 import * as progress from './progress.js';
 import { carThumbnails, trackThumbnail } from './thumbs.js';
+import { watchVersion } from './version.js';
 
 const canvas = document.getElementById('scene');
 const engine = new Engine(canvas);
@@ -546,6 +547,7 @@ function frame(now) {
   startAttract();
   padHint();
   show('menu');
+  watchVersion(document.getElementById('version-badge'), document.getElementById('update-chip'));
   requestAnimationFrame(frame);
 })();
 // Debug hook: advance the simulation at a fixed step without waiting on rAF.
