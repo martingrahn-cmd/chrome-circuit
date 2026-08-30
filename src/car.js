@@ -289,8 +289,13 @@ export function resolveCollisions(cars, onImpact) {
       const rel = (bv - av) * nx + (bvz - avz) * nz;
       if (rel < 0) {
         const imp = Math.min(1, -rel / 18);
-        a.vLong *= 1 - imp * 0.34 * aShare;
-        b.vLong *= 1 - imp * 0.34 * bShare;
+        // Scrub forward speed only for the along-axis share of the hit:
+        // door-to-door rubbing costs racing room, not engine speed —
+        // otherwise side contact glues cars together and kills overtakes.
+        const aFwd = Math.abs(nx * a.forward.x + nz * a.forward.z);
+        const bFwd = Math.abs(nx * b.forward.x + nz * b.forward.z);
+        a.vLong *= 1 - imp * 0.34 * aShare * aFwd;
+        b.vLong *= 1 - imp * 0.34 * bShare * bFwd;
         // Kick along the contact normal, projected onto each car's own
         // lateral axis — a fixed-sign kick pulls a T-boned car into its
         // attacker and jolts rear-end shunts sideways.

@@ -304,7 +304,10 @@ export class Track {
     // The grid reaches this many samples back from the line (three rows of
     // two, 8 units apart — see startSlots), plus a little breathing room.
     const gridDepth = Math.round(24 / this.line.spacing) + 3;
-    const scan = Math.min(n, Math.max(40, gridDepth * 2));
+    // Scan far enough that the truly longest straight wins the tie: the grid
+    // stands behind the line and the pack still gets a real launch run ahead
+    // of it before the first corner.
+    const scan = Math.min(n, gridDepth + Math.round(60 / this.line.spacing));
     let best = 0, bestRun = -1;
     for (let i = 0; i < n; i++) {
       let flat = 0;
