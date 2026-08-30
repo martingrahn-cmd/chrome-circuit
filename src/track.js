@@ -531,8 +531,12 @@ export class Track {
         const p = this.line.point(i), t = this.line.tangent(i);
         const sc = TILE * (spec.scale ?? 1);
         const off = this.wallHalf + (spec.r ?? 0.2) * sc + (spec.offset ?? 0.4);
+        const heading = Math.atan2(t.x, t.z);
+        // Lamp arms (local -Z, spec.across) turn to reach over the road;
+        // signs and barriers keep facing along it.
+        const yaw = spec.across ? heading + side * Math.PI / 2 : heading + (side < 0 ? Math.PI : 0);
         const m = new THREE.Matrix4()
-          .makeRotationY(Math.atan2(t.x, t.z) + (side < 0 ? Math.PI : 0))
+          .makeRotationY(yaw)
           .scale(new THREE.Vector3(sc, sc, sc));
         m.setPosition(p.x + t.z * off * side, 0, p.z - t.x * off * side);
         push(spec.kit, spec.model, m);

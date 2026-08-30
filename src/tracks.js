@@ -72,8 +72,9 @@ const WILD_PROPS = [
 // Trackside furniture. `offset` is the gap left outside the track limit, so
 // nothing here is ever reachable by a car that is still on the circuit.
 const CITY_SIDE = [
-  { kit: 'roads', model: 'light-square', scale: 1, r: 0.21, offset: 0.5 },
-  { kit: 'roads', model: 'light-curved', scale: 1, r: 0.20, offset: 0.5 },
+  // `across`: the lamp arm (local -Z) must reach over the road, not run along it.
+  { kit: 'roads', model: 'light-square', scale: 1, r: 0.21, offset: 0.5, across: true },
+  { kit: 'roads', model: 'light-curved', scale: 1, r: 0.20, offset: 0.5, across: true },
   { kit: 'roads', model: 'traffic-light', scale: 1, r: 0.07, offset: 0.7 },
   { kit: 'roads', model: 'road-sign-warning', scale: 1, r: 0.07, offset: 0.7 },
 ];
