@@ -6,8 +6,8 @@ import { instance } from './assets.js';
 export const SURFACE = {
   road: { grip: 15.5, maxSpeed: 1.0, drag: 1.0 },
   // Run-off beside a street circuit: dusty and slow, but still tarmac.
-  kerb: { grip: 9.5, maxSpeed: 0.84, drag: 1.8 },
-  dirt: { grip: 6.2, maxSpeed: 0.66, drag: 2.9 },
+  kerb: { grip: 10.0, maxSpeed: 0.87, drag: 1.6 },
+  dirt: { grip: 7.0, maxSpeed: 0.72, drag: 2.4 },
 };
 
 export class Car {
@@ -185,7 +185,7 @@ export class Car {
       const t = after.tangent;
       this.x -= t.z * sign * over;
       this.z += t.x * sign * over;
-      this.vLong *= 1 - Math.min(0.45, over * 0.5);
+      this.vLong *= 1 - Math.min(0.32, over * 0.38);
       this.vLat *= -0.25;
       this.wallHit = Math.min(1, over);
     } else {
@@ -289,13 +289,18 @@ export function resolveCollisions(cars, onImpact) {
       const rel = (bv - av) * nx + (bvz - avz) * nz;
       if (rel < 0) {
         const imp = Math.min(1, -rel / 18);
-        // Scrub forward speed only for the along-axis share of the hit:
-        // door-to-door rubbing costs racing room, not engine speed —
-        // otherwise side contact glues cars together and kills overtakes.
-        const aFwd = Math.abs(nx * a.forward.x + nz * a.forward.z);
-        const bFwd = Math.abs(nx * b.forward.x + nz * b.forward.z);
-        a.vLong *= 1 - imp * 0.34 * aShare * aFwd;
-        b.vLong *= 1 - imp * 0.34 * bShare * bFwd;
+        // Exchange momentum along each car's own axis instead of braking
+        // both: the rammer slows, the rammed car is shoved forward, a
+        // T-bone shoves sideways only, and door-to-door rubbing costs
+        // nothing. The player's own losses are further softened — being
+        // mobbed by the pack must not bleed the race away.
+        const j = Math.min(-rel, 14) * 0.6;
+        const aFwd = nx * a.forward.x + nz * a.forward.z;
+        const bFwd = nx * b.forward.x + nz * b.forward.z;
+        const dA = -j * aShare * aFwd;
+        const dB = j * bShare * bFwd;
+        a.vLong += dA * (a.isPlayer && dA < 0 ? 0.7 : 1);
+        b.vLong += dB * (b.isPlayer && dB < 0 ? 0.7 : 1);
         // Kick along the contact normal, projected onto each car's own
         // lateral axis — a fixed-sign kick pulls a T-boned car into its
         // attacker and jolts rear-end shunts sideways.

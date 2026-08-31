@@ -84,7 +84,7 @@ export class AIDriver {
     if (race && race.player && race.player !== car && !race.player.finished) {
       const gapAhead = (car.totalProgress - race.player.totalProgress) * line.spacing;
       if (gapAhead > 0) {
-        const band = [0.10, 0.07, 0.045, 0.02][race.difficulty] ?? 0.07;
+        const band = [0.11, 0.08, 0.05, 0.02][race.difficulty] ?? 0.08;
         target *= 1 - Math.min(1, gapAhead / 70) * band;
       }
     }
