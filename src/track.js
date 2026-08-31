@@ -533,10 +533,21 @@ export class Track {
       for (let i = 0; i < this.line.n; i += step) {
         if (this.line.curveAt(i) > 0.02) continue;
         const spec = dress[Math.floor(rng() * dress.length)];
-        const side = rng() < 0.5 ? -1 : 1;
         const p = this.line.point(i), t = this.line.tangent(i);
+        // Tall lamps stand on the camera-far side of the road, where they
+        // draw behind the cars — on the near side the pole cuts straight
+        // across any car running the outer lane. Short furniture may sit
+        // on either side.
+        const side = spec.across
+          ? (-Math.sign(t.z - t.x) || 1)
+          : (rng() < 0.5 ? -1 : 1);
         const sc = TILE * (spec.scale ?? 1);
         const off = this.wallHalf + (spec.r ?? 0.2) * sc + (spec.offset ?? 0.4);
+        // The offset is measured from this sample, but a neighbouring corner
+        // arc can swing the line closer — skip any spot a car at the track
+        // limit could actually reach, same rule the scattered props obey.
+        const px = p.x + t.z * off * side, pz = p.z - t.x * off * side;
+        if (this.line.locate(px, pz, null).dist < this.wallHalf + (spec.r ?? 0.2) * sc + 0.4) continue;
         const heading = Math.atan2(t.x, t.z);
         // Lamp arms (local -Z, spec.across) turn to reach over the road;
         // signs and barriers keep facing along it.
@@ -544,7 +555,7 @@ export class Track {
         const m = new THREE.Matrix4()
           .makeRotationY(yaw)
           .scale(new THREE.Vector3(sc, sc, sc));
-        m.setPosition(p.x + t.z * off * side, 0, p.z - t.x * off * side);
+        m.setPosition(px, 0, pz);
         push(spec.kit, spec.model, m);
       }
     }

@@ -277,23 +277,35 @@ export class Race {
   /** Confetti over the line — a podium finish showers the coasting car. */
   emitCelebration(dt) {
     if (!this.celebrate || this.postTime > 3.4) return;
-    this.confettiClock = (this.confettiClock ?? 0) - dt;
-    if (this.confettiClock > 0) return;
-    this.confettiClock = this.celebrate === 2 ? 0.04 : 0.09;
     const p = this.player;
     const GOLD = [1, 0.84, 0.25];
     const PARTY = [GOLD, [0.35, 0.8, 1], [1, 0.45, 0.6], [0.55, 1, 0.6], [0.8, 0.6, 1]];
-    const colour = this.celebrate === 2 ? PARTY[Math.floor(Math.random() * PARTY.length)] : GOLD;
-    this.particles.emit(
-      p.x + (Math.random() - 0.5) * 8,
-      3.4 + Math.random() * 2.6,
-      p.z + (Math.random() - 0.5) * 8,
-      {
-        velocity: [(Math.random() - 0.5) * 3, -0.6, (Math.random() - 0.5) * 3],
-        colour, size: 0.42, life: 1.6, grow: 0.25, rise: -2.6, drag: 0.6,
-        glow: true, opacity: 1,
-      },
-    );
+    // The flag moment itself pops: two shockwave bursts around the car.
+    if (!this.confettiStarted) {
+      this.confettiStarted = true;
+      for (const side of [-1, 1]) {
+        this.particles.burst(p.x + side * 2.5, 1.0, p.z, this.celebrate === 2 ? 22 : 14, {
+          colour: GOLD, size: 0.55, life: 1.0, spread: 7, up: 8, glow: true, opacity: 1,
+        });
+      }
+    }
+    this.confettiClock = (this.confettiClock ?? 0) - dt;
+    if (this.confettiClock > 0) return;
+    this.confettiClock = this.celebrate === 2 ? 0.05 : 0.09;
+    const n = this.celebrate === 2 ? 2 : 1;
+    for (let k = 0; k < n; k++) {
+      const colour = this.celebrate === 2 ? PARTY[Math.floor(Math.random() * PARTY.length)] : GOLD;
+      this.particles.emit(
+        p.x + (Math.random() - 0.5) * 9,
+        3.6 + Math.random() * 2.8,
+        p.z + (Math.random() - 0.5) * 9,
+        {
+          velocity: [(Math.random() - 0.5) * 3, -0.6, (Math.random() - 0.5) * 3],
+          colour, size: 0.5, life: 1.9, grow: 0.22, rise: -2.6, drag: 0.6,
+          glow: true, opacity: 1,
+        },
+      );
+    }
   }
 
   /** Sitting in the tow of the car ahead is worth a little extra speed. */
