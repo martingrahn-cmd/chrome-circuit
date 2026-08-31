@@ -61,6 +61,7 @@ export class Race {
     this.engineSound = new EngineSound();
     this.lastBeep = 99;
     this.finalLapAnnounced = false;
+    this.celebrate = 0;
     this.autopilot = null;
     this.onRumble = null;
   }
@@ -161,6 +162,7 @@ export class Race {
     } else if (this.phase === 'finished') {
       this.raceTime += dt;
       this.postTime = (this.postTime || 0) + dt;
+      this.emitCelebration(dt);
     }
 
     const racing = this.phase !== 'countdown';
@@ -255,7 +257,10 @@ export class Race {
       const lead = 0.42;
       const f = p.forward;
       this.engine.look(p.x + f.x * p.vLong * lead, 0, p.z + f.z * p.vLong * lead);
-      const targetZoom = 35 + Math.min(10, Math.abs(p.vLong) * 0.42);
+      // Pull in close for the finish celebration, back out while racing.
+      const targetZoom = this.phase === 'finished' && !this.autopilot
+        ? 27
+        : 35 + Math.min(10, Math.abs(p.vLong) * 0.42);
       this.engine.setZoom(this.engine.viewSize + (targetZoom - this.engine.viewSize) * Math.min(1, dt * 2));
       this.particles.setScale(this.engine.renderer.domElement.height, this.engine.viewSize);
       this.engineSound.update(
@@ -267,6 +272,28 @@ export class Race {
     }
 
     this.messages = this.messages.filter((m) => (m.ttl -= dt) > 0);
+  }
+
+  /** Confetti over the line — a podium finish showers the coasting car. */
+  emitCelebration(dt) {
+    if (!this.celebrate || this.postTime > 3.4) return;
+    this.confettiClock = (this.confettiClock ?? 0) - dt;
+    if (this.confettiClock > 0) return;
+    this.confettiClock = this.celebrate === 2 ? 0.04 : 0.09;
+    const p = this.player;
+    const GOLD = [1, 0.84, 0.25];
+    const PARTY = [GOLD, [0.35, 0.8, 1], [1, 0.45, 0.6], [0.55, 1, 0.6], [0.8, 0.6, 1]];
+    const colour = this.celebrate === 2 ? PARTY[Math.floor(Math.random() * PARTY.length)] : GOLD;
+    this.particles.emit(
+      p.x + (Math.random() - 0.5) * 8,
+      3.4 + Math.random() * 2.6,
+      p.z + (Math.random() - 0.5) * 8,
+      {
+        velocity: [(Math.random() - 0.5) * 3, -0.6, (Math.random() - 0.5) * 3],
+        colour, size: 0.42, life: 1.6, grow: 0.25, rise: -2.6, drag: 0.6,
+        glow: true, opacity: 1,
+      },
+    );
   }
 
   /** Sitting in the tow of the car ahead is worth a little extra speed. */
@@ -370,6 +397,16 @@ export class Race {
         this.phase = 'finished';
         this.postTime = 0;
         this.playSfx(sfx.finish);
+        if (!this.autopilot) {
+          const place = this.finishOrder.length;
+          const label = place === 1 ? 'WINNER!'
+            : place === 2 ? '2ND PLACE!'
+            : place === 3 ? '3RD PLACE!'
+            : `FINISHED ${place}TH`;
+          this.message(label, place <= 3 ? 'finish' : 'go', 3.4);
+          this.buzz(0.9, 0.6, place === 1 ? 650 : 380);
+          this.celebrate = place === 1 ? 2 : place <= 3 ? 1 : 0;
+        }
       }
     } else if (car === this.player && car.lap === this.track.laps && !this.finalLapAnnounced) {
       this.finalLapAnnounced = true;

@@ -211,6 +211,7 @@ html, body {
   backdrop-filter: blur(6px);
 }
 .hud-msg--go { color: var(--accent); font-size: 32px; }
+.hud-msg--finish { color: var(--accent); font-size: 46px; letter-spacing: 0.05em; }
 .hud-msg--good { color: var(--good); }
 .hud-msg--bad { color: var(--accent-2); }
 .hud-msg--item { color: #93c5fd; }
