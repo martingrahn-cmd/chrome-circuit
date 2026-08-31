@@ -13,6 +13,8 @@ export class AIDriver {
     this.mistake = 0;
     this.mistakeTimer = 2 + this.rng() * 6;
     this.itemDelay = 0.6 + this.rng() * 1.6;
+    // Humans need a beat to react to the lights; so should the field.
+    this.launchDelay = 0.15 + (1 - this.skill) * (0.4 + this.rng() * 0.5);
   }
 
   update(dt, cars, race) {
@@ -73,10 +75,26 @@ export class AIDriver {
     // Fastest speed at which the car can still generate the yaw rate the
     // corner asks for: omega = v * curvature must stay inside its handling.
     const cornerSpeed = Math.min(car.topSpeed, (car.handling * 0.8) / Math.max(0.006, worst));
-    const target = cornerSpeed * (0.82 + 0.2 * this.skill) * (car.surface === 'road' ? 1 : 0.75);
+    let target = cornerSpeed * (0.82 + 0.2 * this.skill) * (car.surface === 'road' ? 1 : 0.75);
+
+    // Rubber-band: a rival well ahead of the player eases off a little so a
+    // scrappy first lap can still be driven back into. The pull fades with
+    // difficulty, does nothing once the player leads (or has finished), and
+    // cancels out for the attract autopilot, which races against itself.
+    if (race && race.player && race.player !== car && !race.player.finished) {
+      const gapAhead = (car.totalProgress - race.player.totalProgress) * line.spacing;
+      if (gapAhead > 0) {
+        const band = [0.10, 0.07, 0.045, 0.02][race.difficulty] ?? 0.07;
+        target *= 1 - Math.min(1, gapAhead / 70) * band;
+      }
+    }
 
     let throttle = speed < target ? 1 : (speed > target * 1.12 ? -1 : 0.25);
     if (race && race.phase === 'countdown') throttle = 0;
+    else if (this.launchDelay > 0 && race && race.raceTime < 3) {
+      this.launchDelay -= dt;
+      throttle = 0;
+    }
     // A lapse eases off the gas but not the brake — now that braking is
     // analog, scaling a negative throttle would soften corner entries.
     if (this.mistake > 0.5 && throttle > 0) throttle *= 0.75;

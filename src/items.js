@@ -8,7 +8,15 @@ export const ITEMS = {
   mine: { label: 'OIL DRUM', colour: '#fbbf24' },
 };
 
-const POOL = ['boost', 'boost', 'missile', 'missile', 'mine'];
+// What a box hands out depends on where you are running: backmarkers draw
+// comeback speed, the leader mostly draws things to defend with.
+function deal(rng, racePosition) {
+  const pos = racePosition ?? 4;
+  const r = rng();
+  if (pos >= 5) return r < 0.50 ? 'boost' : r < 0.82 ? 'missile' : 'mine';
+  if (pos >= 3) return r < 0.34 ? 'boost' : r < 0.68 ? 'missile' : 'mine';
+  return r < 0.16 ? 'boost' : r < 0.48 ? 'missile' : 'mine';
+}
 
 export class ItemField {
   constructor(track, scene, rng) {
@@ -63,7 +71,7 @@ export class ItemField {
         if (Math.hypot(car.x - box.x, car.z - box.z) > 2.1) continue;
         box.cooldown = 4;
         box.mesh.visible = false;
-        const kind = POOL[Math.floor(this.rng() * POOL.length)];
+        const kind = deal(this.rng, car.racePosition);
         car.item = kind;
         onPickup && onPickup(car, kind);
         break;

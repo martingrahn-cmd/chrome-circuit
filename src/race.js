@@ -42,7 +42,7 @@ export class Race {
       if (isPlayer) {
         this.player = car;
       } else {
-        const skill = Math.min(0.98, 0.52 + difficulty * 0.11 + this.rng() * 0.1);
+        const skill = Math.min(0.98, 0.48 + difficulty * 0.115 + this.rng() * 0.09);
         this.drivers.push(new AIDriver(car, track, {
           skill,
           aggression: 0.35 + this.rng() * 0.5,
