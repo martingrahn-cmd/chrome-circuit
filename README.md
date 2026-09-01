@@ -65,7 +65,7 @@ src/
   main.js           boot, screen flow, frame loop, attract mode
   engine.js         renderer, orthographic isometric camera, lighting
   assets.js         GLB loading, one shared material per kit
-  track.js          grid path -> road tiles, racing line, scenery
+  track.js          grid path -> racing line, ribbon road, scenery
   tracks.js         the five circuit definitions
   roster.js         the ten cars and their stats
   car.js            arcade vehicle physics and car-vs-car contact
@@ -90,10 +90,11 @@ A track is a closed loop of cardinal steps on a tile grid:
 { start: [0, 0], moves: 'R14 D4 L4 D4 R4 D4 L14 U12', walls: true }
 ```
 
-`track.js` turns that into road tiles (picking straights and bends and rotating them
-to fit), then builds the racing line as straights joined by circular arcs whose radius
-is capped by half the shortest neighbouring straight — so chicanes stay tight and long
-sweepers stay fast. Everything else — lap counting, off-track detection, the AI's line
+`track.js` turns that into a racing line of straights joined by circular arcs whose
+radius is capped by half the shortest neighbouring straight — so chicanes stay tight
+and long sweepers stay fast — and then extrudes the road itself as a ribbon along
+that line, so the tarmac sweeps through the corners exactly where the cars do. On
+walled circuits the armco is built from the same line the cars are clamped to. Everything else — lap counting, off-track detection, the AI's line
 and the minimap — is measured against that one centre line.
 
 Adding a circuit means adding an entry to `TRACKS`; the move string is validated by

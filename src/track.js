@@ -1,32 +1,23 @@
-// Track construction: a grid path of cardinal moves becomes road tiles,
-// a smoothed centre line, scenery and start-grid slots.
+// Track construction: a grid path of cardinal moves becomes a smoothed
+// centre line, a road ribbon that follows it, scenery and start-grid slots.
 import * as THREE from 'three';
 import { instance, materialsFor } from './assets.js';
 import { mergeGeometries } from 'three/utils/BufferGeometryUtils.js';
 
-// Road tiles are scaled to this pitch while cars keep their absolute size,
-// so the tile size directly sets how wide the road feels: at 11, the tarmac
-// band (0.8 of a tile) is 8.8 units against a 1.44-unit car — six abreast.
+// Grid pitch the circuits are authored on. The road ribbon and everything
+// derived from it scale with this while cars keep their absolute size, so it
+// directly sets how wide the road feels: at 11, the tarmac band (0.8 of a
+// tile) is 8.8 units against a 1.44-unit car — six abreast.
 export const TILE = 11;
 
 // tan(camera elevation): how tall a prop may be per tile of clearance from the
 // track before it starts hiding cars. Matches ISO_DIR in engine.js.
 const CAMERA_SLOPE = 1.35;
 
-// Base orientation of the Kenney road pieces at rotation 0, measured from the
-// models themselves: a straight runs along X, and road-bend joins the -X and
-// +Z edges. The *-barrier pieces are rail-only overlays, not whole tiles.
-const STRAIGHT_BASE = Math.PI / 2;
-const CURVE_BASE = [Math.PI * 1.5, 0];
-
 export const DIRS = {
   R: { x: 1, z: 0 }, L: { x: -1, z: 0 },
   D: { x: 0, z: 1 }, U: { x: 0, z: -1 },
 };
-
-const dirAngle = (d) => Math.atan2(d.x, d.z);
-const norm = (a) => { a %= Math.PI * 2; return a < 0 ? a + Math.PI * 2 : a; };
-const angleEq = (a, b) => Math.abs(norm(a) - norm(b)) < 1e-3 || Math.abs(norm(a) - norm(b) - Math.PI * 2) < 1e-3;
 
 /** "R10 D4 L10 U4" -> array of {x,z} grid cells forming a closed loop. */
 export function pathFromMoves(start, moves) {
@@ -216,40 +207,7 @@ export class CentreLine {
   }
 }
 
-function tileMatrix(cell, angle, y = 0) {
-  const m = new THREE.Matrix4();
-  m.makeRotationY(angle);
-  m.scale(new THREE.Vector3(TILE, TILE, TILE));
-  m.setPosition(cell.x * TILE, y, cell.z * TILE);
-  return m;
-}
 
-/** Choose road mesh + rotation for each cell of the loop. */
-function roadPieces(path) {
-  const pieces = [];
-  const n = path.length;
-  for (let i = 0; i < n; i++) {
-    const prev = path[(i - 1 + n) % n], cell = path[i], next = path[(i + 1) % n];
-    const dIn = { x: cell.x - prev.x, z: cell.z - prev.z };
-    const dOut = { x: next.x - cell.x, z: next.z - cell.z };
-    if (dIn.x === dOut.x && dIn.z === dOut.z) {
-      pieces.push({ cell, model: 'road-straight', overlay: 'road-straight-barrier', angle: dirAngle(dOut) - STRAIGHT_BASE, kind: 'straight' });
-    } else {
-      const entry = dirAngle({ x: -dIn.x, z: -dIn.z });
-      const exit = dirAngle(dOut);
-      let angle = 0;
-      for (let k = 0; k < 4; k++) {
-        const rot = k * Math.PI / 2;
-        const a = CURVE_BASE[0] + rot, b = CURVE_BASE[1] + rot;
-        if ((angleEq(a, entry) && angleEq(b, exit)) || (angleEq(a, exit) && angleEq(b, entry))) {
-          angle = rot; break;
-        }
-      }
-      pieces.push({ cell, model: 'road-bend', overlay: 'road-bend-barrier', angle, kind: 'curve' });
-    }
-  }
-  return pieces;
-}
 
 /** Merge many instances of kit models into as few draw calls as possible. */
 function mergeInstances(entries, kit, shiny = false) {
@@ -286,7 +244,9 @@ export class Track {
     this.cellSet = new Set(this.path.map((c) => `${c.x},${c.z}`));
     this.walls = !!def.walls;
 
-    const radius = (def.cornerRadius ?? 1.15) * TILE;
+    // Sweeping corner arcs — the cap in racingLine still keeps chicanes
+    // tight, so only corners with room to sweep actually do.
+    const radius = (def.cornerRadius ?? 1.5) * TILE;
     this.line = new CentreLine(resampleClosed(racingLine(this.path, TILE, radius, 1.2), 1.2));
 
     // The Kenney road tile is tarmac across ~0.8 of its width; the rest is
@@ -358,30 +318,105 @@ export class Track {
     ground.receiveShadow = true;
     this.group.add(ground);
 
-    const pieces = roadPieces(this.path);
-    const roadEntries = pieces.map((p) => ({ model: p.model, matrix: tileMatrix(p.cell, p.angle) }));
-    if (this.walls) {
-      for (const p of pieces) roadEntries.push({ model: p.overlay, matrix: tileMatrix(p.cell, p.angle) });
-    }
-
-    // Start/finish stripe: swap the piece under the line for a crossing.
-    const startCell = this.cellAtLineIndex(this.startIndex);
-    if (startCell) {
-      const idx = pieces.findIndex((p) => p.cell.x === startCell.x && p.cell.z === startCell.z);
-      if (idx >= 0 && pieces[idx].kind === 'straight') {
-        roadEntries[idx] = { model: 'road-crossing', matrix: tileMatrix(pieces[idx].cell, pieces[idx].angle) };
-      }
-    }
-
-    const road = mergeInstances(roadEntries, 'roads');
-    if (road) this.group.add(road);
-    this.pieces = pieces;
+    this.buildRoad(theme);
 
     this.buildStartLine();
     this.buildStartGate();
 
     this.buildScenery(theme);
     scene.add(this.group);
+  }
+
+  /** A ribbon strip that follows the racing line between two lateral offsets. */
+  lineStrip(innerOff, outerOff, y, colour, y2 = null, material = null) {
+    const line = this.line, n = line.n;
+    const pos = new Float32Array((n + 1) * 2 * 3);
+    const nrm = new Float32Array((n + 1) * 2 * 3);
+    const idx = [];
+    for (let i = 0; i <= n; i++) {
+      const p = line.point(i), t = line.tangent(i);
+      const lx = t.z, lz = -t.x;
+      const o = i * 6;
+      pos[o] = p.x + lx * outerOff; pos[o + 1] = y; pos[o + 2] = p.z + lz * outerOff;
+      pos[o + 3] = p.x + lx * innerOff; pos[o + 4] = y2 ?? y; pos[o + 5] = p.z + lz * innerOff;
+      nrm[o + 1] = 1; nrm[o + 4] = 1;
+      if (i < n) {
+        const a = i * 2;
+        idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('normal', new THREE.BufferAttribute(nrm, 3));
+    g.setIndex(idx);
+    const mesh = new THREE.Mesh(g, material ?? new THREE.MeshLambertMaterial({ color: colour, side: THREE.DoubleSide }));
+    mesh.receiveShadow = true;
+    return mesh;
+  }
+
+  /**
+   * The road is a ribbon that follows the racing line, so the tarmac shows
+   * exactly what the handling model drives: sweeping corner arcs instead of
+   * square tile bends. Everything else still comes from the Kenney kits.
+   */
+  buildRoad(theme) {
+    const w = this.roadHalf;
+    this.group.add(this.lineStrip(-w - 0.8, w + 0.8, 0.09, theme.kerbColour ?? 0x99a1b0));
+    this.group.add(this.lineStrip(-w, w, 0.11, theme.roadColour ?? 0x4a505c));
+
+    // Dashed centre line.
+    const line = this.line, n = line.n;
+    const geoms = [];
+    const step = Math.max(4, Math.round(6 / line.spacing));
+    for (let i = 0; i < n; i += step) {
+      const p = line.point(i), t = line.tangent(i);
+      const g = new THREE.PlaneGeometry(0.26, 2.3);
+      g.rotateX(-Math.PI / 2);
+      g.rotateY(Math.atan2(t.x, t.z));
+      g.translate(p.x, 0.125, p.z);
+      geoms.push(g);
+    }
+    if (geoms.length) {
+      const dashes = new THREE.Mesh(
+        mergeGeometries(geoms, false),
+        new THREE.MeshLambertMaterial({ color: 0xe9edf5 }),
+      );
+      geoms.forEach((g) => g.dispose());
+      this.group.add(dashes);
+    }
+
+    // On walled circuits the armco follows the same line the cars are
+    // clamped to, so the rail you see is the limit you hit.
+    if (this.walls) this.buildArmco();
+  }
+
+  buildArmco() {
+    const line = this.line, n = line.n;
+    const off = this.wallHalf + 0.4;
+    const railMat = new THREE.MeshLambertMaterial({ color: 0xc6cdd9, side: THREE.DoubleSide });
+    const postGeoms = [];
+    for (const side of [-1, 1]) {
+      const rail = this.lineStrip(off * side, off * side, 0.95, 0xc6cdd9, 0.45, railMat);
+      rail.castShadow = true;
+      this.group.add(rail);
+
+      const step = Math.max(3, Math.round(5 / line.spacing));
+      for (let i = 0; i < n; i += step) {
+        const p = line.point(i), t = line.tangent(i);
+        const g = new THREE.BoxGeometry(0.24, 1.0, 0.24);
+        g.translate(p.x + t.z * off * side, 0.5, p.z - t.x * off * side);
+        postGeoms.push(g);
+      }
+    }
+    if (postGeoms.length) {
+      const posts = new THREE.Mesh(
+        mergeGeometries(postGeoms, false),
+        new THREE.MeshLambertMaterial({ color: 0x6a7280 }),
+      );
+      postGeoms.forEach((g) => g.dispose());
+      posts.castShadow = true;
+      this.group.add(posts);
+    }
   }
 
   /** Black-and-white check, shared by the painted line and the banner. */
@@ -460,10 +495,6 @@ export class Track {
     this.group.add(gantry);
   }
 
-  cellAtLineIndex(i) {
-    const p = this.line.point(i);
-    return { x: Math.round(p.x / TILE), z: Math.round(p.z / TILE) };
-  }
 
   /**
    * Scatter kit props on cells outside the racing loop.
@@ -577,13 +608,6 @@ export class Track {
 
   modelsUsed() {
     const list = new Set();
-    list.add('roads/road-straight');
-    list.add('roads/road-bend');
-    list.add('roads/road-crossing');
-    if (this.walls) {
-      list.add('roads/road-straight-barrier');
-      list.add('roads/road-bend-barrier');
-    }
     for (const spec of (this.def.theme?.props || [])) list.add(`${spec.kit}/${spec.model}`);
     for (const spec of (this.def.theme?.trackside || [])) list.add(`${spec.kit}/${spec.model}`);
     return [...list].map((s) => s.split('/'));
