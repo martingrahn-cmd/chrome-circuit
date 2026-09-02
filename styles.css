@@ -706,8 +706,11 @@ body.racing .update-chip { display: none; }
 
   .howto { columns: 2; column-gap: 28px; }
   .howto dl, .howto ul, .howto p, .howto h3 { break-inside: avoid; }
-  .howto dl { margin-bottom: 12px; }
-  .howto h3 { margin-top: 0; }
+  .howto dl { gap: 5px 16px; margin-bottom: 10px; }
+  .howto h3 { margin: 0 0 6px; }
+  .howto p, .item-legend { font-size: 12px; line-height: 1.5; }
+  .howto p { margin: 8px 0; }
+  .item-legend { gap: 5px; }
 
   /* The lap-time column used to run down into the speedo: a smaller map, no
      best-lap readout (it is on the results screen), a shorter speedo. */
