@@ -1,7 +1,7 @@
 // Boot, screen flow and the frame loop.
 import * as THREE from 'three';
 import { Engine } from './engine.js';
-import { loadModel } from './assets.js';
+import { loadModel, assetUrls } from './assets.js';
 import { Track } from './track.js';
 import { TRACKS, trackById } from './tracks.js';
 import { RACERS, racerById } from './roster.js';
@@ -12,6 +12,7 @@ import * as audio from './audio.js';
 import * as progress from './progress.js';
 import { carThumbnails, trackThumbnail } from './thumbs.js';
 import { watchVersion } from './version.js';
+import { registerServiceWorker, cacheAssets, watchInstall, promptInstall } from './pwa.js';
 
 const canvas = document.getElementById('scene');
 const engine = new Engine(canvas);
@@ -405,6 +406,7 @@ document.addEventListener('click', (e) => {
     case 'race': audio.sfx.select(); renderTracks(); show('tracks'); break;
     case 'garage': audio.sfx.select(); state.carsFrom = 'menu'; renderCars(); show('cars'); break;
     case 'howto': audio.sfx.select(); show('howto'); break;
+    case 'install': audio.sfx.select(); promptInstall(); break;
     case 'back-menu':
       audio.sfx.back();
       recordFinishedRace();
@@ -540,7 +542,11 @@ function frame(now) {
 
 (async function boot() {
   show('loading');
+  // Registered before the models start downloading so the worker is installing
+  // while the loading bar fills, not after it.
+  registerServiceWorker();
   await preload();
+  cacheAssets(assetUrls());
   await new Promise((r) => setTimeout(r, 180));
   renderTracks();
   renderCars();
@@ -548,6 +554,7 @@ function frame(now) {
   padHint();
   show('menu');
   watchVersion(document.getElementById('version-badge'), document.getElementById('update-chip'));
+  watchInstall(document.getElementById('install-btn'));
   requestAnimationFrame(frame);
 })();
 // Debug hook: advance the simulation at a fixed step without waiting on rAF.

@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Chrome Circuit">
+  <title>Chrome Circuit</title>
+  <defs>
+    <linearGradient id="sun" x1="0.1" y1="0" x2="0.75" y2="1">
+      <stop offset="0" stop-color="#ffd964"/>
+      <stop offset="0.5" stop-color="#ffcc32"/>
+      <stop offset="1" stop-color="#ff8a3d"/>
+    </linearGradient>
+    <!-- One centre line, stroked three times: shoulder, tarmac, dashes. -->
+    <path id="line" d="M -40 470 C 140 470 132 296 256 296 C 380 296 372 122 552 122"/>
+    <g id="road" fill="none" stroke-linecap="butt">
+      <use href="#line" stroke="#2b3145" stroke-width="152"/>
+      <use href="#line" stroke="#12151f" stroke-width="120"/>
+      <use href="#line" stroke="#ffcc32" stroke-width="11" stroke-dasharray="30 26" stroke-linecap="round"/>
+    </g>
+    <clipPath id="tile"><rect width="512" height="512" rx="102"/></clipPath>
+  </defs>
+  <g clip-path="url(#tile)">
+    <rect width="512" height="512" fill="url(#sun)"/>
+    <use href="#road"/>
+  </g>
+</svg>
