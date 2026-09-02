@@ -11,8 +11,18 @@ const pending = new Map();
 
 const BASE = new URL('../assets/', import.meta.url).href;
 
+// Every asset URL the loaders have fetched, so the service worker can be told
+// what to keep for offline play (see pwa.js).
+const fetched = new Set();
+
+export function assetUrls() {
+  return [...fetched];
+}
+
 function kitTexture(kit) {
-  const tex = texLoader.load(`${BASE}${kit}/Textures/colormap.png`);
+  const url = `${BASE}${kit}/Textures/colormap.png`;
+  fetched.add(url);
+  const tex = texLoader.load(url);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.flipY = false;
   tex.anisotropy = 4;
@@ -37,7 +47,9 @@ export function loadModel(kit, name) {
   if (pending.has(key)) return pending.get(key);
 
   const p = new Promise((resolve, reject) => {
-    gltfLoader.load(`${BASE}${kit}/${name}.glb`, (gltf) => {
+    const url = `${BASE}${kit}/${name}.glb`;
+    fetched.add(url);
+    gltfLoader.load(url, (gltf) => {
       const root = gltf.scene;
       root.userData.kit = kit;
       root.userData.name = name;

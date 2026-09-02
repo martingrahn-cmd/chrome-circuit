@@ -5,7 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#14161f">
 <title>Chrome Circuit — isometric racing</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%F0%9F%8F%8E%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<meta name="description" content="An isometric arcade racer. Six cars, three laps, rockets optional.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="icon" href="icons/icon-192.png" sizes="192x192" type="image/png">
+<!-- iOS has no manifest: installing is Share -> Add to Home Screen, and these
+     are what it reads for the icon, the name and the full-screen shell. -->
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Chrome Circuit">
 <link rel="stylesheet" href="styles.css">
 <script type="importmap">
 {
@@ -98,6 +108,8 @@
         <button class="btn btn--primary" data-action="race">Start a race</button>
         <button class="btn" data-action="garage">Garage</button>
         <button class="btn" data-action="howto">How to play</button>
+        <!-- Revealed by pwa.js only when the browser offers to install. -->
+        <button class="btn btn--install hidden" id="install-btn" data-action="install">Install</button>
       </div>
       <p class="credits">Models by <strong>Kenney</strong> (CC0) — Car Kit, City Kit Roads, City Kit, Suburban, Toy Car Kit. <span class="version" id="version-badge"></span></p>
     </div>
