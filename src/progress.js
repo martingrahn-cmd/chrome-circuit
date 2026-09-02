@@ -1,7 +1,7 @@
 // Persisted progression: unlocked circuits, unlocked cars, best lap times.
 const KEY = 'chrome-circuit-progress-v1';
 
-const blank = () => ({ unlockedTracks: ['downtown'], unlockedCars: [], best: {}, places: {} });
+const blank = () => ({ unlockedTracks: ['downtown'], unlockedCars: [], best: {}, places: {}, difficulty: 0 });
 
 const isObj = (v) => v != null && typeof v === 'object' && !Array.isArray(v);
 
@@ -20,6 +20,7 @@ export function load() {
       unlockedCars: Array.isArray(p.unlockedCars) ? p.unlockedCars : d.unlockedCars,
       best: isObj(p.best) ? p.best : d.best,
       places: isObj(p.places) ? p.places : d.places,
+      difficulty: [0, 1, 2, 3].includes(p.difficulty) ? p.difficulty : d.difficulty,
     };
   } catch {
     return blank();

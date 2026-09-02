@@ -76,6 +76,10 @@ export class AIDriver {
     // corner asks for: omega = v * curvature must stay inside its handling.
     const cornerSpeed = Math.min(car.topSpeed, (car.handling * 0.8) / Math.max(0.006, worst));
     let target = cornerSpeed * (0.82 + 0.2 * this.skill) * (car.surface === 'road' ? 1 : 0.75);
+    // Pace by difficulty. Skill alone only moved Rookie 5% off Pro, and a
+    // first-timer following the road by eye laps 25% slower than that —
+    // Rookie has to be a race such a driver can win.
+    if (race) target *= [0.78, 0.9, 0.97, 1][race.difficulty] ?? 1;
 
     // Rubber-band: a rival well ahead of the player eases off a little so a
     // scrappy first lap can still be driven back into. The pull fades with
@@ -84,7 +88,7 @@ export class AIDriver {
     if (race && race.player && race.player !== car && !race.player.finished) {
       const gapAhead = (car.totalProgress - race.player.totalProgress) * line.spacing;
       if (gapAhead > 0) {
-        const band = [0.11, 0.08, 0.05, 0.02][race.difficulty] ?? 0.08;
+        const band = [0.2, 0.1, 0.05, 0.02][race.difficulty] ?? 0.08;
         target *= 1 - Math.min(1, gapAhead / 70) * band;
       }
     }

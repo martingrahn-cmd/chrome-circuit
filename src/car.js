@@ -26,6 +26,10 @@ export class Car {
     this.steer = 0;         // smoothed steering input
     this.throttle = 0;
     this.handbrake = false;
+    // 0..1: how much of the run-off penalty this car is spared. Set on the
+    // player by difficulty — a first-timer lives on the grass, and grass at
+    // 72% top speed is why they finish last. Rivals get none.
+    this.runoffEase = 0;
 
     this.engine = spec.engine;      // acceleration, units/s^2
     this.topSpeed = spec.topSpeed;  // units/s
@@ -121,7 +125,13 @@ export class Car {
 
     const offTrack = loc.dist > this.track.roadHalf;
     this.surface = offTrack ? (this.track.walls ? 'kerb' : 'dirt') : 'road';
-    const surf = SURFACE[this.surface];
+    const raw = SURFACE[this.surface];
+    const ease = this.surface === 'road' ? 0 : this.runoffEase;
+    const surf = ease > 0 ? {
+      grip: raw.grip + (SURFACE.road.grip - raw.grip) * ease * 0.4,
+      maxSpeed: raw.maxSpeed + (1 - raw.maxSpeed) * ease * 0.45,
+      drag: raw.drag + (SURFACE.road.drag - raw.drag) * ease * 0.4,
+    } : raw;
 
     // --- Spin-out overrides normal control --------------------------------
     if (this.spin > 0) {
@@ -168,17 +178,20 @@ export class Car {
       this.vLat -= turn * this.vLong * dt;
       const gripLoss = Math.exp(-(drifting ? surf.grip * 0.26 : surf.grip) * dt);
       this.vLat *= gripLoss;
-      if (drifting) {
-        // Sideways faster than three-quarters of forward is a spin, not a slide.
-        const maxLat = Math.abs(this.vLong) * 0.75;
-        this.vLat = Math.max(-maxLat, Math.min(maxLat, this.vLat));
-        this.vLong *= 1 - dt * 0.55;
-      }
 
       // Drag and rolling resistance. Kept light: the throttle headroom term
       // above is what actually sets top speed.
       this.vLong -= (0.0012 * this.vLong * Math.abs(this.vLong) + surf.drag * this.vLong * 0.05) * dt;
       if (this.vLong > maxSpeed) this.vLong += (maxSpeed - this.vLong) * Math.min(1, dt * 3);
+
+      if (drifting) {
+        this.vLong *= 1 - dt * 0.55;
+        // Sideways faster than three-quarters of forward is a spin, not a
+        // slide — held as the last word on the step, after the run-off speed
+        // clamp above has had its say on vLong.
+        const maxLat = Math.abs(this.vLong) * 0.75;
+        this.vLat = Math.max(-maxLat, Math.min(maxLat, this.vLat));
+      }
     }
 
     this.slip = Math.min(1, Math.abs(this.vLat) / 5.5);

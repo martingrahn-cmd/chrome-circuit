@@ -83,7 +83,18 @@ the race — no walking down to a confirm button. The garage, reached from the m
 menu, is browse-only.
 
 You start last on a six-car grid every race. Podium on a circuit to unlock the next
-one; two cars unlock the same way. Progress lives in `localStorage`.
+one; two cars unlock the same way. Progress lives in `localStorage`, and so does the
+difficulty, which starts at Rookie.
+
+Rookie is meant to be a race a first-timer can win, and the levers that make it one
+all fade as the difficulty climbs: the rivals run slower (78% pace at Rookie, 90% at
+Pro, 97% at Ace, full at Legend) and ease off harder when the player drops back; a
+steering assist blends the player's input toward the clean line out near the edge
+of the road, so a late or shaky input is nudged back before a wheel drops (0.7 at
+Rookie, 0.45 Pro, 0.2 Ace, none at Legend); and the run-off punishes the player
+less (Rookie fully, Pro half). A simulated beginner — road followed by eye, 0.3 s
+reaction lag, shaky hands, never lifting — went from last every race to P1–P5 at
+Rookie.
 
 Tuck in behind the car ahead and you pick up its slipstream — worth about 14% on
 top speed, and the surest way past on a long straight. The HUD says when you have it.

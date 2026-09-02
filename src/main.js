@@ -28,7 +28,7 @@ const state = {
   trackId: 'downtown',
   carsFrom: 'tracks',
   racerId: 'comet',
-  difficulty: 1,
+  difficulty: 0,
   race: null,
   attract: false,
   paused: false,
@@ -447,6 +447,8 @@ document.addEventListener('click', (e) => {
 
 document.getElementById('difficulty').addEventListener('change', (e) => {
   state.difficulty = Number(e.target.value);
+  state.progress.difficulty = state.difficulty;
+  progress.save(state.progress);
 });
 
 const soundBtn = document.getElementById('sound-toggle');
@@ -556,6 +558,9 @@ function frame(now) {
   await preload();
   cacheAssets(assetUrls());
   await new Promise((r) => setTimeout(r, 180));
+  // The difficulty is remembered between visits; Rookie until changed.
+  state.difficulty = state.progress.difficulty;
+  document.getElementById('difficulty').value = String(state.difficulty);
   renderTracks();
   renderCars();
   startAttract();
