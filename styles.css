@@ -112,7 +112,26 @@ html, body {
 .item-slot[data-kind='boost'] { --slot: #4ade80; }
 .item-slot[data-kind='missile'] { --slot: #f87171; }
 .item-slot[data-kind='mine'] { --slot: #fbbf24; }
+.item-icon { width: 30px; height: 30px; display: none; filter: drop-shadow(0 0 8px currentColor); }
+.item-slot.has-item .item-icon { display: block; }
 .item-label { font-size: 19px; letter-spacing: 0.01em; }
+.item-slot.has-item .item-label { font-size: 13px; }
+/* Landing an item pops the slot; driving through a box with one already in
+   hand rattles it. Both classes are dropped again when the animation ends. */
+.item-slot.pop { animation: item-pop 0.42s cubic-bezier(0.2, 1.6, 0.4, 1); }
+.item-slot.shake { animation: item-shake 0.36s ease; }
+@keyframes item-pop {
+  0% { transform: scale(0.8); box-shadow: 0 0 0 1px var(--slot) inset, 0 0 0 0 var(--slot); }
+  45% { transform: scale(1.16); box-shadow: 0 0 0 1px var(--slot) inset, 0 0 40px 6px var(--slot); }
+  100% { transform: translateY(-2px); }
+}
+@keyframes item-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px) rotate(-2deg); }
+  40% { transform: translateX(6px) rotate(2deg); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
 .item-hint {
   font-family: var(--body);
   font-size: 9px;
@@ -719,7 +738,9 @@ body.racing .update-chip { display: none; }
   .stat-value { font-size: 21px; }
   .speedo { padding: 6px 12px 8px; }
   .speedo-value { font-size: 32px; }
-  .item-slot { width: 104px; height: 62px; }
+  .item-slot { width: 104px; height: 62px; gap: 1px; }
+  .item-icon { width: 22px; height: 22px; }
+  .item-slot.has-item .item-label { font-size: 11px; }
 }
 /* Shorter still (a small phone with the browser bars up): the strapline goes. */
 @media (max-height: 360px) {

@@ -3,9 +3,9 @@ import * as THREE from 'three';
 import { instance } from './assets.js';
 
 export const ITEMS = {
-  boost: { label: 'TURBO', colour: '#4ade80' },
-  missile: { label: 'ROCKET', colour: '#f87171' },
-  mine: { label: 'OIL DRUM', colour: '#fbbf24' },
+  boost: { label: 'TURBO', colour: '#4ade80', rgb: [0.29, 0.87, 0.5] },
+  missile: { label: 'ROCKET', colour: '#f87171', rgb: [0.97, 0.44, 0.44] },
+  mine: { label: 'OIL DRUM', colour: '#fbbf24', rgb: [0.98, 0.75, 0.14] },
 };
 
 // What a box hands out depends on where you are running: backmarkers draw
@@ -43,15 +43,24 @@ export class ItemField {
         mesh.position.set(p.x + t.z * off, 0.2, p.z - t.x * off);
         mesh.userData.baseY = 0.2;
         group.add(mesh);
-        this.boxes.push({ mesh, x: mesh.position.x, z: mesh.position.z, cooldown: 0, phase: this.rng() * 6.28 });
+        this.boxes.push({ mesh, x: mesh.position.x, z: mesh.position.z, cooldown: 0, blocked: 0, phase: this.rng() * 6.28 });
       }
     }
     this.group = group;
     this.scene.add(group);
   }
 
-  update(dt, cars, onPickup) {
+  update(dt, cars, onPickup, onBlocked) {
     for (const box of this.boxes) {
+      // A box that was driven through with a full slot hops and is left
+      // alone for a moment, so it does not rattle every frame of the pass.
+      if (box.blocked > 0) {
+        box.blocked -= dt;
+        const t = Math.max(0, box.blocked / 0.5);
+        box.mesh.position.y = box.mesh.userData.baseY + Math.sin(t * Math.PI) * 1.1;
+        box.mesh.rotation.y += dt * 14;
+        continue;
+      }
       if (box.cooldown > 0) {
         box.cooldown -= dt;
         if (box.cooldown <= 0) { box.mesh.visible = true; box.mesh.scale.setScalar(4.4); }
@@ -67,8 +76,13 @@ export class ItemField {
       box.mesh.position.y = box.mesh.userData.baseY + Math.sin(box.phase) * 0.28;
 
       for (const car of cars) {
-        if (car.item || car.finished) continue;
+        if (car.finished) continue;
         if (Math.hypot(car.x - box.x, car.z - box.z) > 2.1) continue;
+        if (car.item) {
+          box.blocked = 0.5;
+          onBlocked && onBlocked(car);
+          break;
+        }
         box.cooldown = 4;
         box.mesh.visible = false;
         const kind = deal(this.rng, car.racePosition);

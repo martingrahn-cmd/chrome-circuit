@@ -105,6 +105,12 @@ little speed. Let go and grip returns.
 
 Items come from the boxes on track: **Turbo** (a short overdose of speed), **Rocket**
 (fires forward, leans toward whoever is ahead) and **Oil Drum** (dropped behind you).
+The slot shows an icon for what you hold and pops when a box lands in it; drive
+through a box with the slot already full and the box hops, the slot rattles and
+you hear a flat "nope" — you can only carry one.
+
+Crossing the line hands your car to the AI for the cool-down, so the celebration
+plays out on the road rather than in a building.
 Grass and dirt cost grip and top speed; barriers cost more.
 
 ## How it fits together

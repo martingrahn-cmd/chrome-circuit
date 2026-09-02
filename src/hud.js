@@ -23,6 +23,10 @@ export class Hud {
     this.best = root.querySelector('#hud-best');
     this.item = root.querySelector('#hud-item');
     this.itemLabel = root.querySelector('#hud-item-label');
+    this.itemIcon = root.querySelector('#hud-item-icon');
+    this.item.addEventListener('animationend', () => this.item.classList.remove('pop', 'shake'));
+    this.shownItem = null;
+    this.seenBump = 0;
     this.itemHint = root.querySelector('#hud-item .item-hint');
     this.messages = root.querySelector('#hud-messages');
     this.countdown = root.querySelector('#hud-countdown');
@@ -117,10 +121,21 @@ export class Hud {
       this.item.dataset.kind = p.item;
       this.item.classList.add('has-item');
       this.itemLabel.textContent = it.label;
+      this.itemIcon.setAttribute('href', `#ico-${p.item}`);
+      if (this.shownItem !== p.item) { this.item.classList.remove('shake'); this.item.classList.add('pop'); }
     } else {
       this.item.classList.remove('has-item');
       this.itemLabel.textContent = '—';
       this.item.dataset.kind = '';
+      this.itemIcon.setAttribute('href', '');
+    }
+    this.shownItem = p.item;
+    // Rattled: the race notes a box passed with the slot already full.
+    if (race.itemBump !== this.seenBump) {
+      this.seenBump = race.itemBump;
+      this.item.classList.remove('pop');
+      void this.item.offsetWidth;   // restart the animation if it is mid-way
+      this.item.classList.add('shake');
     }
 
     this.boostBar.style.transform = `scaleX(${Math.min(1, p.boost / 2.1)})`;
