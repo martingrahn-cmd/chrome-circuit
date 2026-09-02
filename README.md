@@ -26,7 +26,11 @@ service worker below runs against a local checkout too.
 | Handbrake | `Shift` | `RB` |
 | Pause | `Esc` / `P` | `Start` |
 
-Touch controls appear on phones and tablets.
+Touch controls appear on phones and tablets. Held sideways, the circuit and car
+pickers become a strip that scrolls across under a pinned header and footer, the
+how-to and results spread into two columns, and the HUD loses its best-lap readout
+so the minimap and the speedo do not meet. Held upright the pickers run in two
+columns and the touch buttons shrink to fit.
 
 ### Installing it
 

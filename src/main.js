@@ -103,6 +103,12 @@ function show(name) {
   document.body.classList.toggle('racing', name === 'race');
   document.getElementById('touch').classList.toggle('hidden', !(name === 'race' && isTouch));
   focusFirst(screens[name]);
+  // On a phone the pickers are a sideways strip; bring the current choice in.
+  const chosen = screens[name].querySelector('.card-grid .card[aria-pressed="true"]');
+  const strip = chosen?.parentElement;
+  if (strip && strip.scrollWidth > strip.clientWidth) {
+    chosen.scrollIntoView({ inline: 'center', block: 'nearest' });
+  }
 }
 
 /* ------------------------------------------------- menu focus navigation */
@@ -470,7 +476,7 @@ addEventListener('keydown', (e) => {
 function padHint() {
   const on = input.hasPad();
   document.body.dataset.pad = on ? '1' : '';
-  hud.setControlHint(on ? 'Ⓧ / Ⓨ' : 'Space');
+  hud.setControlHint(on ? 'Ⓧ / Ⓨ' : isTouch ? '★ button' : 'Space');
 }
 
 input.onPadChange = (connected, id) => {
