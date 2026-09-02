@@ -19,6 +19,7 @@ export class Race {
 
     this.particles = new Particles(engine.world);
     this.skids = new SkidMarks(engine.world);
+    this.camLead = 0;   // how far down the road the camera is looking, eased
     this.items = new ItemField(track, engine.world, this.rng);
     this.projectiles = [];
 
@@ -253,13 +254,21 @@ export class Race {
 
     // Camera and engine note.
     if (p) {
-      const lead = 0.42;
+      // Look a little down the road, further the faster we go — but never so
+      // far that the car ends up at the edge whichever way the road runs
+      // across the screen (an upright phone is narrow), and eased, so a turbo
+      // does not lurch the camera ahead and leave the car behind.
+      const e = this.engine;
+      const reach = Math.min(e.viewSize, e.viewSize * e.aspect) * 0.22;
+      const wantLead = Math.max(-reach, Math.min(reach, p.vLong * 0.42));
+      this.camLead += (wantLead - this.camLead) * Math.min(1, dt * 3);
       const f = p.forward;
-      this.engine.look(p.x + f.x * p.vLong * lead, 0, p.z + f.z * p.vLong * lead);
-      // Pull in close for the finish celebration, back out while racing.
+      e.look(p.x + f.x * this.camLead, 0, p.z + f.z * this.camLead);
+      // Pull in close for the finish celebration, back out while racing —
+      // and keep backing out under a turbo instead of capping at top speed.
       const targetZoom = this.phase === 'finished' && !this.autopilot
         ? 27
-        : 35 + Math.min(10, Math.abs(p.vLong) * 0.42);
+        : 35 + Math.min(14, Math.abs(p.vLong) * 0.42);
       this.engine.setZoom(this.engine.viewSize + (targetZoom - this.engine.viewSize) * Math.min(1, dt * 2));
       this.particles.setScale(this.engine.renderer.domElement.height, this.engine.viewSize);
       this.engineSound.update(
