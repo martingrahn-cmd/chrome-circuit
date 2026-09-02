@@ -266,7 +266,9 @@ html, body {
   pointer-events: auto;
   overflow: auto;
 }
-.screen.show { display: grid; animation: fade 0.22s ease-out; }
+/* One definite column, so a panel's percentage width is a share of the screen
+   and not of whatever its widest child would like. */
+.screen.show { display: grid; grid-template-columns: 100%; animation: fade 0.22s ease-out; }
 
 /* The menu sits over a live race, so keep its veil thin. */
 #screen-menu, #screen-loading {
@@ -596,11 +598,18 @@ body.racing .sound-toggle { display: none; }
 /* Never interrupt a race — the chip waits behind the menus. */
 body.racing .update-chip { display: none; }
 
-/* A phone held sideways is short, and the menu has to fit: the screens scroll
-   in principle, but touch-action is off across the game, so on a phone there is
-   no scrolling them. Installed, this is the whole screen the game gets. */
+/* --- Phones ------------------------------------------------------------- */
+
+/* Held sideways, a phone is short. The screens scroll in principle, but that
+   is no way to pick a circuit: the pickers become a strip of cards that scrolls
+   sideways under a pinned header and footer, so the current choice and the
+   button that confirms it are always on screen. The how-to and the results
+   spread into two columns instead, and the main menu tightens up until it fits
+   with the Install button in. Installed, this is the whole screen the game
+   gets. */
 @media (max-height: 520px) {
   .screen { padding: 12px; }
+
   .eyebrow { font-size: 10px; letter-spacing: 0.28em; margin-bottom: 4px; }
   .title { font-size: clamp(34px, 13vh, 56px); }
   .tagline { font-size: 13px; margin: 8px 0 14px; }
@@ -608,6 +617,52 @@ body.racing .update-chip { display: none; }
   .menu-buttons .btn { padding: 9px 20px; font-size: 14px; }
   .menu-buttons .btn--install { padding: 7px 20px; font-size: 12px; }
   .credits { margin-top: 12px; font-size: 10px; }
+
+  .panel { display: flex; flex-direction: column; max-height: 100%; padding: 14px 16px; }
+  .panel--narrow { width: min(760px, 100%); }
+  .panel-head { margin-bottom: 10px; }
+  .panel-head h2 { font-size: 19px; }
+  .panel-foot { margin-top: 10px; gap: 8px; }
+  .panel-foot .btn { padding: 9px 18px; font-size: 14px; }
+
+  .card-grid {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: 10px;
+    /* Room for the focus ring, which would otherwise be clipped. */
+    padding: 3px 3px 8px;
+    margin: -3px -3px 0;
+    scroll-snap-type: x proximity;
+    overscroll-behavior-x: contain;
+  }
+  .card { flex: 0 0 176px; scroll-snap-align: start; padding: 11px; }
+  .card:hover { transform: none; }
+  .card-art { height: 60px; margin: -2px -2px 8px; }
+  .card-name { font-size: 15px; }
+  .card-blurb { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .card-meta { margin-top: 7px; }
+  .bars { margin-top: 7px; gap: 4px; }
+
+  .results { grid-template-columns: 1fr 1fr; gap: 6px; }
+  .results li { padding: 7px 10px; gap: 8px; }
+
+  .howto { columns: 2; column-gap: 28px; }
+  .howto dl, .howto ul, .howto p, .howto h3 { break-inside: avoid; }
+  .howto dl { margin-bottom: 12px; }
+  .howto h3 { margin-top: 0; }
+
+  /* The lap-time column used to run down into the speedo: a smaller map, no
+     best-lap readout (it is on the results screen), a shorter speedo. */
+  #hud-map { width: 108px; height: 108px; }
+  .hud-tr .stat:nth-child(2) { display: none; }
+  .stat-value { font-size: 21px; }
+  .speedo { padding: 6px 12px 8px; }
+  .speedo-value { font-size: 32px; }
+  .item-slot { width: 104px; height: 62px; }
 }
 /* Shorter still (a small phone with the browser bars up): the strapline goes. */
 @media (max-height: 360px) {
@@ -625,3 +680,20 @@ body.racing .update-chip { display: none; }
    the same pointer-capability test that shows them (body.is-touch, main.js). */
 body.is-touch .hud-br,
 body.is-touch .hud-bl { bottom: 106px; }
+
+/* Held upright, the five touch buttons were wider than the phone, and the
+   pickers ran to one tall column — ten cars was 2,600px of scrolling. */
+@media (max-width: 480px) {
+  .card-grid, .card-grid--cars { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .card { padding: 10px; }
+  .card-art { height: 64px; margin: -2px -2px 8px; }
+  .card-name { font-size: 15px; }
+  .bar { grid-template-columns: 42px 1fr; }
+
+  .touch { padding: 0 10px 16px; }
+  .touch-left, .touch-right { gap: 8px; }
+  .touch-btn { width: 58px; height: 58px; font-size: 19px; }
+  .touch-btn--gas { width: 70px; height: 70px; font-size: 24px; }
+  body.is-touch .hud-br,
+  body.is-touch .hud-bl { bottom: 92px; }
+}
