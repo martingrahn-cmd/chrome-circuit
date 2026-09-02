@@ -75,15 +75,12 @@
   <div id="hud-messages" class="messages"></div>
 
   <div id="touch" class="touch hidden">
-    <div class="touch-left">
-      <button class="touch-btn" data-touch="left" aria-label="Steer left">◀</button>
-      <button class="touch-btn" data-touch="right" aria-label="Steer right">▶</button>
-    </div>
-    <div class="touch-right">
-      <button class="touch-btn touch-btn--item" data-touch="item" aria-label="Use item">★</button>
-      <button class="touch-btn" data-touch="brake" aria-label="Brake">▼</button>
-      <button class="touch-btn touch-btn--gas" data-touch="gas" aria-label="Accelerate">▲</button>
-    </div>
+    <div class="touch-zone touch-zone--steer" data-touch="steer" aria-label="Steer: slide a thumb"></div>
+    <div class="touch-zone touch-zone--drift" data-touch="handbrake" aria-label="Handbrake: hold"></div>
+    <div class="touch-stick hidden" id="touch-stick"><i></i></div>
+    <button class="touch-btn touch-btn--item" data-touch="item" aria-label="Use item">★</button>
+    <button class="touch-btn touch-btn--pause" id="touch-pause" aria-label="Pause">❚❚</button>
+    <p class="touch-hint">Slide left to steer · hold right to drift · ★ fires</p>
   </div>
 </div>
 
@@ -176,12 +173,15 @@
           <dt>Accelerate / brake</dt><dd><kbd>W</kbd> <kbd>S</kbd> or <kbd>↑</kbd> <kbd>↓</kbd></dd>
           <dt>Steer</dt><dd><kbd>A</kbd> <kbd>D</kbd> or <kbd>←</kbd> <kbd>→</kbd></dd>
           <dt>Use item</dt><dd><kbd>Space</kbd></dd>
-          <dt>Handbrake</dt><dd><kbd>Shift</kbd></dd>
+          <dt>Handbrake</dt><dd><kbd>Shift</kbd> — hold it into a corner and the tail comes round</dd>
           <dt>Pause</dt><dd><kbd>Esc</kbd> or <kbd>P</kbd></dd>
         </dl>
         <p>A gamepad works too: left stick or d-pad to steer, <strong>RT</strong> or <strong>A</strong> for the loud pedal,
         <strong>LT</strong> to brake, <strong>X</strong> or <strong>Y</strong> to fire, <strong>RB</strong> for the handbrake
         and <strong>Start</strong> to pause. The menus take the d-pad, <strong>A</strong> to choose and <strong>B</strong> to go back.</p>
+        <h3>On a phone</h3>
+        <p>The car drives itself. Slide a thumb anywhere on the left to steer — the further it slides, the harder
+        you turn. Hold anywhere on the right for the handbrake and drift the corner. <strong>★</strong> fires your item.</p>
         <h3>Items</h3>
         <ul class="item-legend">
           <li><b style="--c:#4ade80">TURBO</b> A short, glorious overdose of speed.</li>

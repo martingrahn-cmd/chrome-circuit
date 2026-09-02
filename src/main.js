@@ -40,6 +40,8 @@ const isTouch = matchMedia('(hover: none) and (pointer: coarse)').matches;
 // follows the same pointer-capability test as the buttons themselves.
 // ("is-touch", not "touch" — the pad container already uses that class.)
 document.body.classList.toggle('is-touch', isTouch);
+input.touch.auto = isTouch;
+document.getElementById('touch-pause').addEventListener('click', () => togglePause());
 
 /* ------------------------------------------------------------ preloading */
 
@@ -104,7 +106,7 @@ function show(name) {
   document.getElementById('touch').classList.toggle('hidden', !(name === 'race' && isTouch));
   focusFirst(screens[name]);
   // On a phone the pickers are a sideways strip; bring the current choice in.
-  const chosen = screens[name].querySelector('.card-grid .card[aria-pressed="true"]');
+  const chosen = screens[name]?.querySelector('.card-grid .card[aria-pressed="true"]');
   const strip = chosen?.parentElement;
   if (strip && strip.scrollWidth > strip.clientWidth) {
     chosen.scrollIntoView({ inline: 'center', block: 'nearest' });

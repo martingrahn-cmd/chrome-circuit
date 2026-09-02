@@ -25,6 +25,7 @@ export class Car {
 
     this.steer = 0;         // smoothed steering input
     this.throttle = 0;
+    this.handbrake = false;
 
     this.engine = spec.engine;      // acceleration, units/s^2
     this.topSpeed = spec.topSpeed;  // units/s
@@ -85,8 +86,9 @@ export class Car {
 
   get forward() { return { x: Math.sin(this.heading), z: Math.cos(this.heading) }; }
 
-  applyInput(throttle, steer, dt) {
+  applyInput(throttle, steer, dt, handbrake = false) {
     this.throttle = throttle;
+    this.handbrake = handbrake;
     const rate = this.isPlayer ? 9 : 7;
     this.steer += (steer - this.steer) * Math.min(1, rate * dt);
   }
@@ -152,15 +154,26 @@ export class Car {
       const sp = Math.abs(this.vLong);
       const authority = Math.min(1, sp / 7) * (1 - Math.min(0.34, sp / (this.topSpeed * 3.4)));
       const dir = this.vLong < -0.2 ? -1 : 1;
+      // Handbrake: the rear lets go. The car rotates faster into the corner,
+      // most of the grip goes so the slide carries, and it scrubs a little
+      // speed — a drift, not a brake. Released, grip returns and the slide
+      // straightens out on its own.
+      const drifting = this.handbrake && sp > 3;
       // The Kenney models face +Z with their front-LEFT wheel on local +X, so
       // local +X is the car's left and a right-hand turn *lowers* the heading.
-      const turn = -this.steer * this.handling * authority * dir;
+      const turn = -this.steer * this.handling * authority * dir * (drifting ? 1.35 : 1);
       this.heading += turn * dt;
 
       // Cornering throws weight to the outside of the turn; grip bleeds it off.
       this.vLat -= turn * this.vLong * dt;
-      const gripLoss = Math.exp(-surf.grip * dt);
+      const gripLoss = Math.exp(-(drifting ? surf.grip * 0.26 : surf.grip) * dt);
       this.vLat *= gripLoss;
+      if (drifting) {
+        // Sideways faster than three-quarters of forward is a spin, not a slide.
+        const maxLat = Math.abs(this.vLong) * 0.75;
+        this.vLat = Math.max(-maxLat, Math.min(maxLat, this.vLat));
+        this.vLong *= 1 - dt * 0.55;
+      }
 
       // Drag and rolling resistance. Kept light: the throttle headroom term
       // above is what actually sets top speed.

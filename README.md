@@ -23,10 +23,14 @@ service worker below runs against a local checkout too.
 | Brake, reverse | `S` / `↓` | `LT` or d-pad down |
 | Steer | `A` `D` / `←` `→` | left stick or d-pad |
 | Use item | `Space` | `X` or `Y` |
-| Handbrake | `Shift` | `RB` |
+| Handbrake (drift) | `Shift` | `RB` |
 | Pause | `Esc` / `P` | `Start` |
 
-Touch controls appear on phones and tablets. Held sideways, the circuit and car
+On a phone the car drives itself and there are two invisible halves: slide a
+thumb anywhere on the left to steer — the distance from where it landed is the
+input, analog, with the same curve as a pad stick — and hold anywhere on the
+right for the handbrake. One real button, **★**, fires the item, and a small
+pause sits at the top. Held sideways, the circuit and car
 pickers become a strip that scrolls across under a pinned header and footer, the
 how-to and results spread into two columns, and the HUD loses its best-lap readout
 so the minimap and the speedo do not meet. Held upright the pickers run in two
@@ -83,6 +87,10 @@ one; two cars unlock the same way. Progress lives in `localStorage`.
 
 Tuck in behind the car ahead and you pick up its slipstream — worth about 14% on
 top speed, and the surest way past on a long straight. The HUD says when you have it.
+
+The handbrake is for drifting, not stopping: hold it into a corner and the rear
+lets go, the car rotates faster and the slide carries through, scrubbing only a
+little speed. Let go and grip returns.
 
 Items come from the boxes on track: **Turbo** (a short overdose of speed), **Rocket**
 (fires forward, leans toward whoever is ahead) and **Oil Drum** (dropped behind you).

@@ -173,8 +173,7 @@ export class Race {
       this.autopilot.update(dt, this.cars, this);
     } else if (p && !p.finished) {
       const throttle = racing ? input.throttle : 0;
-      p.applyInput(throttle, input.steer, dt);
-      if (input.handbrake) { p.vLat *= 1 - dt * 1.2; p.vLong *= 1 - dt * 1.4; }
+      p.applyInput(throttle, input.steer, dt, !!input.handbrake);
       if (input.item && !this.itemHeld) this.useItem(p);
       this.itemHeld = input.item;
     } else if (p && p.finished) {
