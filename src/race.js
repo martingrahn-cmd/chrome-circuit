@@ -42,6 +42,7 @@ export class Race {
       this.cars.push(car);
       if (isPlayer) {
         this.player = car;
+        car.runoffEase = [1, 0.5, 0, 0][difficulty] ?? 0;
       } else {
         const skill = Math.min(0.98, 0.48 + difficulty * 0.115 + this.rng() * 0.09);
         this.drivers.push(new AIDriver(car, track, {
@@ -174,7 +175,7 @@ export class Race {
       this.autopilot.update(dt, this.cars, this);
     } else if (p && !p.finished) {
       const throttle = racing ? input.throttle : 0;
-      p.applyInput(throttle, input.steer, dt, !!input.handbrake);
+      p.applyInput(throttle, this.assistSteer(p, input.steer), dt, !!input.handbrake);
       if (input.item && !this.itemHeld) this.useItem(p);
       this.itemHeld = input.item;
     } else if (p && p.finished) {
@@ -317,6 +318,28 @@ export class Race {
   }
 
   /** Sitting in the tow of the car ahead is worth a little extra speed. */
+  /** Training wheels that come off as the difficulty climbs. Out near the
+   *  edge of the road the player's steering is blended toward the line a
+   *  clean driver would take, so a late or shaky input is nudged back onto
+   *  the tarmac before a wheel drops. In the middle of the road it does
+   *  nothing, and at Legend it is gone. A first-timer on touch spent a third
+   *  of every race on the grass without it. */
+  assistSteer(p, steer) {
+    const strength = [0.7, 0.45, 0.2, 0][this.difficulty] ?? 0;
+    if (!strength || p.lateral == null) return steer;
+    const edge = Math.min(1, Math.max(0, (Math.abs(p.lateral) / this.track.roadHalf - 0.55) / 0.45));
+    if (edge <= 0) return steer;
+    const line = this.track.line;
+    const look = 5.5 + Math.max(0, p.vLong) * 0.42;
+    const aim = line.point(Math.round(p.lineIndex + look / line.spacing));
+    let want = Math.atan2(aim.x - p.x, aim.z - p.z) - p.heading;
+    while (want > Math.PI) want -= Math.PI * 2;
+    while (want < -Math.PI) want += Math.PI * 2;
+    const ideal = Math.max(-1, Math.min(1, -want * 2.1));
+    const k = strength * edge;
+    return steer * (1 - k) + ideal * k;
+  }
+
   updateSlipstream() {
     for (const car of this.cars) {
       const f = car.forward;
