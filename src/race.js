@@ -64,6 +64,8 @@ export class Race {
     this.lastBeep = 99;
     this.finalLapAnnounced = false;
     this.celebrate = 0;
+    this.coolDown = false;   // the flag has taken the wheel
+    this.itemBump = 0;       // last time a box was passed with a full slot
     this.autopilot = null;
     this.onRumble = null;
   }
@@ -218,10 +220,20 @@ export class Race {
     }
 
     this.items.update(dt, this.cars, (car, kind) => {
+      // Anyone taking a box bursts in its colour; the player also hears it.
+      const c = ITEMS[kind].rgb;
+      this.particles.burst(car.x, 0.7, car.z, car === this.player ? 18 : 8, {
+        colour: c, size: 0.5, life: 0.55, spread: 5.5, up: 5, glow: true, opacity: 0.95,
+      });
       if (car === this.player) {
         this.playSfx(sfx.pickup);
         this.message(ITEMS[kind].label, 'item', 1.4);
+        this.buzz(0.15, 0.4, 120);
       }
+    }, (car) => {
+      if (car !== this.player) return;
+      this.playSfx(sfx.denied);
+      this.itemBump = this.raceTime;   // the HUD rattles the slot
     });
 
     for (const proj of this.projectiles) {
@@ -267,7 +279,7 @@ export class Race {
       e.look(p.x + f.x * this.camLead, 0, p.z + f.z * this.camLead);
       // Pull in close for the finish celebration, back out while racing —
       // and keep backing out under a turbo instead of capping at top speed.
-      const targetZoom = this.phase === 'finished' && !this.autopilot
+      const targetZoom = this.coolDown
         ? 27
         : 35 + Math.min(14, Math.abs(p.vLong) * 0.42);
       this.engine.setZoom(this.engine.viewSize + (targetZoom - this.engine.viewSize) * Math.min(1, dt * 2));
@@ -441,6 +453,11 @@ export class Race {
         this.postTime = 0;
         this.playSfx(sfx.finish);
         if (!this.autopilot) {
+          // The flag takes the wheel: a cool-down lap under the AI, so the
+          // celebration is not spent watching yourself coast into a building.
+          car.item = null;
+          this.setAutopilot(true, 0.85);
+          this.coolDown = true;
           const place = this.finishOrder.length;
           const label = place === 1 ? 'WINNER!'
             : place === 2 ? '2ND PLACE!'

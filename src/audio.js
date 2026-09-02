@@ -91,6 +91,10 @@ export const sfx = {
   pickup: () => {
     [660, 880, 1180].forEach((f, i) => tone({ freq: f, type: 'triangle', dur: 0.12, gain: 0.18, delay: i * 0.05 }));
   },
+  // Slot already full: a flat two-note "nope".
+  denied: () => {
+    [300, 240].forEach((f, i) => tone({ freq: f, type: 'square', dur: 0.09, gain: 0.13, delay: i * 0.08 }));
+  },
   boost: () => {
     tone({ freq: 220, sweep: 1400, type: 'sawtooth', dur: 0.55, gain: 0.2 });
     thump({ dur: 0.5, gain: 0.28, cutoff: 2600 });
