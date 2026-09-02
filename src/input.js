@@ -19,7 +19,7 @@ function axis(v) {
 export class Input {
   constructor() {
     this.keys = new Set();
-    this.touch = { throttle: 0, steer: 0, item: false };
+    this.touch = { steer: 0, item: false, handbrake: false, auto: false };
     this.menuQueue = [];
     this.held = new Map();      // menu direction/button -> seconds held
     this.padId = null;
@@ -84,8 +84,11 @@ export class Input {
     }
 
     steer += this.touch.steer;
-    throttle += this.touch.throttle;
+    // On-screen driving has no pedal: the car drives itself, unless a pad is
+    // plugged in, whose triggers then take over.
+    if (this.touch.auto && !p) throttle += 1;
     if (this.touch.item) item = true;
+    if (this.touch.handbrake) handbrake = true;
 
     return {
       steer: Math.max(-1, Math.min(1, steer)),
@@ -141,24 +144,65 @@ export class Input {
     }).catch(() => { /* pad went away mid-effect */ });
   }
 
-  /** Wire the on-screen pad (mobile). Each button keeps its own held state
-   *  and the shared axes are derived from all of them, so releasing one
-   *  button never cancels the opposing button still under another finger. */
+  /** Wire the on-screen controls (phones). Steering is a slide anywhere on
+   *  the left half — the thumb's distance from where it landed is the input,
+   *  so there is no stick to find — the right half is the handbrake while it
+   *  is held, and the one real button fires the item. Each control tracks its
+   *  own pointer, so a second finger never cancels the first. */
   bindTouch(root) {
-    const held = { left: false, right: false, gas: false, brake: false, item: false };
-    const apply = () => {
-      this.touch.steer = (held.right ? 1 : 0) - (held.left ? 1 : 0);
-      this.touch.throttle = (held.gas ? 1 : 0) - (held.brake ? 1 : 0);
-      this.touch.item = held.item;
+    const RANGE = 56;   // px of slide for full lock
+    // Capture keeps the up/move events coming once a thumb wanders off the
+    // element; a pointer the browser has already lost makes this throw, and
+    // the control must still have registered the press.
+    const capture = (el, e) => { try { el.setPointerCapture(e.pointerId); } catch { /* fine */ } };
+    const zone = root.querySelector('[data-touch="steer"]');
+    const stick = root.querySelector('#touch-stick');
+    let steerId = null, x0 = 0;
+    const endSteer = (e) => {
+      if (e.pointerId !== steerId) return;
+      steerId = null;
+      this.touch.steer = 0;
+      stick?.classList.add('hidden');
     };
-    for (const name of Object.keys(held)) {
+    zone?.addEventListener('pointerdown', (e) => {
+      if (steerId !== null) return;
+      e.preventDefault();
+      steerId = e.pointerId;
+      x0 = e.clientX;
+      this.touch.steer = 0;
+      capture(zone, e);
+      if (stick) {
+        stick.style.left = `${e.clientX}px`;
+        stick.style.top = `${e.clientY}px`;
+        stick.style.setProperty('--x', '0px');
+        stick.classList.remove('hidden');
+      }
+    });
+    zone?.addEventListener('pointermove', (e) => {
+      if (e.pointerId !== steerId) return;
+      const v = Math.max(-1, Math.min(1, (e.clientX - x0) / RANGE));
+      // A touch of curve, like the pad stick, so small corrections stay small.
+      this.touch.steer = Math.sign(v) * Math.abs(v) ** 1.2;
+      stick?.style.setProperty('--x', `${v * 30}px`);
+    });
+    zone?.addEventListener('pointerup', endSteer);
+    zone?.addEventListener('pointercancel', endSteer);
+
+    const hold = (name) => {
       const el = root.querySelector(`[data-touch="${name}"]`);
-      if (!el) continue;
-      const set = (v) => (e) => { e.preventDefault(); held[name] = v; apply(); };
-      el.addEventListener('pointerdown', set(true));
-      el.addEventListener('pointerup', set(false));
-      el.addEventListener('pointercancel', set(false));
-      el.addEventListener('pointerleave', set(false));
-    }
+      if (!el) return;
+      let id = null;
+      const off = (e) => { if (e.pointerId === id) { id = null; this.touch[name] = false; } };
+      el.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        id = e.pointerId;
+        this.touch[name] = true;
+        capture(el, e);
+      });
+      el.addEventListener('pointerup', off);
+      el.addEventListener('pointercancel', off);
+    };
+    hold('handbrake');
+    hold('item');
   }
 }

@@ -229,16 +229,36 @@ html, body {
 @keyframes msgIn { from { opacity: 0; transform: translateY(12px) scale(0.9); } }
 
 /* ------------------------------------------------------------ Touch pad */
-.touch {
-  position: absolute;
-  inset: auto 0 0 0;
-  display: flex;
-  justify-content: space-between;
-  padding: 0 16px 22px;
+.touch { position: absolute; inset: 0; pointer-events: none; }
+/* Two invisible halves: slide on the left to steer, hold the right to drift. */
+.touch-zone { position: absolute; top: 0; bottom: 0; width: 50%; pointer-events: auto; touch-action: none; }
+.touch-zone--steer { left: 0; }
+.touch-zone--drift { right: 0; }
+/* Where the steering thumb landed, and how far it has slid. */
+.touch-stick {
+  position: fixed;
+  width: 92px;
+  height: 92px;
+  margin: -46px 0 0 -46px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.28);
+  background: rgba(18, 22, 33, 0.35);
   pointer-events: none;
 }
-.touch-left, .touch-right { display: flex; gap: 12px; align-items: flex-end; pointer-events: auto; }
+.touch-stick i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 38px;
+  height: 38px;
+  margin: -19px 0 0 -19px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  transform: translateX(var(--x, 0px));
+}
 .touch-btn {
+  position: absolute;
   width: 68px;
   height: 68px;
   border-radius: 50%;
@@ -247,10 +267,44 @@ html, body {
   color: var(--text);
   font-size: 22px;
   backdrop-filter: blur(6px);
+  pointer-events: auto;
+  touch-action: none;
 }
 .touch-btn:active { background: rgba(255, 204, 50, 0.28); }
-.touch-btn--gas { width: 84px; height: 84px; font-size: 28px; }
-.touch-btn--item { color: var(--accent); }
+/* Above the speedo, where the right thumb already rests. */
+.touch-btn--item {
+  right: max(18px, env(safe-area-inset-right));
+  bottom: 128px;
+  width: 76px;
+  height: 76px;
+  color: var(--accent);
+  font-size: 26px;
+}
+.touch-btn--pause {
+  top: max(12px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  width: 44px;
+  height: 44px;
+  font-size: 11px;
+}
+.touch-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(12, 15, 23, 0.7);
+  color: var(--muted);
+  font-family: var(--body);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  animation: hint-out 0.8s ease 5s forwards;
+}
+@keyframes hint-out { to { opacity: 0; } }
 
 /* --------------------------------------------------------------- Screens */
 #screens { position: fixed; inset: 0; pointer-events: none; }
@@ -676,24 +730,15 @@ body.racing .update-chip { display: none; }
   .item-slot { width: 104px; height: 62px; }
 }
 
-/* The touch buttons need the bottom corners clear at every width — keyed on
-   the same pointer-capability test that shows them (body.is-touch, main.js). */
-body.is-touch .hud-br,
-body.is-touch .hud-bl { bottom: 106px; }
-
-/* Held upright, the five touch buttons were wider than the phone, and the
-   pickers ran to one tall column — ten cars was 2,600px of scrolling. */
+/* Held upright, the pickers ran to one tall column — ten cars was 2,600px of
+   scrolling. */
 @media (max-width: 480px) {
   .card-grid, .card-grid--cars { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .card { padding: 10px; }
   .card-art { height: 64px; margin: -2px -2px 8px; }
   .card-name { font-size: 15px; }
   .bar { grid-template-columns: 42px 1fr; }
-
-  .touch { padding: 0 10px 16px; }
-  .touch-left, .touch-right { gap: 8px; }
-  .touch-btn { width: 58px; height: 58px; font-size: 19px; }
-  .touch-btn--gas { width: 70px; height: 70px; font-size: 24px; }
-  body.is-touch .hud-br,
-  body.is-touch .hud-bl { bottom: 92px; }
+  /* The bottom edge is the item slot and the speedo; the hint goes above ★. */
+  .touch-hint { bottom: 220px; }
 }
+
