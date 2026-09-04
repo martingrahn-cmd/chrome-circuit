@@ -107,7 +107,8 @@ little speed. Let go and grip returns.
 
 Items come from the boxes on track: **Turbo** (a short overdose of speed), **Rocket**
 (fires forward, leans toward whoever is ahead) and **Oil Drum** (dropped behind you —
-built in code, since none of the kits has a barrel).
+built in code, since none of the kits has a barrel; the spill around it is exactly as
+wide as the hazard reaches).
 The slot shows an icon for what you hold and pops when a box lands in it; drive
 through a box with the slot already full and the box hops, the slot rattles and
 you hear a flat "nope" — you can only carry one.
