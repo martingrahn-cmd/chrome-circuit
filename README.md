@@ -86,9 +86,11 @@ You start last on a six-car grid every race. Podium on a circuit to unlock the n
 one; two cars unlock the same way. Progress lives in `localStorage`, and so does the
 difficulty, which starts at Rookie.
 
-Rookie is meant to be a race a first-timer can win, and the levers that make it one
-all fade as the difficulty climbs: the rivals run slower (78% pace at Rookie, 90% at
-Pro, 97% at Ace, full at Legend) and ease off harder when the player drops back; a
+Rookie is meant to be a race a first-timer can win — and one a good driver still has
+to race for. The levers all fade as the difficulty climbs: the rivals run slower (78%
+pace at Rookie, 90% at Pro, 97% at Ace, full at Legend), ease off harder when the
+player drops back, and pick their pace back up — never past their honest Legend speed
+— when the player leads and pulls away, so a win is by seconds rather than a lap; a
 steering assist blends the player's input toward the clean line out near the edge
 of the road, so a late or shaky input is nudged back before a wheel drops (0.7 at
 Rookie, 0.45 Pro, 0.2 Ace, none at Legend); and the run-off punishes the player
@@ -104,7 +106,8 @@ lets go, the car rotates faster and the slide carries through, scrubbing only a
 little speed. Let go and grip returns.
 
 Items come from the boxes on track: **Turbo** (a short overdose of speed), **Rocket**
-(fires forward, leans toward whoever is ahead) and **Oil Drum** (dropped behind you).
+(fires forward, leans toward whoever is ahead) and **Oil Drum** (dropped behind you —
+built in code, since none of the kits has a barrel).
 The slot shows an icon for what you hold and pops when a box lands in it; drive
 through a box with the slot already full and the box hops, the slot rattles and
 you hear a flat "nope" — you can only carry one.

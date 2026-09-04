@@ -386,10 +386,21 @@ function finishRace() {
       <span class="when">${r.time != null ? formatTime(r.time) : `still on lap ${r.lap}/${r.laps}`}${r.best != null ? ` · best ${formatTime(r.best)}` : ''}</span>`;
     list.appendChild(li);
   }
-  if (unlocked.length) {
-    const li = document.createElement('li');
-    li.innerHTML = `<span class="place">★</span><span class="who">Unlocked: ${unlocked.map((u) => u.name).join(', ')}</span><span class="when"></span>`;
-    list.appendChild(li);
+  // Show what the podium opened, not just say it.
+  const box = document.getElementById('results-unlocks');
+  box.replaceChildren();
+  box.classList.toggle('hidden', !unlocked.length);
+  for (const u of unlocked) {
+    const el = document.createElement('div');
+    el.className = 'unlock';
+    const isTrack = u.kind === 'track';
+    const art = isTrack ? trackArt.get(u.id) : carArt.get(u.id);
+    const bg = isTrack ? `background:${swatch(trackById(u.id))}`
+      : `background:radial-gradient(70% 90% at 50% 118%, ${racerById(u.id).colour}88, transparent 70%), rgba(255,255,255,0.06)`;
+    el.innerHTML = `
+      <div class="unlock-art" style="${bg}"><img src="${art || ''}" alt=""></div>
+      <div><span class="unlock-kind">${isTrack ? 'New circuit' : 'New car'}</span><span class="unlock-name">${u.name}</span></div>`;
+    box.appendChild(el);
   }
 
   race.dispose();

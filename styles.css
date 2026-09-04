@@ -202,11 +202,25 @@ html, body {
   transform: scale(1.5);
 }
 .countdown.show { animation: countPop 1s ease-out; }
+/* Each light slams in, then GO! bursts out of the same spot. */
+.countdown[data-n='3'] { color: #ff4d6d; }
+.countdown[data-n='2'] { color: #ff9a3d; }
+.countdown[data-n='1'] { color: var(--accent); }
+.countdown[data-n='go'] { color: var(--good); font-size: clamp(110px, 22vw, 260px); }
+.countdown[data-n='go'].show { animation: goBurst 0.9s cubic-bezier(0.2, 1.4, 0.4, 1); }
 @keyframes countPop {
-  0% { opacity: 0; transform: scale(1.7); }
-  18% { opacity: 1; transform: scale(1); }
+  0% { opacity: 0; transform: scale(2.2); filter: brightness(2.5); }
+  14% { opacity: 1; transform: scale(0.94); filter: brightness(1.6); }
+  26% { transform: scale(1.04); filter: brightness(1); }
   75% { opacity: 1; transform: scale(1); }
   100% { opacity: 0; transform: scale(0.86); }
+}
+@keyframes goBurst {
+  0% { opacity: 0; transform: scale(0.4); filter: brightness(3); }
+  22% { opacity: 1; transform: scale(1.15); }
+  40% { transform: scale(1); filter: brightness(1); }
+  70% { opacity: 1; transform: scale(1.05); }
+  100% { opacity: 0; transform: scale(1.6); }
 }
 
 .messages {
@@ -575,6 +589,31 @@ html, body {
 .results .who { font-weight: 700; }
 .results .when { font-family: var(--mono); font-size: 13px; color: var(--muted); }
 
+/* What the podium just opened: a card each, with the thing itself on it. */
+.unlocks { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+.unlock {
+  flex: 1 1 150px;
+  display: grid;
+  grid-template-columns: 74px 1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 204, 50, 0.45);
+  background: linear-gradient(135deg, rgba(255, 204, 50, 0.16), rgba(255, 204, 50, 0.04));
+  animation: unlockIn 0.5s cubic-bezier(0.2, 1.5, 0.4, 1) both;
+}
+.unlock:nth-child(2) { animation-delay: 0.14s; }
+.unlock:nth-child(3) { animation-delay: 0.28s; }
+.unlock-art { position: relative; height: 54px; border-radius: 8px; overflow: hidden; background: rgba(255, 255, 255, 0.06); }
+.unlock-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.unlock-kind { display: block; font-size: 9px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); }
+.unlock-name { font-family: var(--display); font-size: 15px; }
+@keyframes unlockIn {
+  0% { opacity: 0; transform: translateY(10px) scale(0.92); }
+  100% { opacity: 1; transform: none; }
+}
+
 .howto dl { display: grid; grid-template-columns: auto 1fr; gap: 8px 20px; margin: 0 0 18px; }
 .howto dt { font-weight: 700; color: var(--muted); font-size: 13px; }
 .howto dd { margin: 0; }
@@ -722,6 +761,10 @@ body.racing .update-chip { display: none; }
 
   .results { grid-template-columns: 1fr 1fr; gap: 6px; }
   .results li { padding: 7px 10px; gap: 8px; }
+  .unlocks { margin-top: 8px; gap: 8px; }
+  .unlock { grid-template-columns: 56px 1fr; padding: 5px 8px; }
+  .unlock-art { height: 40px; }
+  .unlock-name { font-size: 13px; }
 
   .howto { columns: 2; column-gap: 28px; }
   .howto dl, .howto ul, .howto p, .howto h3 { break-inside: avoid; }

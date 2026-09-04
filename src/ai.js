@@ -75,21 +75,28 @@ export class AIDriver {
     // Fastest speed at which the car can still generate the yaw rate the
     // corner asks for: omega = v * curvature must stay inside its handling.
     const cornerSpeed = Math.min(car.topSpeed, (car.handling * 0.8) / Math.max(0.006, worst));
-    let target = cornerSpeed * (0.82 + 0.2 * this.skill) * (car.surface === 'road' ? 1 : 0.75);
+    const honest = cornerSpeed * (0.82 + 0.2 * this.skill) * (car.surface === 'road' ? 1 : 0.75);
+    let target = honest;
     // Pace by difficulty. Skill alone only moved Rookie 5% off Pro, and a
     // first-timer following the road by eye laps 25% slower than that —
     // Rookie has to be a race such a driver can win.
     if (race) target *= [0.78, 0.9, 0.97, 1][race.difficulty] ?? 1;
 
-    // Rubber-band: a rival well ahead of the player eases off a little so a
-    // scrappy first lap can still be driven back into. The pull fades with
-    // difficulty, does nothing once the player leads (or has finished), and
-    // cancels out for the attract autopilot, which races against itself.
+    // Rubber-band, both ways, fading with difficulty and cancelling out for
+    // the attract autopilot, which races against itself. A rival well ahead
+    // of the player eases off, so a scrappy first lap can be driven back
+    // into. And once the player *leads*, the pack behind picks up its pace
+    // the further it drops back — never past the honest speed it would run
+    // at Legend — so a good driver on Rookie wins by a car length, not by
+    // three-quarters of a lap. A player who is not leading feels none of it.
     if (race && race.player && race.player !== car && !race.player.finished) {
       const gapAhead = (car.totalProgress - race.player.totalProgress) * line.spacing;
       if (gapAhead > 0) {
         const band = [0.2, 0.1, 0.05, 0.02][race.difficulty] ?? 0.08;
         target *= 1 - Math.min(1, gapAhead / 70) * band;
+      } else if (race.player.racePosition === 1) {
+        const chase = [0.2, 0.12, 0.05, 0][race.difficulty] ?? 0;
+        target = Math.min(honest, target * (1 + Math.min(1, -gapAhead / 60) * chase));
       }
     }
 

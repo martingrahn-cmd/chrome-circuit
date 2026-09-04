@@ -87,6 +87,9 @@ export const sfx = {
   go: () => {
     tone({ freq: 780, type: 'square', dur: 0.5, gain: 0.26 });
     tone({ freq: 1170, type: 'square', dur: 0.5, gain: 0.14, delay: 0.02 });
+    // The lights go out with a kick you feel, not just a beep you hear.
+    thump({ dur: 0.7, gain: 0.8, cutoff: 1600 });
+    tone({ freq: 70, sweep: 240, type: 'sawtooth', dur: 0.6, gain: 0.22 });
   },
   pickup: () => {
     [660, 880, 1180].forEach((f, i) => tone({ freq: f, type: 'triangle', dur: 0.12, gain: 0.18, delay: i * 0.05 }));
@@ -100,8 +103,10 @@ export const sfx = {
     thump({ dur: 0.5, gain: 0.28, cutoff: 2600 });
   },
   missile: () => {
-    tone({ freq: 1400, sweep: 300, type: 'sawtooth', dur: 0.42, gain: 0.18 });
-    thump({ dur: 0.3, gain: 0.22, cutoff: 3000 });
+    // Launch: a chest thump first, the whoosh riding on top of it.
+    thump({ dur: 0.55, gain: 0.7, cutoff: 1100 });
+    tone({ freq: 130, sweep: 36, type: 'square', dur: 0.4, gain: 0.3 });
+    tone({ freq: 1400, sweep: 300, type: 'sawtooth', dur: 0.42, gain: 0.13, delay: 0.03 });
   },
   explode: () => {
     thump({ dur: 0.55, gain: 0.6, cutoff: 1800 });
