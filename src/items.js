@@ -158,37 +158,49 @@ export class Projectile {
 }
 
 // None of the Kenney kits ship a barrel, so the oil drum is built here: a
-// yellow drum with two dark hoops, matching the HUD icon, standing in the
-// slick it has already leaked. One set of geometry serves every drum.
+// yellow drum with two dark hoops, at a real drum's proportions against the
+// cars (a third of a car's width, a little over half its height), lying in a
+// spill that is exactly as wide as the hazard reaches — so what you see is
+// what catches you. One set of geometry serves every drum.
+export const SPILL = 0.75;   // reach beyond the car's own radius (was 1.0 with the big drum)
 const DRUM = {
-  body: new THREE.CylinderGeometry(0.55, 0.55, 1.25, 16),
-  hoop: new THREE.CylinderGeometry(0.6, 0.6, 0.09, 16),
-  lid: new THREE.CylinderGeometry(0.46, 0.46, 0.06, 16),
-  slick: new THREE.CircleGeometry(1.7, 24),
+  body: new THREE.CylinderGeometry(0.32, 0.32, 0.82, 14),
+  hoop: new THREE.CylinderGeometry(0.35, 0.35, 0.07, 14),
+  lid: new THREE.CylinderGeometry(0.27, 0.27, 0.05, 14),
+  blob: new THREE.CircleGeometry(1, 20),
   yellow: new THREE.MeshLambertMaterial({ color: 0xe8ac1f }),
   dark: new THREE.MeshLambertMaterial({ color: 0x2b3145 }),
-  oil: new THREE.MeshBasicMaterial({ color: 0x0c0f16, transparent: true, opacity: 0.72, depthWrite: false }),
+  oil: new THREE.MeshBasicMaterial({ color: 0x141a26, transparent: true, opacity: 0.42, depthWrite: false }),
 };
 
-function oilDrum() {
+function oilDrum(reach) {
   const g = new THREE.Group();
   const body = new THREE.Mesh(DRUM.body, DRUM.yellow);
-  body.position.y = 0.625;
+  body.position.y = 0.41;
   body.castShadow = true;
   g.add(body);
-  for (const y of [0.3, 0.95]) {
+  for (const y of [0.2, 0.62]) {
     const hoop = new THREE.Mesh(DRUM.hoop, DRUM.dark);
     hoop.position.y = y;
     g.add(hoop);
   }
   const lid = new THREE.Mesh(DRUM.lid, DRUM.dark);
-  lid.position.y = 1.26;
+  lid.position.y = 0.83;
   g.add(lid);
-  const slick = new THREE.Mesh(DRUM.slick, DRUM.oil);
-  slick.rotation.x = -Math.PI / 2;
-  slick.position.y = 0.13;   // the tarmac strip sits at 0.11 and its dashes just above; the slick goes on top of both
-  slick.renderOrder = 2;
-  g.add(slick);
+  // The spill: a few overlapping blobs rather than one clean disc, so it
+  // reads as oil on the road and not as a shadow painted under the drum.
+  const spill = new THREE.Group();
+  // Offsets and radii as fractions of the reach; every blob stays inside it.
+  const blobs = [[0, 0, 0.62], [0.3, 0.2, 0.4], [-0.35, 0.1, 0.38], [0.08, -0.36, 0.38], [-0.18, -0.26, 0.32]];
+  for (const [bx, bz, r] of blobs) {
+    const m = new THREE.Mesh(DRUM.blob, DRUM.oil);
+    m.rotation.x = -Math.PI / 2;
+    m.position.set(bx * reach, 0.13, bz * reach);
+    m.scale.setScalar(r * reach);
+    m.renderOrder = 2;
+    spill.add(m);
+  }
+  g.add(spill);
   return g;
 }
 
@@ -201,7 +213,7 @@ export class Hazard {
     this.arm = 0.8;
     this.life = 22;
     this.dead = false;
-    this.mesh = oilDrum();
+    this.mesh = oilDrum(owner.radius + SPILL);
     this.mesh.position.set(this.x, 0.02, this.z);
     this.mesh.rotation.y = Math.random() * 6.28;
     scene.add(this.mesh);
@@ -214,7 +226,7 @@ export class Hazard {
     this.mesh.position.y = 0.02 + Math.sin(this.life * 6) * 0.015;
     for (const car of cars) {
       if ((this.arm > 0 && car === this.owner) || car.finished) continue;
-      if (Math.hypot(car.x - this.x, car.z - this.z) < car.radius + 1.0) {
+      if (Math.hypot(car.x - this.x, car.z - this.z) < car.radius + SPILL) {
         car.spinOut(1.0);
         this.dead = true;
         this.hitCar = car;
