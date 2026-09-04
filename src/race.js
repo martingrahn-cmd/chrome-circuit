@@ -156,9 +156,16 @@ export class Race {
       if (this.clock >= 0) {
         this.phase = 'racing';
         this.clock = 0;
-        sfx.go();
-        this.buzz(0.5, 0.5, 260);
-        this.message('GO!', 'go', 1.2);
+        this.playSfx(sfx.go);
+        this.buzz(0.9, 0.7, 420);
+        this.engine.shake(1.6);
+        // Six cars leave the line in a cloud of their own tyre smoke.
+        for (const c of this.cars) {
+          const f = c.forward;
+          this.particles.burst(c.x - f.x * 1.1, 0.25, c.z - f.z * 1.1, 14, {
+            colour: [0.62, 0.62, 0.66], size: 0.9, life: 1.1, spread: 4, up: 2.5, opacity: 0.55,
+          });
+        }
         for (const c of this.cars) c.lapStart = 0;
       }
     } else if (this.phase === 'racing') {
@@ -284,9 +291,10 @@ export class Race {
         : 35 + Math.min(14, Math.abs(p.vLong) * 0.42);
       this.engine.setZoom(this.engine.viewSize + (targetZoom - this.engine.viewSize) * Math.min(1, dt * 2));
       this.particles.setScale(this.engine.renderer.domElement.height, this.engine.viewSize);
+      // At the lights the car does not move, but the engine answers the pedal.
       this.engineSound.update(
         Math.min(1, Math.abs(p.vLong) / p.topSpeed),
-        Math.max(0, p.throttle),
+        Math.max(0, racing || this.autopilot ? p.throttle : input.throttle),
         p.slip,
         p.boost > 0,
       );

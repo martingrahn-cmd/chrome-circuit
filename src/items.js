@@ -157,6 +157,41 @@ export class Projectile {
   dispose(scene) { scene.remove(this.mesh); }
 }
 
+// None of the Kenney kits ship a barrel, so the oil drum is built here: a
+// yellow drum with two dark hoops, matching the HUD icon, standing in the
+// slick it has already leaked. One set of geometry serves every drum.
+const DRUM = {
+  body: new THREE.CylinderGeometry(0.55, 0.55, 1.25, 16),
+  hoop: new THREE.CylinderGeometry(0.6, 0.6, 0.09, 16),
+  lid: new THREE.CylinderGeometry(0.46, 0.46, 0.06, 16),
+  slick: new THREE.CircleGeometry(1.7, 24),
+  yellow: new THREE.MeshLambertMaterial({ color: 0xe8ac1f }),
+  dark: new THREE.MeshLambertMaterial({ color: 0x2b3145 }),
+  oil: new THREE.MeshBasicMaterial({ color: 0x0c0f16, transparent: true, opacity: 0.72, depthWrite: false }),
+};
+
+function oilDrum() {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(DRUM.body, DRUM.yellow);
+  body.position.y = 0.625;
+  body.castShadow = true;
+  g.add(body);
+  for (const y of [0.3, 0.95]) {
+    const hoop = new THREE.Mesh(DRUM.hoop, DRUM.dark);
+    hoop.position.y = y;
+    g.add(hoop);
+  }
+  const lid = new THREE.Mesh(DRUM.lid, DRUM.dark);
+  lid.position.y = 1.26;
+  g.add(lid);
+  const slick = new THREE.Mesh(DRUM.slick, DRUM.oil);
+  slick.rotation.x = -Math.PI / 2;
+  slick.position.y = 0.13;   // the tarmac strip sits at 0.11 and its dashes just above; the slick goes on top of both
+  slick.renderOrder = 2;
+  g.add(slick);
+  return g;
+}
+
 export class Hazard {
   constructor(owner, scene) {
     const f = owner.forward;
@@ -166,9 +201,8 @@ export class Hazard {
     this.arm = 0.8;
     this.life = 22;
     this.dead = false;
-    this.mesh = instance('roads', 'dumpster');
-    this.mesh.scale.setScalar(5.5);
-    this.mesh.position.set(this.x, 0.16, this.z);
+    this.mesh = oilDrum();
+    this.mesh.position.set(this.x, 0.02, this.z);
     this.mesh.rotation.y = Math.random() * 6.28;
     scene.add(this.mesh);
   }
@@ -177,7 +211,7 @@ export class Hazard {
     this.arm -= dt;
     this.life -= dt;
     if (this.life <= 0) { this.dead = true; return; }
-    this.mesh.position.y = 0.16 + Math.sin(this.life * 6) * 0.03;
+    this.mesh.position.y = 0.02 + Math.sin(this.life * 6) * 0.015;
     for (const car of cars) {
       if ((this.arm > 0 && car === this.owner) || car.finished) continue;
       if (Math.hypot(car.x - this.x, car.z - this.z) < car.radius + 1.0) {

@@ -44,13 +44,13 @@ export function record(state, { trackId, place, bestLap, tracks, cars }) {
     const next = tracks[i + 1];
     if (next && !state.unlockedTracks.includes(next.id)) {
       state.unlockedTracks.push(next.id);
-      unlocked.push({ kind: 'track', name: next.name });
+      unlocked.push({ kind: 'track', id: next.id, name: next.name });
     }
   }
   for (const car of cars) {
     if (car.unlock === trackId && place <= 3 && !state.unlockedCars.includes(car.id)) {
       state.unlockedCars.push(car.id);
-      unlocked.push({ kind: 'car', name: car.name });
+      unlocked.push({ kind: 'car', id: car.id, name: car.name });
     }
   }
   save(state);

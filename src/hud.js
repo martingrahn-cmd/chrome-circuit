@@ -156,6 +156,16 @@ export class Hud {
         this.countdown.classList.remove('show');
       }
       this.lastCount = on ? n : 0;
+    } else if (race.phase === 'racing' && race.raceTime < 0.9 && !race.autopilot) {
+      // The digits give way to GO! bursting out of the same spot.
+      if (this.lastCount !== -1) {
+        this.countdown.textContent = 'GO!';
+        this.countdown.classList.remove('show');
+        void this.countdown.offsetWidth;
+        this.countdown.dataset.n = 'go';
+        this.countdown.classList.add('show');
+        this.lastCount = -1;
+      }
     } else {
       this.countdown.classList.remove('show');
       this.lastCount = 0;
