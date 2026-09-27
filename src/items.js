@@ -211,7 +211,9 @@ export class Hazard {
     this.z = owner.z - f.z * 3.4;
     this.owner = owner;
     this.arm = 0.8;
-    this.life = 22;
+    // Twelve seconds, not twenty-two: long enough to catch whoever is
+    // following, short enough that a lap later the road is clear again.
+    this.life = 12;
     this.dead = false;
     this.mesh = oilDrum(owner.radius + SPILL);
     this.mesh.position.set(this.x, 0.02, this.z);
