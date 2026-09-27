@@ -94,9 +94,17 @@ player drops back, and pick their pace back up — never past their honest Legen
 steering assist blends the player's input toward the clean line out near the edge
 of the road, so a late or shaky input is nudged back before a wheel drops (0.7 at
 Rookie, 0.45 Pro, 0.2 Ace, none at Legend); and the run-off punishes the player
-less (Rookie fully, Pro half). A simulated beginner — road followed by eye, 0.3 s
+less (Rookie fully, Pro half). The item boxes lean the same way: a backmarker
+draws turbos half the time and the leader mostly draws things to defend with, in
+full at Rookie and Pro, half at Ace and not at all at Legend, where every box
+deals even odds. Legend's rivals are also a clear step sharper than Ace's rather
+than one more even rung. A simulated beginner — road followed by eye, 0.3 s
 reaction lag, shaky hands, never lifting — went from last every race to P1–P5 at
-Rookie.
+Rookie; a near-flawless stand-in driver wins about half its races at Legend.
+
+The rivals hold an item until it is worth using — a turbo for a straight, a
+rocket for a car ahead, a drum for a car close behind — and steer round oil drums
+in their path. Drums last twelve seconds and no more than six are down at once.
 
 Tuck in behind the car ahead and you pick up its slipstream — worth about 14% on
 top speed, and the surest way past on a long straight. The HUD says when you have it.

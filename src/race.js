@@ -20,7 +20,7 @@ export class Race {
     this.particles = new Particles(engine.world);
     this.skids = new SkidMarks(engine.world);
     this.camLead = 0;   // how far down the road the camera is looking, eased
-    this.items = new ItemField(track, engine.world, this.rng);
+    this.items = new ItemField(track, engine.world, this.rng, [1, 1, 0.5, 0][difficulty] ?? 1);
     this.projectiles = [];
 
     this.cars = [];
@@ -44,7 +44,10 @@ export class Race {
         this.player = car;
         car.runoffEase = [1, 0.5, 0, 0][difficulty] ?? 0;
       } else {
-        const skill = Math.min(0.98, 0.48 + difficulty * 0.115 + this.rng() * 0.09);
+        // Legend steps up further than the rest: at the old even spacing a
+        // near-perfect driver still won six Legend races in ten.
+        const base = [0.48, 0.595, 0.71, 0.9][difficulty] ?? 0.71;
+        const skill = Math.min(0.99, base + this.rng() * 0.09);
         this.drivers.push(new AIDriver(car, track, {
           skill,
           aggression: 0.35 + this.rng() * 0.5,

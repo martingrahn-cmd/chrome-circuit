@@ -9,20 +9,31 @@ export const ITEMS = {
 };
 
 // What a box hands out depends on where you are running: backmarkers draw
-// comeback speed, the leader mostly draws things to defend with.
-function deal(rng, racePosition) {
+// comeback speed, the leader mostly draws things to defend with. `comeback`
+// (0..1) is how much of that tilt applies; it fades with difficulty like every
+// other catch-up lever, and at Legend every box deals the same odds. Starting
+// last, the player drew turbos half the time, and that — not pace — was how a
+// good driver kept winning at Legend.
+const ODDS = {           // [P(boost), P(boost or rocket)]
+  back: [0.5, 0.82],
+  mid: [0.34, 0.68],
+  front: [0.16, 0.48],
+  even: [0.3, 0.65],
+};
+function deal(rng, racePosition, comeback = 1) {
   const pos = racePosition ?? 4;
+  const tilt = ODDS[pos >= 5 ? 'back' : pos >= 3 ? 'mid' : 'front'];
+  const [b, m] = tilt.map((v, i) => ODDS.even[i] + (v - ODDS.even[i]) * comeback);
   const r = rng();
-  if (pos >= 5) return r < 0.50 ? 'boost' : r < 0.82 ? 'missile' : 'mine';
-  if (pos >= 3) return r < 0.34 ? 'boost' : r < 0.68 ? 'missile' : 'mine';
-  return r < 0.16 ? 'boost' : r < 0.48 ? 'missile' : 'mine';
+  return r < b ? 'boost' : r < m ? 'missile' : 'mine';
 }
 
 export class ItemField {
-  constructor(track, scene, rng) {
+  constructor(track, scene, rng, comeback = 1) {
     this.track = track;
     this.scene = scene;
     this.rng = rng;
+    this.comeback = comeback;
     this.boxes = [];
     this.build();
   }
@@ -85,7 +96,7 @@ export class ItemField {
         }
         box.cooldown = 4;
         box.mesh.visible = false;
-        const kind = deal(this.rng, car.racePosition);
+        const kind = deal(this.rng, car.racePosition, this.comeback);
         car.item = kind;
         onPickup && onPickup(car, kind);
         break;
