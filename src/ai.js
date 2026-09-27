@@ -55,6 +55,16 @@ export class AIDriver {
       tz -= aimT.x * dodge;
     }
 
+    // Steer round an oil drum on the line ahead — the whole field used to
+    // drive into them blind. A sharper driver sees it sooner.
+    const drum = race && this.hazardAhead(race.projectiles, 6 + speed * (0.4 + 0.5 * this.skill));
+    if (drum) {
+      const side = this.sideOf(drum) >= 0 ? -1 : 1;
+      const dodge = this.track.roadHalf * 0.7 * side;
+      tx += aimT.z * dodge;
+      tz -= aimT.x * dodge;
+    }
+
     // Steer toward the aim point.
     let want = Math.atan2(tx - car.x, tz - car.z) - car.heading;
     while (want > Math.PI) want -= Math.PI * 2;
@@ -112,17 +122,54 @@ export class AIDriver {
 
     car.applyInput(throttle, Math.max(-1, Math.min(1, steer)), dt);
 
-    // Items.
+    // Items. Hold them until they are worth something: a turbo waits for a
+    // straight, a rocket for a car ahead to lock onto, a drum for a car close
+    // behind to catch. Firing everything on sight littered the track — on
+    // Neon Speedway one item every 2.5 s and thirty-odd spin-outs a race, so
+    // who won was a lottery. Holding an item also keeps a car from picking up
+    // the next one, which thins the supply without touching the boxes.
+    if (car.item && !this.holding) this.itemDelay = 1.5 + this.rng() * 2;
+    this.holding = !!car.item;
     if (car.item) {
       this.itemDelay -= dt;
       if (this.itemDelay <= 0) {
-        this.itemDelay = 0.8 + this.rng() * 2.2;
-        const useIt = car.item === 'boost'
-          ? worst < 0.02 || this.rng() < 0.3
-          : this.rng() < 0.55 + this.aggression * 0.3;
+        this.itemDelay = 1.2 + this.rng() * 2.4;
+        let useIt;
+        if (car.item === 'boost') useIt = worst < 0.02;
+        else if (car.item === 'missile') useIt = !!this.nearby(cars, 4, 34) && this.rng() < 0.45 + this.aggression * 0.3;
+        else useIt = !!this.nearby(cars, -16, -2) && this.rng() < 0.5 + this.aggression * 0.3;
         if (useIt && race) race.useItem(car);
       }
     }
+  }
+
+  /** The nearest live oil drum in this car's path, within `range` ahead. */
+  hazardAhead(projectiles, range) {
+    const f = this.car.forward;
+    let best = null, bestD = range;
+    for (const h of projectiles || []) {
+      if (h.dead || h.arm === undefined) continue;
+      const dx = h.x - this.car.x, dz = h.z - this.car.z;
+      const along = dx * f.x + dz * f.z;
+      if (along <= 0 || along > bestD) continue;
+      if (Math.abs(dx * f.z - dz * f.x) > 2.8) continue;
+      best = h; bestD = along;
+    }
+    return best;
+  }
+
+  /** A car roughly in line with this one, between `from` and `to` units
+   *  along its heading (negative = behind). */
+  nearby(cars, from, to) {
+    const f = this.car.forward;
+    for (const o of cars) {
+      if (o === this.car || o.finished) continue;
+      const dx = o.x - this.car.x, dz = o.z - this.car.z;
+      const along = dx * f.x + dz * f.z;
+      if (along < from || along > to) continue;
+      if (Math.abs(dx * f.z - dz * f.x) < 4) return o;
+    }
+    return null;
   }
 
   /** Positive when the other car is on our left (local +X). */

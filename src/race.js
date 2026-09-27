@@ -139,6 +139,9 @@ export class Race {
       this.projectiles.push(new Projectile(car, this.engine.world));
       if (car === this.player) this.playSfx(sfx.missile);
     } else if (kind === 'mine') {
+      // At most six drums down at once; a seventh clears the oldest away.
+      const drums = this.projectiles.filter((pr) => pr instanceof Hazard && !pr.dead);
+      if (drums.length >= 6) drums[0].dead = true;
       this.projectiles.push(new Hazard(car, this.engine.world));
       if (car === this.player) this.playSfx(sfx.select);
     }
