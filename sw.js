@@ -39,6 +39,7 @@ const SHELL_FILES = [
   './src/assets.js',
   './src/audio.js',
   './src/car.js',
+  './src/champ.js',
   './src/engine.js',
   './src/fx.js',
   './src/hud.js',

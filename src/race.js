@@ -533,6 +533,7 @@ export class Race {
     const order = [...this.finishOrder, ...rest];
     return order.map((car, i) => ({
       place: i + 1,
+      id: car.spec.id,
       name: car.name,
       isPlayer: car === this.player,
       time: car.finished ? car.finishTime : null,

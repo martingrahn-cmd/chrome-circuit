@@ -82,6 +82,18 @@ Choosing a circuit takes you straight to the car select, and choosing a car star
 the race — no walking down to a confirm button. The garage, reached from the main
 menu, is browse-only.
 
+### Championship
+
+Every circuit in turn, against the same five rivals, with points for every
+place: 10, 7, 5, 3, 2, 1. Pick a difficulty and a car, and the table after each
+round shows every driver's finish so far. Ties go to more wins, then more
+seconds, then to whoever was ahead in the latest round. A championship in
+progress is saved with the rest of your progress, so the menu offers to continue
+it after a reload; quitting mid-round leaves that round to race again, and
+abandoning one takes a second press. Your best final place is kept per
+difficulty. Championship rounds still set best laps and unlock circuits and cars
+the same way single races do.
+
 You start last on a six-car grid every race. Podium on a circuit to unlock the next
 one; two cars unlock the same way. Progress lives in `localStorage`, and so does the
 difficulty, which starts at Rookie.
@@ -149,7 +161,8 @@ src/
   hud.js              readouts and minimap
   input.js            keyboard, gamepad and touch
   thumbs.js           car and circuit previews for the menus
-  progress.js         unlocks and best laps
+  progress.js         unlocks, best laps, the championship in progress
+  champ.js            championship points, standings and save validation
   pwa.js              service-worker registration, updates, the install button
   version.js          the version badge and the update check
 vendor/three/         Three.js r180 (module build) + GLTFLoader
