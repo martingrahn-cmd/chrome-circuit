@@ -10,6 +10,7 @@ import { Hud, formatTime } from './hud.js';
 import { Input } from './input.js';
 import * as audio from './audio.js';
 import * as progress from './progress.js';
+import * as champ from './champ.js';
 import { carThumbnails, trackThumbnail } from './thumbs.js';
 import { watchVersion } from './version.js';
 import { registerServiceWorker, cacheAssets, watchInstall, promptInstall } from './pwa.js';
@@ -29,6 +30,8 @@ const state = {
   carsFrom: 'tracks',
   racerId: 'comet',
   difficulty: 0,
+  champDifficulty: 0,   // picked on the championship screen before round 1
+  inChamp: false,       // the race on screen is a championship round
   race: null,
   attract: false,
   paused: false,
@@ -93,6 +96,7 @@ const screens = {
   menu: document.getElementById('screen-menu'),
   tracks: document.getElementById('screen-tracks'),
   cars: document.getElementById('screen-cars'),
+  champ: document.getElementById('screen-champ'),
   results: document.getElementById('screen-results'),
   howto: document.getElementById('screen-howto'),
   paused: document.getElementById('screen-paused'),
@@ -100,6 +104,7 @@ const screens = {
 
 function show(name) {
   state.screen = name;
+  if (name === 'menu') updateMenu();
   for (const [key, el] of Object.entries(screens)) el.classList.toggle('show', key === name);
   document.getElementById('hud').classList.toggle('hidden', name !== 'race');
   document.body.classList.toggle('racing', name === 'race');
@@ -264,7 +269,8 @@ function renderCars() {
       audio.sfx.select();
       // Reached from the circuit list this is the last choice, so go racing.
       // Reached from the garage it is just browsing.
-      if (state.carsFrom === 'tracks') startRace();
+      if (state.carsFrom === 'tracks') { state.inChamp = false; startRace(); }
+      else if (state.carsFrom === 'champ') startChamp();
       else renderCars();
     });
     list.appendChild(el);
@@ -273,7 +279,9 @@ function renderCars() {
   const track = trackById(state.trackId);
   const note = state.carsFrom === 'tracks'
     ? `${track.name} — ${track.laps} laps — ${DIFFICULTY[state.difficulty]}. Pick a car to start.`
-    : `${chosen.name} selected.`;
+    : state.carsFrom === 'champ'
+      ? `Championship — ${TRACKS.length} rounds — ${DIFFICULTY[state.champDifficulty]}. Pick a car to start.`
+      : `${chosen.name} selected.`;
   document.getElementById('car-note').textContent = note;
 }
 
@@ -304,13 +312,17 @@ function buildRace(def, { attract = false } = {}) {
   engine.setSky(def.theme.sky, 170, 360);
   engine.setLighting(def.theme.light);
 
-  const roster = RACERS.filter((r) => !r.unlock || state.progress.unlockedCars.includes(r.id));
+  // A championship round races the same five rivals every time.
+  const c = !attract && state.inChamp ? state.progress.champ : null;
+  const roster = c
+    ? [c.racerId, ...c.rivals].map(racerById)
+    : RACERS.filter((r) => !r.unlock || state.progress.unlockedCars.includes(r.id));
   const race = new Race({
     engine,
     track,
-    playerSpec: attract ? RACERS[Math.floor(Math.random() * 4)] : racerById(state.racerId),
+    playerSpec: attract ? RACERS[Math.floor(Math.random() * 4)] : racerById(c ? c.racerId : state.racerId),
     roster: roster.length >= 6 ? roster : RACERS,
-    difficulty: attract ? 3 : state.difficulty,
+    difficulty: attract ? 3 : c ? c.difficulty : state.difficulty,
   });
   state.race = race;
   state.attract = attract;
@@ -349,7 +361,9 @@ function recordFinishedRace() {
   const race = state.race;
   if (!race || state.attract || race.phase !== 'finished') return;
   race.settle();
-  const mine = race.results().find((r) => r.isPlayer);
+  const all = race.results();
+  const mine = all.find((r) => r.isPlayer);
+  scoreChampRace(race, all);
   progress.record(state.progress, {
     trackId: state.trackId,
     place: mine.place,
@@ -364,6 +378,7 @@ function finishRace() {
   race.settle();
   const results = race.results();
   const mine = results.find((r) => r.isPlayer);
+  const gained = scoreChampRace(race, results);
   const unlocked = progress.record(state.progress, {
     trackId: state.trackId,
     place: mine.place,
@@ -383,9 +398,16 @@ function finishRace() {
     li.innerHTML = `
       <span class="place">${r.place}</span>
       <span class="who">${r.name}</span>
-      <span class="when">${r.time != null ? formatTime(r.time) : `still on lap ${r.lap}/${r.laps}`}${r.best != null ? ` · best ${formatTime(r.best)}` : ''}</span>`;
+      <span class="when">${r.time != null ? formatTime(r.time) : `still on lap ${r.lap}/${r.laps}`}${r.best != null ? ` · best ${formatTime(r.best)}` : ''}${gained ? ` <b class="pts">+${gained[r.id] ?? 0}</b>` : ''}</span>`;
     list.appendChild(li);
   }
+  // A championship round moves on to the table, not to a rematch.
+  const c = gained && state.progress.champ;
+  document.getElementById('results-retry').classList.toggle('hidden', !!c);
+  document.getElementById('results-next').classList.toggle('hidden', !!c);
+  const standingsBtn = document.getElementById('results-standings');
+  standingsBtn.classList.toggle('hidden', !c);
+  if (c) standingsBtn.textContent = champ.isOver(c) ? 'Final standings' : 'Standings';
   // Show what the podium opened, not just say it.
   const box = document.getElementById('results-unlocks');
   box.replaceChildren();
@@ -414,6 +436,126 @@ function ordinal(n) {
   return ['', '1st', '2nd', '3rd', '4th', '5th', '6th'][n] || `${n}th`;
 }
 
+/* ---------------------------------------------------------- championship */
+
+function updateMenu() {
+  const c = state.progress.champ;
+  document.getElementById('menu-champ').textContent = c && !champ.isOver(c)
+    ? `Continue championship · round ${c.round + 1}/${c.rounds.length}`
+    : 'Championship';
+}
+
+/** Round one: pick five rivals from the cars on offer and go. */
+function startChamp() {
+  const pool = RACERS.filter((r) => r.id !== state.racerId
+    && (!r.unlock || state.progress.unlockedCars.includes(r.id)));
+  const rivals = [];
+  while (rivals.length < 5 && pool.length) {
+    rivals.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0].id);
+  }
+  state.progress.champ = champ.create({
+    difficulty: state.champDifficulty,
+    racerId: state.racerId,
+    rivals,
+    rounds: TRACKS.map((t) => t.id),
+  });
+  progress.save(state.progress);
+  startChampRound();
+}
+
+function startChampRound() {
+  const c = state.progress.champ;
+  state.inChamp = true;
+  state.racerId = c.racerId;
+  state.trackId = c.rounds[c.round];
+  startRace();
+  state.race.message(`ROUND ${c.round + 1} OF ${c.rounds.length}`, 'go', 2.6);
+}
+
+/** Book a finished championship round, once. Returns the points each car
+ *  took, or null for an ordinary race. */
+function scoreChampRace(race, results) {
+  const c = state.progress.champ;
+  if (!state.inChamp || !c || champ.isOver(c) || race.champScored) return null;
+  race.champScored = true;
+  const gained = champ.score(c, results);
+  if (champ.isOver(c)) {
+    const place = champ.standings(c).findIndex((row) => row.isPlayer) + 1;
+    const prev = state.progress.champBest[c.difficulty];
+    if (!prev || place < prev) state.progress.champBest[c.difficulty] = place;
+  }
+  progress.save(state.progress);
+  return gained;
+}
+
+function renderChamp() {
+  const c = state.progress.champ;
+  const active = c && !champ.isOver(c);
+  const rounds = c ? c.rounds.map(trackById) : TRACKS;
+  const title = document.getElementById('champ-title');
+  const sub = document.getElementById('champ-sub');
+  const table = document.getElementById('champ-standings');
+  const next = document.getElementById('champ-next');
+  const rows = c ? champ.standings(c) : [];
+  const myPlace = rows.findIndex((r) => r.isPlayer) + 1;
+
+  if (!c) {
+    title.textContent = 'Championship';
+    const best = Object.entries(state.progress.champBest)
+      .sort((a, b) => a[1] - b[1] || b[0] - a[0])[0];
+    sub.innerHTML = `Every circuit in turn, the same five rivals, points for every place: <span class="nowrap">${champ.POINTS.join(' · ')}</span>.`
+      + (best ? ` Your best: ${ordinal(best[1])} on ${DIFFICULTY[best[0]]}.` : '');
+    next.textContent = 'Pick your car';
+  } else if (active) {
+    title.textContent = `Championship — ${DIFFICULTY[c.difficulty]}`;
+    sub.textContent = c.round
+      ? `After ${c.round} of ${c.rounds.length} rounds you are ${ordinal(myPlace)}. Next: ${rounds[c.round].name}.`
+      : `Round 1 of ${c.rounds.length}: ${rounds[0].name}.`;
+    next.textContent = `Race round ${c.round + 1}: ${rounds[c.round].name}`;
+  } else {
+    title.textContent = myPlace === 1 ? 'Champion!' : `Championship — ${ordinal(myPlace)}`;
+    sub.textContent = `${DIFFICULTY[c.difficulty]} · ${rows[myPlace - 1].points} points`
+      + (myPlace === 1 ? ' · the title is yours.' : myPlace <= 3 ? ' · on the podium.' : '.');
+    next.textContent = 'New championship';
+  }
+  screens.champ.classList.toggle('is-champion', !!c && !active && myPlace === 1);
+  document.getElementById('champ-diff-field').classList.toggle('hidden', !!c);
+  document.getElementById('champ-difficulty').value = String(state.champDifficulty);
+  document.getElementById('champ-abandon').classList.toggle('hidden', !active);
+
+  // The rounds: each circuit, with your finish once it has been raced.
+  const strip = document.getElementById('champ-rounds');
+  strip.replaceChildren();
+  rounds.forEach((def, i) => {
+    const li = document.createElement('li');
+    const done = c && i < c.round;
+    const place = done ? c.places[c.racerId][i] : null;
+    li.className = `round${done ? ' is-done' : ''}${active && i === c.round ? ' is-next' : ''}`;
+    li.innerHTML = `
+      <div class="round-art" style="background:${swatch(def)}"><img src="${trackArt.get(def.id) || ''}" alt=""></div>
+      <span class="round-no">Round ${i + 1}</span>
+      <span class="round-name">${def.name}</span>
+      ${place ? `<span class="round-place p${place}">${ordinal(place)}</span>` : ''}`;
+    strip.appendChild(li);
+  });
+
+  // The table.
+  table.classList.toggle('hidden', !c);
+  if (!c) return;
+  const head = `<thead><tr><th></th><th>Driver</th>${rounds.map((d, i) => `<th title="${d.name}">R${i + 1}</th>`).join('')}<th>Pts</th></tr></thead>`;
+  const body = rows.map((row, i) => {
+    const car = racerById(row.id);
+    const cells = rounds.map((_, k) => {
+      const p = row.places[k];
+      return `<td class="${p ? `p${p}` : 'dim'}">${p ?? '·'}</td>`;
+    }).join('');
+    return `<tr class="${row.isPlayer ? 'me' : ''}"><td class="pos">${i + 1}</td>`
+      + `<td class="who"><i style="background:${car.colour}"></i>${car.name}${row.isPlayer ? ' <em>you</em>' : ''}</td>`
+      + `${cells}<td class="pts">${row.points}</td></tr>`;
+  }).join('');
+  table.innerHTML = `${head}<tbody>${body}</tbody>`;
+}
+
 /* ------------------------------------------------------------ navigation */
 
 document.addEventListener('click', (e) => {
@@ -422,7 +564,45 @@ document.addEventListener('click', (e) => {
   const action = btn.dataset.action;
   audio.unlock();
   switch (action) {
-    case 'race': audio.sfx.select(); renderTracks(); show('tracks'); break;
+    case 'race': audio.sfx.select(); state.inChamp = false; renderTracks(); show('tracks'); break;
+    case 'champ':
+    case 'champ-standings':
+      audio.sfx.select();
+      state.champDifficulty = state.difficulty;
+      renderChamp();
+      show('champ');
+      break;
+    case 'champ-next': {
+      audio.sfx.select();
+      const c = state.progress.champ;
+      if (c && !champ.isOver(c)) { startChampRound(); break; }
+      if (c) {                                   // finished: clear it for a fresh one
+        state.progress.champ = null;
+        progress.save(state.progress);
+        renderChamp();
+        focusFirst(screens.champ);
+        break;
+      }
+      state.carsFrom = 'champ';
+      renderCars();
+      show('cars');
+      break;
+    }
+    case 'champ-abandon':
+      // Five races of standings deserve a second press.
+      if (btn.dataset.armed) {
+        audio.sfx.back();
+        state.progress.champ = null;
+        progress.save(state.progress);
+        renderChamp();
+        focusFirst(screens.champ);
+      } else {
+        audio.sfx.select();
+        btn.dataset.armed = '1';
+        btn.textContent = 'Sure? Press again';
+        setTimeout(() => { delete btn.dataset.armed; btn.textContent = 'Abandon'; }, 3000);
+      }
+      break;
     case 'garage': audio.sfx.select(); state.carsFrom = 'menu'; renderCars(); show('cars'); break;
     case 'howto': audio.sfx.select(); show('howto'); break;
     case 'install': audio.sfx.select(); promptInstall(); break;
@@ -437,11 +617,16 @@ document.addEventListener('click', (e) => {
       // The garage is reached both from the main menu and mid-race-setup.
       audio.sfx.back();
       if (state.carsFrom === 'menu') { show('menu'); break; }
+      if (state.carsFrom === 'champ') { renderChamp(); show('champ'); break; }
       renderTracks();
       show('tracks');
       break;
     case 'to-cars': audio.sfx.select(); state.carsFrom = 'tracks'; renderCars(); show('cars'); break;
-    case 'go': audio.sfx.select(); startRace(); break;
+    case 'go':
+      audio.sfx.select();
+      if (state.carsFrom === 'champ') startChamp();
+      else { state.inChamp = false; startRace(); }
+      break;
     case 'retry': audio.sfx.select(); recordFinishedRace(); startRace(); break;
     case 'resume': audio.sfx.back(); state.paused = false; show('race'); break;
     case 'next-track': {
@@ -454,6 +639,10 @@ document.addEventListener('click', (e) => {
       break;
     }
   }
+});
+
+document.getElementById('champ-difficulty').addEventListener('change', (e) => {
+  state.champDifficulty = Number(e.target.value);
 });
 
 document.getElementById('difficulty').addEventListener('change', (e) => {

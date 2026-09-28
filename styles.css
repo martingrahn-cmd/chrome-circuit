@@ -589,6 +589,83 @@ html, body {
 .results .who { font-weight: 700; }
 .results .when { font-family: var(--mono); font-size: 13px; color: var(--muted); }
 
+/* Championship points against each finish on the results screen. */
+.results .pts { margin-left: 8px; font-family: var(--display); font-weight: 400; color: var(--accent); }
+
+/* ----------------------------------------------------------- Championship */
+.nowrap { white-space: nowrap; }
+.champ-sub { margin: 4px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; max-width: 60ch; }
+.champ-rounds {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  grid-auto-flow: column;
+  gap: 10px;
+}
+.round {
+  position: relative;
+  padding: 8px;
+  border-radius: 12px;
+  border: 1px solid var(--panel-edge);
+  background: rgba(255, 255, 255, 0.03);
+  min-width: 0;
+}
+.round.is-next { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; background: rgba(255, 204, 50, 0.1); }
+.round.is-done .round-art { opacity: 0.55; }
+.round-art { position: relative; height: 54px; border-radius: 8px; overflow: hidden; margin-bottom: 6px; }
+.round-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.round-no { display: block; font-size: 9px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+.round-name { display: block; font-family: var(--display); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.round-place {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(12, 15, 23, 0.85);
+  font-family: var(--display);
+  font-size: 13px;
+}
+.p1 { color: #ffd84a; }
+.p2 { color: #dfe6f2; }
+.p3 { color: #f0a36b; }
+
+.standings { width: 100%; border-collapse: separate; border-spacing: 0 5px; font-size: 14px; }
+.standings th {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-align: center;
+  padding: 0 6px;
+}
+.standings th:nth-child(2) { text-align: left; }
+.standings td { padding: 8px 6px; background: rgba(255, 255, 255, 0.04); text-align: center; font-family: var(--mono); }
+.standings td:first-child { border-radius: 10px 0 0 10px; }
+.standings td:last-child { border-radius: 0 10px 10px 0; }
+.standings td.pos { font-family: var(--display); color: var(--muted); width: 34px; }
+.standings td.who { text-align: left; font-family: var(--body); font-weight: 700; white-space: nowrap; }
+.standings td.who i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 8px; vertical-align: 1px; }
+.standings td.who em { font-style: normal; font-size: 10px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); margin-left: 6px; }
+.standings td.dim { color: #4d5566; }
+.standings td.pts { font-family: var(--display); font-size: 17px; width: 52px; }
+.standings tr.me td { background: rgba(255, 204, 50, 0.12); }
+.standings tr.me td:first-child { box-shadow: 1px 0 0 var(--accent) inset, 0 1px 0 var(--accent) inset, 0 -1px 0 var(--accent) inset; }
+.standings tr.me td:last-child { box-shadow: -1px 0 0 var(--accent) inset, 0 1px 0 var(--accent) inset, 0 -1px 0 var(--accent) inset; }
+.standings tr.me td:not(:first-child):not(:last-child) { box-shadow: 0 1px 0 var(--accent) inset, 0 -1px 0 var(--accent) inset; }
+.standings tbody tr:first-child td.pos { color: #ffd84a; }
+
+/* The title, won: the heading shines. */
+#screen-champ.is-champion #champ-title {
+  color: var(--accent);
+  text-shadow: 0 0 24px rgba(255, 204, 50, 0.55);
+  animation: champGlow 1.6s ease-in-out infinite alternate;
+}
+@keyframes champGlow { to { text-shadow: 0 0 40px rgba(255, 204, 50, 0.9); } }
+
 /* What the podium just opened: a card each, with the thing itself on it. */
 .unlocks { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
 .unlock {
@@ -724,17 +801,18 @@ body.racing .update-chip { display: none; }
 
   .eyebrow { font-size: 10px; letter-spacing: 0.28em; margin-bottom: 4px; }
   .title { font-size: clamp(34px, 13vh, 56px); }
-  .tagline { font-size: 13px; margin: 8px 0 14px; }
-  .menu-buttons { gap: 7px; }
-  .menu-buttons .btn { padding: 9px 20px; font-size: 14px; }
-  .menu-buttons .btn--install { padding: 7px 20px; font-size: 12px; }
+  .tagline { font-size: 13px; margin: 6px 0 10px; }
+  .menu-buttons { gap: 5px; }
+  .menu-buttons .btn { padding: 8px 20px; font-size: 14px; }
+  .menu-buttons .btn--install { padding: 6px 20px; font-size: 12px; }
   .credits { margin-top: 12px; font-size: 10px; }
 
   .panel { display: flex; flex-direction: column; max-height: 100%; padding: 14px 16px; }
   .panel--narrow { width: min(760px, 100%); }
   .panel-head { margin-bottom: 10px; }
   .panel-head h2 { font-size: 19px; }
-  .panel-foot { margin-top: 10px; gap: 8px; }
+  /* The sound toggle sits in the bottom-right corner; keep the buttons off it. */
+  .panel-foot { margin-top: 10px; gap: 8px; padding-right: 40px; }
   .panel-foot .btn { padding: 9px 18px; font-size: 14px; }
 
   .card-grid {
@@ -761,6 +839,14 @@ body.racing .update-chip { display: none; }
 
   .results { grid-template-columns: 1fr 1fr; gap: 6px; }
   .results li { padding: 7px 10px; gap: 8px; }
+  .champ-sub { font-size: 12px; }
+  .champ-rounds { gap: 6px; margin-bottom: 6px; }
+  .round { padding: 5px; }
+  .round-art { display: none; }
+  .round-place { position: static; display: inline-block; margin-top: 2px; padding: 0; background: none; font-size: 12px; }
+  .standings { border-spacing: 0 3px; font-size: 12px; }
+  .standings td { padding: 4px 5px; }
+  .standings td.pts { font-size: 14px; }
   .unlocks { margin-top: 8px; gap: 8px; }
   .unlock { grid-template-columns: 56px 1fr; padding: 5px 8px; }
   .unlock-art { height: 40px; }
@@ -785,9 +871,10 @@ body.racing .update-chip { display: none; }
   .item-icon { width: 22px; height: 22px; }
   .item-slot.has-item .item-label { font-size: 11px; }
 }
-/* Shorter still (a small phone with the browser bars up): the strapline goes. */
+/* Shorter still (a small phone with the browser bars up): the straplines go. */
 @media (max-height: 360px) {
-  .eyebrow { display: none; }
+  .eyebrow, .tagline { display: none; }
+  .title { margin-bottom: 10px; }
 }
 
 @media (max-width: 720px) {
@@ -805,6 +892,11 @@ body.racing .update-chip { display: none; }
   .card-art { height: 64px; margin: -2px -2px 8px; }
   .card-name { font-size: 15px; }
   .bar { grid-template-columns: 42px 1fr; }
+  .champ-rounds { grid-auto-flow: row; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .round-art { height: 40px; }
+  .standings { font-size: 12px; }
+  .standings td { padding: 6px 3px; }
+  .standings th { padding: 0 3px; }
   /* The bottom edge is the item slot and the speedo; the hint goes above ★. */
   .touch-hint { bottom: 220px; }
 }

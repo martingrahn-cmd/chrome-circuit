@@ -110,6 +110,7 @@
       <p class="tagline">Six cars. Three laps. Rockets optional.</p>
       <div class="menu-buttons">
         <button class="btn btn--primary" data-action="race">Start a race</button>
+        <button class="btn" data-action="champ" id="menu-champ">Championship</button>
         <button class="btn" data-action="garage">Garage</button>
         <button class="btn" data-action="howto">How to play</button>
         <!-- Revealed by pwa.js only when the browser offers to install. -->
@@ -155,6 +156,33 @@
     </div>
   </section>
 
+  <section class="screen" id="screen-champ">
+    <div class="panel">
+      <header class="panel-head">
+        <div>
+          <h2 id="champ-title">Championship</h2>
+          <p class="champ-sub" id="champ-sub"></p>
+        </div>
+        <button class="btn btn--ghost" data-action="back-menu">Back</button>
+      </header>
+      <ol class="champ-rounds" id="champ-rounds"></ol>
+      <table class="standings hidden" id="champ-standings"></table>
+      <footer class="panel-foot">
+        <label class="field" id="champ-diff-field">
+          <span>Difficulty</span>
+          <select id="champ-difficulty">
+            <option value="0">Rookie</option>
+            <option value="1">Pro</option>
+            <option value="2">Ace</option>
+            <option value="3">Legend</option>
+          </select>
+        </label>
+        <button class="btn" data-action="champ-abandon" id="champ-abandon">Abandon</button>
+        <button class="btn btn--primary" data-action="champ-next" id="champ-next">Pick your car</button>
+      </footer>
+    </div>
+  </section>
+
   <section class="screen" id="screen-results">
     <div class="panel panel--narrow">
       <header class="panel-head">
@@ -164,8 +192,9 @@
       <div class="unlocks hidden" id="results-unlocks"></div>
       <footer class="panel-foot">
         <button class="btn" data-action="back-menu">Menu</button>
-        <button class="btn" data-action="retry">Rematch</button>
-        <button class="btn btn--primary" data-action="next-track">Next circuit</button>
+        <button class="btn" data-action="retry" id="results-retry">Rematch</button>
+        <button class="btn btn--primary" data-action="next-track" id="results-next">Next circuit</button>
+        <button class="btn btn--primary hidden" data-action="champ-standings" id="results-standings">Standings</button>
       </footer>
     </div>
   </section>

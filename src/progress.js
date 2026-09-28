@@ -1,7 +1,16 @@
-// Persisted progression: unlocked circuits, unlocked cars, best lap times.
+// Persisted progression: unlocked circuits, unlocked cars, best lap times,
+// and a championship in progress.
+import { RACERS } from './roster.js';
+import { TRACKS } from './tracks.js';
+import { validate as validateChamp } from './champ.js';
+
 const KEY = 'chrome-circuit-progress-v1';
 
-const blank = () => ({ unlockedTracks: ['downtown'], unlockedCars: [], best: {}, places: {}, difficulty: 0 });
+const blank = () => ({
+  unlockedTracks: ['downtown'], unlockedCars: [], best: {}, places: {}, difficulty: 0,
+  champ: null,      // the championship in progress (or just finished)
+  champBest: {},    // best final championship place, by difficulty
+});
 
 const isObj = (v) => v != null && typeof v === 'object' && !Array.isArray(v);
 
@@ -21,6 +30,8 @@ export function load() {
       best: isObj(p.best) ? p.best : d.best,
       places: isObj(p.places) ? p.places : d.places,
       difficulty: [0, 1, 2, 3].includes(p.difficulty) ? p.difficulty : d.difficulty,
+      champ: validateChamp(p.champ, RACERS.map((r) => r.id), TRACKS.map((t) => t.id)),
+      champBest: isObj(p.champBest) ? p.champBest : d.champBest,
     };
   } catch {
     return blank();
