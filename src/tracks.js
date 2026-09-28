@@ -9,12 +9,12 @@
 // `h` is the model's height and `r` its footprint radius, both in model units
 // (one tile = 1.0); the scenery builder multiplies them by `scale` and the tile
 // size to decide whether a prop is short enough, and far enough, to place.
+//
+// Only things that make sense standing on their own in a field: planters and
+// small trees. A lone path, parasol, dumpster or length of fence did not —
+// dumpsters now stand beside buildings, fences run along the rally roads.
 const LOW_PROPS = [
   { kit: 'suburb', model: 'planter', scale: 1.6, h: 0.18, r: 0.20 },
-  { kit: 'suburb', model: 'fence-low', scale: 1.0, h: 0.17, r: 0.64 },
-  { kit: 'suburb', model: 'path-stones-long', scale: 1.0, h: 0.01, r: 0.20 },
-  { kit: 'roads', model: 'dumpster', scale: 1.0, h: 0.21, r: 0.23 },
-  { kit: 'city', model: 'detail-parasol-a', scale: 1.5, h: 0.45, r: 0.20 },
   { kit: 'suburb', model: 'tree-small', scale: 1.0, h: 0.57, r: 0.12 },
 ];
 
@@ -55,7 +55,6 @@ const SUBURB_PROPS = [
   { kit: 'suburb', model: 'building-type-q', scale: 1.1, h: 0.92, r: 0.62 },
   { kit: 'suburb', model: 'tree-large', scale: 1.1, h: 0.77, r: 0.12 },
   { kit: 'items', model: 'tree-pine', scale: 1.0, h: 0.83, r: 0.28 },
-  { kit: 'suburb', model: 'fence-1x3', scale: 0.6, h: 0.27, r: 0.64 },
   ...LOW_PROPS,
 ];
 
@@ -65,26 +64,25 @@ const WILD_PROPS = [
   { kit: 'items', model: 'tree', scale: 1.0, h: 0.83, r: 0.25 },
   { kit: 'suburb', model: 'tree-large', scale: 1.1, h: 0.77, r: 0.12 },
   { kit: 'suburb', model: 'tree-small', scale: 1.0, h: 0.57, r: 0.12 },
-  { kit: 'suburb', model: 'fence-1x3', scale: 0.55, h: 0.27, r: 0.64 },
-  ...LOW_PROPS,
+  // No planters: city street furniture has no business in a forest.
 ];
 
-// Trackside furniture. `offset` is the gap left outside the track limit, so
-// nothing here is ever reachable by a car that is still on the circuit.
-const CITY_SIDE = [
-  // `across`: the lamp arm (local -Z) must reach over the road, not run along it.
-  { kit: 'roads', model: 'light-square', scale: 1, r: 0.21, offset: 0.5, across: true },
-  { kit: 'roads', model: 'light-curved', scale: 1, r: 0.20, offset: 0.5, across: true },
-  { kit: 'roads', model: 'traffic-light', scale: 1, r: 0.07, offset: 0.7 },
-  { kit: 'roads', model: 'road-sign-warning', scale: 1, r: 0.07, offset: 0.7 },
-];
-
-const RALLY_SIDE = [
-  { kit: 'roads', model: 'construction-barrier', scale: 1.3, r: 0.11, offset: 0.25 },
-  { kit: 'roads', model: 'construction-cone', scale: 1.5, r: 0.04, offset: 0.2 },
-  { kit: 'roads', model: 'road-sign-warning', scale: 1, r: 0.07, offset: 0.7 },
-  { kit: 'suburb', model: 'fence', scale: 0.85, r: 0.24, offset: 0.35 },
-];
+// Trackside furniture, by role rather than by lottery. Street circuits get a
+// row of lamps at even spacing and a warning sign before each real corner;
+// rally roads get a fence along the straights, barriers round the outside of
+// the corners and cones on the apexes. Traffic lights belong on the start
+// gantry, which builds its own.
+const STREET = {
+  lamp: { kit: 'roads', model: 'light-curved', scale: 1 },
+  cornerSign: { kit: 'roads', model: 'road-sign-warning', scale: 1 },
+};
+const STREET_SQUARE = { ...STREET, lamp: { kit: 'roads', model: 'light-square', scale: 1 } };
+const RALLY = {
+  fence: { kit: 'suburb', model: 'fence', scale: 1, length: 0.48 },
+  cornerBarrier: { kit: 'roads', model: 'construction-barrier', scale: 1.3 },
+  apexCone: { kit: 'roads', model: 'construction-cone', scale: 1.5 },
+  cornerSign: { kit: 'roads', model: 'road-sign-warning', scale: 1 },
+};
 
 export const TRACKS = [
   {
@@ -99,7 +97,7 @@ export const TRACKS = [
     difficulty: 1,
     theme: {
       sky: 0x9ad8ee, ground: 0x74a35c, density: 0.44,
-      props: CITY_PROPS, trackside: CITY_SIDE,
+      props: CITY_PROPS, dress: STREET, plot: 0xb3b8c2,
     },
   },
   {
@@ -114,7 +112,7 @@ export const TRACKS = [
     difficulty: 2,
     theme: {
       sky: 0x86c8e4, ground: 0x6f9a86, density: 0.38,
-      props: CITY_PROPS, trackside: CITY_SIDE,
+      props: CITY_PROPS, dress: STREET_SQUARE, plot: 0xb3b8c2,
     },
   },
   {
@@ -130,7 +128,7 @@ export const TRACKS = [
     theme: {
       sky: 0xf3c9d8, ground: 0x86ad63, density: 0.52,
       light: { hemiSky: 0xffe3ef, hemiGround: 0x6a8a4e, hemi: 1.5, sun: 0xfff0e0, sunPower: 1.7 },
-      props: SUBURB_PROPS, trackside: RALLY_SIDE,
+      props: SUBURB_PROPS, dress: RALLY, plot: 0xd9cfbd,
     },
   },
   {
@@ -146,7 +144,7 @@ export const TRACKS = [
     theme: {
       sky: 0x5b4c86, ground: 0x3f4459, density: 0.5,
       light: { hemiSky: 0x8f7fd0, hemiGround: 0x2b2f45, hemi: 1.1, sun: 0xffd9a8, sunPower: 2.3 },
-      props: TOWER_PROPS, trackside: CITY_SIDE,
+      props: TOWER_PROPS, dress: STREET_SQUARE, plot: 0x5c6178,
     },
   },
   {
@@ -161,7 +159,7 @@ export const TRACKS = [
     difficulty: 5,
     theme: {
       sky: 0xa9d8e0, ground: 0x5f8a4a, density: 0.66,
-      props: WILD_PROPS, trackside: RALLY_SIDE,
+      props: WILD_PROPS, dress: RALLY,
     },
   },
 ];

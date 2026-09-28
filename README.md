@@ -211,6 +211,16 @@ can only ever hide the track cells at `(x-k, z-k)`. Each candidate cell gets a h
 budget from how far the nearest such track cell is, and only props that fit under it
 are eligible. Tall towers end up behind the circuit and low dressing in front of it.
 
+Every prop has a job. Street circuits get a row of lamps at even spacing along the
+camera-far side and a warning sign on the outside before each corner that asks you
+to brake; rally roads get a fence along the straights and barriers round the outside
+of the corners. The traffic lights live on the start gantry, where five of them fill
+red through the countdown and go green at the start. Buildings stand on paved plots,
+sometimes with a dumpster round the side, and only things that make sense on their
+own — trees, and planters in town — stand in the open. Every corner has red-and-white
+kerbs, the grid has painted slots, and a grandstand full of spectators faces the
+start straight from the far side, where it frames the grid instead of hiding it.
+
 ### Performance
 
 The whole track — road, barriers, buildings, trees — is merged into one mesh per kit,
