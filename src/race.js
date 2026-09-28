@@ -184,6 +184,14 @@ export class Race {
 
     const racing = this.phase !== 'countdown';
 
+    // The gantry lights fill red through the countdown and go green at the
+    // start, then go dark again.
+    if (this.phase === 'countdown') {
+      this.track.setStartLights(Math.max(0, Math.min(5, Math.floor((this.clock + 3.6) / 0.66))));
+    } else {
+      this.track.setStartLights(this.raceTime < 1.8 ? 5 : 0, 0x3ddc84);
+    }
+
     // --- Player input -----------------------------------------------------
     const p = this.player;
     if (p && this.autopilot) {

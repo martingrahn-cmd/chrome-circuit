@@ -385,9 +385,103 @@ export class Track {
       this.group.add(dashes);
     }
 
+    this.buildKerbs();
+    this.buildGridBoxes();
+
     // On walled circuits the armco follows the same line the cars are
     // clamped to, so the rail you see is the limit you hit.
     if (this.walls) this.buildArmco();
+  }
+
+  /**
+   * Corners as runs of bent samples that turn one way: where each starts, how
+   * long it is, how far it turns and which side is its inside. An S-bend is
+   * two corners, not one that nets out to nothing. Left of the direction of
+   * travel is +1 (the (t.z, -t.x) axis the road strips use).
+   */
+  corners() {
+    if (this._corners) return this._corners;
+    const line = this.line, n = line.n;
+    const look = Math.max(2, Math.round(3 / line.spacing));
+    const turnAt = (i) => {
+      const a = line.tangent(i), b = line.tangent(i + look);
+      let d = Math.atan2(b.x, b.z) - Math.atan2(a.x, a.z);
+      while (d > Math.PI) d -= Math.PI * 2;
+      while (d < -Math.PI) d += Math.PI * 2;
+      return d;
+    };
+    const bent = (i) => line.curveAt(i) > 0.012;
+    // Begin on a straight so no corner straddles the seam.
+    let s0 = 0;
+    while (s0 < n && bent(s0)) s0++;
+    const runs = [];
+    for (let k = 0; k < n;) {
+      const i = s0 + k;
+      if (!bent(i)) { k++; continue; }
+      const dir = Math.sign(turnAt(i)) || 1;
+      let len = 0, turn = 0;
+      while (k + len < n && bent(i + len) && (Math.sign(turnAt(i + len)) || dir) === dir) {
+        const a = line.tangent(i + len), b = line.tangent(i + len + 1);
+        turn += Math.acos(Math.max(-1, Math.min(1, a.x * b.x + a.z * b.z)));
+        len++;
+      }
+      runs.push({ start: i % n, len, turn, inside: dir, outside: -dir });
+      k += Math.max(1, len);
+    }
+    return (this._corners = runs);
+  }
+
+  /** Red-and-white kerbs on both edges through every corner. */
+  buildKerbs() {
+    const line = this.line, w = this.roadHalf;
+    const pos = [], col = [];
+    const red = new THREE.Color(0xd63a3a), white = new THREE.Color(0xf1f3f6);
+    for (const run of this.corners()) {
+      if (run.turn < 0.35) continue;          // a kink, not a corner
+      for (let k = -2; k < run.len + 2; k++) {
+        const i = run.start + k;
+        const p0 = line.point(i), p1 = line.point(i + 1);
+        const t0 = line.tangent(i), t1 = line.tangent(i + 1);
+        const c = ((i % 2) + 2) % 2 ? red : white;
+        for (const side of [-1, 1]) {
+          const q = (p, t, off) => [p.x + t.z * off * side, 0.118, p.z - t.x * off * side];
+          const a = q(p0, t0, w - 0.15), b = q(p0, t0, w + 0.85);
+          const d = q(p1, t1, w - 0.15), e = q(p1, t1, w + 0.85);
+          pos.push(...a, ...b, ...d, ...b, ...e, ...d);
+          for (let v = 0; v < 6; v++) col.push(c.r, c.g, c.b);
+        }
+      }
+    }
+    if (!pos.length) return;
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    g.computeVertexNormals();
+    const mesh = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }));
+    mesh.receiveShadow = true;
+    this.group.add(mesh);
+  }
+
+  /** Painted grid slots: a bar ahead of each car and a tick either side. */
+  buildGridBoxes() {
+    const geoms = [];
+    const add = (x, z, heading, across, along, w, d) => {
+      const g = new THREE.PlaneGeometry(w, d);
+      g.rotateX(-Math.PI / 2);
+      g.translate(across, 0, -along);   // local +X is the car's left, +Z its forward
+      g.rotateY(heading);
+      g.translate(x, 0.122, z);
+      geoms.push(g);
+    };
+    for (const slot of this.startSlots(6)) {
+      const h = slot.heading;
+      add(slot.x, slot.z, h, 0, -1.7, 2.5, 0.24);          // bar across, just ahead of the nose
+      for (const s of [-1, 1]) add(slot.x, slot.z, h, s * 1.25, -1.05, 0.2, 1.5);
+    }
+    const mesh = new THREE.Mesh(mergeGeometries(geoms, false), new THREE.MeshLambertMaterial({ color: 0xeef1f6 }));
+    geoms.forEach((g) => g.dispose());
+    mesh.receiveShadow = true;
+    this.group.add(mesh);
   }
 
   buildArmco() {
@@ -490,11 +584,178 @@ export class Track {
     banner.position.set(0, postH - 1.02, 0);
     gantry.add(banner);
 
+    // Five start lights on top of the beam: they fill red through the
+    // countdown and all go green at the start (Race drives them).
+    const housing = new THREE.Mesh(new THREE.BoxGeometry(4.6, 0.7, 0.7), new THREE.MeshLambertMaterial({ color: 0x2b3040 }));
+    housing.position.set(0, postH + 0.35, 0);
+    housing.castShadow = true;
+    gantry.add(housing);
+    this.startLamps = [];
+    const bulb = new THREE.SphereGeometry(0.34, 14, 10);
+    for (let k = 0; k < 5; k++) {
+      const mat = new THREE.MeshBasicMaterial({ color: 0x1a1d26 });
+      const lamp = new THREE.Mesh(bulb, mat);
+      lamp.position.set((k - 2) * 0.88, postH + 0.62, 0);
+      gantry.add(lamp);
+      this.startLamps.push(mat);
+    }
+
     gantry.position.set(p.x, 0, p.z);
     gantry.rotation.y = heading;
     this.group.add(gantry);
   }
 
+
+  /** Light `lit` of the five start lights in `colour`; the rest go dark. */
+  setStartLights(lit, colour = 0xff3b30) {
+    if (!this.startLamps || (this.shownLit === lit && this.shownColour === colour)) return;
+    this.shownLit = lit; this.shownColour = colour;
+    this.startLamps.forEach((m, k) => m.color.setHex(k < lit ? colour : 0x1a1d26));
+  }
+
+  /**
+   * A grandstand on the far side of the start straight — far from the camera,
+   * so it frames the grid instead of hiding it. Stepped terraces with a crowd
+   * on every step and a banner along the back wall; no roof, because from
+   * this camera a roof is all you would see. Returns the ground it covers so
+   * nothing else is placed on top of it.
+   */
+  buildGrandstand() {
+    const line = this.line;
+    const i = this.startIndex + Math.round(4 / line.spacing);
+    const p = line.point(i), t = line.tangent(i);
+    const side = -Math.sign(t.z - t.x) || 1;             // camera-far side
+    const heading = Math.atan2(t.x, t.z);
+    const length = 26, tiers = 5, step = 1.3, rise = 0.7;
+    const inner = this.wallHalf + (this.walls ? 2.2 : 2.6);
+    const at = (k) => side * (inner + k * step + step / 2);
+    const concrete = [], painted = [], paintCol = [];
+    const paint = (g, colour) => {
+      const c = new THREE.Color(colour);
+      for (let v = 0; v < g.attributes.position.count; v++) paintCol.push(c.r, c.g, c.b);
+      painted.push(g);
+    };
+    const rng = mulberry32((this.def.seed ?? 1) + 99);
+    const shirts = [0xef4444, 0xfacc15, 0x38bdf8, 0xf8fafc, 0x22c55e, 0xfb923c, 0xa78bfa, 0xf472b6, 0x1f2937];
+    const skin = [0xf1c9a5, 0xd9a47a, 0xa8714a, 0x6e4a33];
+    for (let k = 0; k < tiers; k++) {
+      const h = (k + 1) * rise;
+      const g = new THREE.BoxGeometry(step, h, length);
+      g.translate(at(k), h / 2, 0);
+      concrete.push(g);
+      // Seats in team colours along each step, a spectator in most of them.
+      const seats = new THREE.BoxGeometry(step * 0.5, 0.08, length - 0.4);
+      seats.translate(at(k) + side * step * 0.12, h + 0.04, 0);
+      paint(seats, k % 2 ? 0x2d6cdf : 0xd63a3a);
+      for (let z = -length / 2 + 0.5; z < length / 2 - 0.3; z += 0.72) {
+        if (rng() < 0.12) continue;
+        const body = new THREE.BoxGeometry(0.5, 0.62, 0.48);
+        body.translate(at(k) + side * step * 0.12, h + 0.39, z + (rng() - 0.5) * 0.12);
+        paint(body, shirts[Math.floor(rng() * shirts.length)]);
+        const head = new THREE.BoxGeometry(0.3, 0.3, 0.3);
+        head.translate(at(k) + side * step * 0.12, h + 0.86, z);
+        paint(head, skin[Math.floor(rng() * skin.length)]);
+      }
+    }
+    // Back wall, with a banner along its top in the circuit's colours.
+    const back = inner + tiers * step;
+    const wallH = tiers * rise + 1.3;
+    const wall = new THREE.BoxGeometry(0.4, wallH, length);
+    wall.translate(side * (back + 0.2), wallH / 2, 0);
+    concrete.push(wall);
+    const cells = 13;
+    for (let k = 0; k < cells; k++) {
+      const b = new THREE.BoxGeometry(0.1, 0.9, length / cells);
+      b.translate(side * (back - 0.02), wallH - 0.55, -length / 2 + (k + 0.5) * (length / cells));
+      paint(b, k % 2 ? 0xf1f3f6 : 0xd63a3a);
+    }
+    const group = new THREE.Group();
+    const standMesh = new THREE.Mesh(mergeGeometries(concrete, false), new THREE.MeshLambertMaterial({ color: 0xb7bdc8 }));
+    standMesh.castShadow = true; standMesh.receiveShadow = true;
+    group.add(standMesh);
+    const crowd = mergeGeometries(painted, false);
+    crowd.setAttribute('color', new THREE.Float32BufferAttribute(paintCol, 3));
+    const crowdMesh = new THREE.Mesh(crowd, new THREE.MeshLambertMaterial({ vertexColors: true }));
+    crowdMesh.castShadow = true;
+    group.add(crowdMesh);
+    concrete.forEach((g) => g.dispose()); painted.forEach((g) => g.dispose());
+    group.position.set(p.x, 0, p.z);
+    group.rotation.y = heading;
+    this.group.add(group);
+
+    // The ground it stands on, as circles along its length.
+    const mid = inner + (tiers * step) / 2;
+    const cover = [];
+    for (let z = -length / 2; z <= length / 2; z += 4) {
+      const lx = side * mid;                              // local +X is the left axis
+      cover.push({ x: p.x + t.z * lx + t.x * z, z: p.z - t.x * lx + t.z * z, r: tiers * step / 2 + 3 });
+    }
+    return cover;
+  }
+
+  /**
+   * Trackside furniture with a job to do, by the theme's `dress` roles:
+   * street lamps at an even spacing along the camera-far side; a warning sign
+   * on the outside, before each real corner; on rally roads a fence along the
+   * straights and barriers round the outside of the corners. Nothing is ever
+   * placed where a car at the track limit could reach it.
+   */
+  buildDressing(dress, push, reserved) {
+    if (!dress) return;
+    const line = this.line, n = line.n, sp = line.spacing;
+    const fromStart = (i) => Math.abs((((i - this.startIndex) % n) + n + n / 2) % n - n / 2) * sp;
+    const farSide = (t) => -Math.sign(t.z - t.x) || 1;
+    const place = (spec, i, side, off, yaw) => {
+      const p = line.point(i), t = line.tangent(i);
+      const sc = TILE * (spec.scale ?? 1);
+      const px = p.x + t.z * off * side, pz = p.z - t.x * off * side;
+      if (line.locate(px, pz, null).dist < this.wallHalf + 0.5) return;
+      if (reserved.some((r) => Math.hypot(px - r.x, pz - r.z) < r.r)) return;
+      const m = new THREE.Matrix4().makeRotationY(yaw(t, side)).scale(new THREE.Vector3(sc, sc, sc));
+      m.setPosition(px, 0, pz);
+      push(spec.kit, spec.model, m);
+    };
+    const beyond = this.walls ? 1.3 : 0.9;              // outside the armco where there is one
+    // Model axes: lamp arms reach along local -Z; a sign's face and a fence's
+    // run lie along local X; a barrier's length along local Z.
+    const armOver = (t, side) => Math.atan2(t.x, t.z) + side * Math.PI / 2;
+    const faceOncoming = (t) => Math.atan2(t.z, -t.x);
+    const alongX = (t) => Math.atan2(-t.z, t.x);
+    const alongZ = (t) => Math.atan2(t.x, t.z);
+
+    if (dress.lamp) {
+      const every = Math.max(1, Math.round(16 / sp));
+      for (let i = 0; i < n; i += every) {
+        if (fromStart(i) < 10) continue;
+        const t = line.tangent(i);
+        place(dress.lamp, i, farSide(t), this.wallHalf + beyond, armOver);
+      }
+    }
+    for (const run of this.corners()) {
+      if (run.turn < 0.8) continue;                      // only corners that ask you to brake
+      if (dress.cornerSign) {
+        const i = run.start - Math.round(9 / sp);
+        if (fromStart(i) > 10) place(dress.cornerSign, i, run.outside, this.wallHalf + beyond + 0.4, faceOncoming);
+      }
+      if (dress.cornerBarrier) {
+        const every = Math.max(1, Math.round(2.8 / sp));
+        for (let k = 0; k <= run.len; k += every) place(dress.cornerBarrier, run.start + k, run.outside, this.wallHalf + 1.0, alongZ);
+      }
+    }
+    if (dress.fence) {
+      const seg = dress.fence.length * TILE * (dress.fence.scale ?? 1);
+      let run = 0;
+      for (let i = 0; i < n; i++) {
+        const straight = line.curveAt(i) < 0.004 && line.curveAt(i + 3) < 0.004 && line.curveAt(i - 3) < 0.004;
+        run = straight && fromStart(i) > 14 ? run + sp : 0;
+        if (run >= seg) {
+          run = 0;
+          const j = i - Math.round(seg / 2 / sp);
+          place(dress.fence, j, farSide(line.tangent(j)), this.wallHalf + 1.2, alongX);
+        }
+      }
+    }
+  }
 
   /**
    * Scatter kit props on cells outside the racing loop.
@@ -508,6 +769,8 @@ export class Track {
    */
   buildScenery(theme) {
     const rng = mulberry32(this.def.seed ?? 1337);
+    const reserved = this.buildGrandstand();
+    const plots = [];
     const bounds = this.bounds();
     // Cells touching the road take low dressing only; the road itself takes none.
     const verge = new Set();
@@ -545,7 +808,9 @@ export class Track {
           const wz = (z + (rng() - 0.5) * 0.3) * TILE;
           // Never place anything a car on track could drive into.
           const clearance = this.wallHalf + (spec.r ?? 0.5) * scale * TILE + 0.6;
-          if (this.line.locate(wx, wz, null).dist < clearance) continue;
+          const dist = this.line.locate(wx, wz, null).dist;
+          if (dist < clearance) continue;
+          if (reserved.some((r) => Math.hypot(wx - r.x, wz - r.z) < r.r + (spec.r ?? 0.5) * scale * TILE)) continue;
 
           const angle = Math.floor(rng() * 4) * Math.PI / 2;
           const m = new THREE.Matrix4()
@@ -553,42 +818,37 @@ export class Track {
             .scale(new THREE.Vector3(TILE * scale, TILE * scale, TILE * scale));
           m.setPosition(wx, 0, wz);
           push(spec.kit, spec.model, m);
+
+          // A building stands on its own paved plot, not on the lawn, and
+          // now and then keeps its dumpster round the side.
+          if (theme.plot != null && /building/.test(spec.model)) {
+            const half = Math.min((spec.r ?? 0.5) * scale * TILE + 0.9, dist - this.wallHalf - 0.4);
+            if (half > 1) {
+              const slab = new THREE.BoxGeometry(half * 2, 0.16, half * 2);
+              slab.translate(wx, 0.02, wz);
+              plots.push(slab);
+              if (rng() < 0.35) {
+                const along = (rng() < 0.5 ? -1 : 1) * (half - 0.9);
+                const dx = rng() < 0.5 ? along : 0, dz = dx ? 0 : along;
+                if (this.line.locate(wx + dx, wz + dz, null).dist > this.wallHalf + 2) {
+                  const d = new THREE.Matrix4().makeRotationY(angle).scale(new THREE.Vector3(TILE, TILE, TILE));
+                  d.setPosition(wx + dx, 0, wz + dz);
+                  push('roads', 'dumpster', d);
+                }
+              }
+            }
+          }
         }
       }
     }
 
-    // Trackside dressing on the shoulder of every few tiles.
-    const dress = theme.trackside || [];
-    if (dress.length) {
-      const step = Math.max(4, Math.round(7 / this.line.spacing));
-      for (let i = 0; i < this.line.n; i += step) {
-        if (this.line.curveAt(i) > 0.02) continue;
-        const spec = dress[Math.floor(rng() * dress.length)];
-        const p = this.line.point(i), t = this.line.tangent(i);
-        // Tall lamps stand on the camera-far side of the road, where they
-        // draw behind the cars — on the near side the pole cuts straight
-        // across any car running the outer lane. Short furniture may sit
-        // on either side.
-        const side = spec.across
-          ? (-Math.sign(t.z - t.x) || 1)
-          : (rng() < 0.5 ? -1 : 1);
-        const sc = TILE * (spec.scale ?? 1);
-        const off = this.wallHalf + (spec.r ?? 0.2) * sc + (spec.offset ?? 0.4);
-        // The offset is measured from this sample, but a neighbouring corner
-        // arc can swing the line closer — skip any spot a car at the track
-        // limit could actually reach, same rule the scattered props obey.
-        const px = p.x + t.z * off * side, pz = p.z - t.x * off * side;
-        if (this.line.locate(px, pz, null).dist < this.wallHalf + (spec.r ?? 0.2) * sc + 0.4) continue;
-        const heading = Math.atan2(t.x, t.z);
-        // Lamp arms (local -Z, spec.across) turn to reach over the road;
-        // signs and barriers keep facing along it.
-        const yaw = spec.across ? heading + side * Math.PI / 2 : heading + (side < 0 ? Math.PI : 0);
-        const m = new THREE.Matrix4()
-          .makeRotationY(yaw)
-          .scale(new THREE.Vector3(sc, sc, sc));
-        m.setPosition(px, 0, pz);
-        push(spec.kit, spec.model, m);
-      }
+    this.buildDressing(theme.dress, push, reserved);
+
+    if (plots.length) {
+      const mesh = new THREE.Mesh(mergeGeometries(plots, false), new THREE.MeshLambertMaterial({ color: theme.plot }));
+      plots.forEach((g) => g.dispose());
+      mesh.receiveShadow = true;
+      this.group.add(mesh);
     }
 
     for (const [kit, entries] of byKit) {
@@ -609,7 +869,8 @@ export class Track {
   modelsUsed() {
     const list = new Set();
     for (const spec of (this.def.theme?.props || [])) list.add(`${spec.kit}/${spec.model}`);
-    for (const spec of (this.def.theme?.trackside || [])) list.add(`${spec.kit}/${spec.model}`);
+    for (const spec of Object.values(this.def.theme?.dress || {})) list.add(`${spec.kit}/${spec.model}`);
+    list.add('roads/dumpster');     // beside buildings
     return [...list].map((s) => s.split('/'));
   }
 }
