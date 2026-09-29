@@ -10,6 +10,12 @@ import { EngineSound, sfx } from './audio.js';
 const GRID = 6;
 const DRAFT_RANGE = 15;
 
+// How much world the camera shows, relative to the original framing: 0.85 is
+// 15% closer, so the cars and the trackside read bigger while the next corner
+// is still in view at full speed. Everything that follows the camera — the
+// look-ahead, the particle size, the celebration pull-in — scales with it.
+const CAMERA_ZOOM = 0.85;
+
 export class Race {
   constructor({ engine, track, playerSpec, roster, difficulty = 1 }) {
     this.engine = engine;
@@ -300,9 +306,9 @@ export class Race {
       e.look(p.x + f.x * this.camLead, 0, p.z + f.z * this.camLead);
       // Pull in close for the finish celebration, back out while racing —
       // and keep backing out under a turbo instead of capping at top speed.
-      const targetZoom = this.coolDown
+      const targetZoom = CAMERA_ZOOM * (this.coolDown
         ? 27
-        : 35 + Math.min(14, Math.abs(p.vLong) * 0.42);
+        : 35 + Math.min(14, Math.abs(p.vLong) * 0.42));
       this.engine.setZoom(this.engine.viewSize + (targetZoom - this.engine.viewSize) * Math.min(1, dt * 2));
       this.particles.setScale(this.engine.renderer.domElement.height, this.engine.viewSize);
       // At the lights the car does not move, but the engine answers the pedal.
