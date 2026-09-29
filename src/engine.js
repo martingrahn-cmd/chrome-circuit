@@ -17,7 +17,7 @@ export class Engine {
     this.scene.background = new THREE.Color(0x8fd0e8);
     this.scene.fog = new THREE.Fog(0x8fd0e8, 150, 320);
 
-    this.viewSize = 37;
+    this.viewSize = 31.5;   // settles to the race's own framing (race.js, CAMERA_ZOOM) within a second
     this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 900);
     this.target = new THREE.Vector3();
     this.camShake = 0;
