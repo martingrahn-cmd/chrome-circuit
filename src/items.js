@@ -41,11 +41,17 @@ export class ItemField {
   build() {
     const line = this.track.line;
     const group = new THREE.Group();
-    // Rows of three boxes on the straights.
+    // Rows of three boxes on the straights — but none on the grid or the
+    // launch run just past the line: the start is for racing off the lights,
+    // and a row of boxes between the grid slots only reads as a mistake.
+    const n = line.n, start = this.track.startIndex;
+    const fromLine = (i) => ((((i - start) % n) + n + n / 2) % n - n / 2) * line.spacing;
     const spacing = Math.max(28, line.length / 7);
     for (let d = spacing * 0.5; d < line.length; d += spacing) {
       const i = Math.round(d / line.spacing);
       if (line.curveAt(i) > 0.025) continue;
+      const a = fromLine(i);
+      if (a > -32 && a < 14) continue;
       const p = line.point(i), t = line.tangent(i);
       for (let k = -1; k <= 1; k++) {
         const off = k * this.track.roadHalf * 0.62;
