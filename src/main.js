@@ -122,7 +122,7 @@ function show(name) {
 
 function focusables(screen) {
   if (!screen) return [];
-  return [...screen.querySelectorAll('button:not([disabled]), select')]
+  return [...screen.querySelectorAll('button:not([disabled])')]
     .filter((el) => el.offsetParent !== null);
 }
 
@@ -142,16 +142,6 @@ function navigate(dir) {
   if (!items.length) return;
   const current = items.includes(document.activeElement) ? document.activeElement : null;
   if (!current) { items[0].focus(); return; }
-
-  if (current.tagName === 'SELECT' && (dir === 'left' || dir === 'right')) {
-    const next = current.selectedIndex + (dir === 'right' ? 1 : -1);
-    if (next >= 0 && next < current.options.length) {
-      current.selectedIndex = next;
-      current.dispatchEvent(new Event('change', { bubbles: true }));
-      audio.sfx.select();
-    }
-    return;
-  }
 
   const a = current.getBoundingClientRect();
   const ax = (a.left + a.right) / 2, ay = (a.top + a.bottom) / 2;
@@ -175,9 +165,6 @@ function activateFocused() {
   const el = document.activeElement;
   if (el && screen?.contains(el)) {
     if (el.tagName === 'BUTTON') { el.click(); return; }
-    // A focused select is adjusted with left/right; confirm on it must not
-    // fire some unrelated button.
-    if (el.tagName === 'SELECT') return;
   }
   // Focus got lost: take the screen's main action, same as focusFirst prefers.
   (screen?.querySelector('.btn--primary') || focusables(screen)[0])?.click();
@@ -241,6 +228,36 @@ function swatch(def) {
 
 const STAT_MAX = { engine: 20, topSpeed: 31, handling: 3.2, mass: 1.7 };
 const DIFFICULTY = ['Rookie', 'Pro', 'Ace', 'Legend'];
+// How each level is shown wherever it is picked or reported.
+const LEVELS = [
+  { blurb: 'First time? Start here.', colour: '#4ade80' },
+  { blurb: 'A fair fight.', colour: '#38bdf8' },
+  { blurb: 'Rivals who rarely miss.', colour: '#fb923c' },
+  { blurb: 'No help. No mercy.', colour: '#f43f5e' },
+];
+
+/** The four level buttons, built once into each picker. */
+function buildLevels(el) {
+  el.replaceChildren(...DIFFICULTY.map((name, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'level';
+    b.dataset.action = 'difficulty';
+    b.dataset.diff = String(i);
+    b.style.setProperty('--lvl', LEVELS[i].colour);
+    b.innerHTML = `<span class="level-name">${name}</span><span class="level-blurb">${LEVELS[i].blurb}</span>`;
+    return b;
+  }));
+}
+
+function showLevel(el, value) {
+  for (const b of el.querySelectorAll('.level')) b.setAttribute('aria-pressed', String(Number(b.dataset.diff) === value));
+}
+
+/** A level's name in its own colour, for the HUD and the results. */
+function levelTag(i) {
+  return `<b class="level-tag" style="color:${LEVELS[i].colour}">${DIFFICULTY[i]}</b>`;
+}
 
 function renderCars() {
   const list = document.getElementById('car-list');
@@ -350,6 +367,7 @@ function startRace() {
   const def = trackById(state.trackId);
   const race = buildRace(def);
   hud.reset();
+  hud.setLevel(levelTag(race.difficulty));
   hud.prepareMap(race.track);
   state.paused = false;
   show('race');
@@ -387,6 +405,8 @@ function finishRace() {
     cars: RACERS,
   });
 
+  document.getElementById('results-sub').innerHTML =
+    `${levelTag(race.difficulty)} · ${trackById(state.trackId).name}${gained ? ` · round ${state.progress.champ.round} of ${state.progress.champ.rounds.length}` : ''}`;
   document.getElementById('results-title').textContent =
     mine.place === 1 ? 'Winner!' : mine.place <= 3 ? `Podium — ${ordinal(mine.place)}` : `Finished ${ordinal(mine.place)}`;
 
@@ -519,8 +539,8 @@ function renderChamp() {
     next.textContent = 'New championship';
   }
   screens.champ.classList.toggle('is-champion', !!c && !active && myPlace === 1);
-  document.getElementById('champ-diff-field').classList.toggle('hidden', !!c);
-  document.getElementById('champ-difficulty').value = String(state.champDifficulty);
+  document.getElementById('champ-difficulty').classList.toggle('hidden', !!c);
+  showLevel(document.getElementById('champ-difficulty'), state.champDifficulty);
   document.getElementById('champ-abandon').classList.toggle('hidden', !active);
 
   // The rounds: each circuit, with your finish once it has been raced.
@@ -606,6 +626,7 @@ document.addEventListener('click', (e) => {
     case 'garage': audio.sfx.select(); state.carsFrom = 'menu'; renderCars(); show('cars'); break;
     case 'howto': audio.sfx.select(); show('howto'); break;
     case 'install': audio.sfx.select(); promptInstall(); break;
+    case 'difficulty': audio.sfx.select(); pickLevel(btn); break;
     case 'back-menu':
       audio.sfx.back();
       recordFinishedRace();
@@ -641,15 +662,26 @@ document.addEventListener('click', (e) => {
   }
 });
 
-document.getElementById('champ-difficulty').addEventListener('change', (e) => {
-  state.champDifficulty = Number(e.target.value);
-});
+{
+  const pickRace = document.getElementById('difficulty');
+  const pickChamp = document.getElementById('champ-difficulty');
+  buildLevels(pickRace);
+  buildLevels(pickChamp);
+}
 
-document.getElementById('difficulty').addEventListener('change', (e) => {
-  state.difficulty = Number(e.target.value);
-  state.progress.difficulty = state.difficulty;
-  progress.save(state.progress);
-});
+function pickLevel(btn) {
+  const value = Number(btn.dataset.diff);
+  const group = btn.closest('.levels');
+  if (group.dataset.group === 'champ') {
+    state.champDifficulty = value;
+  } else {
+    state.difficulty = value;
+    state.progress.difficulty = value;
+    progress.save(state.progress);
+    renderTracks();
+  }
+  showLevel(group, value);
+}
 
 const soundBtn = document.getElementById('sound-toggle');
 soundBtn.addEventListener('click', () => {
@@ -760,7 +792,7 @@ function frame(now) {
   await new Promise((r) => setTimeout(r, 180));
   // The difficulty is remembered between visits; Rookie until changed.
   state.difficulty = state.progress.difficulty;
-  document.getElementById('difficulty').value = String(state.difficulty);
+  showLevel(document.getElementById('difficulty'), state.difficulty);
   renderTracks();
   renderCars();
   startAttract();

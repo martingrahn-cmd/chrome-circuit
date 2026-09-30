@@ -98,6 +98,11 @@ You start last on a six-car grid every race. Podium on a circuit to unlock the n
 one; two cars unlock the same way. Progress lives in `localStorage`, and so does the
 difficulty, which starts at Rookie.
 
+The difficulty is picked from four coloured buttons at the top of the circuit screen
+(and the championship setup), each with a one-line promise. The level stays in sight
+afterwards: it sits beside your position in the HUD for the whole race and under the
+title on the results screen.
+
 Rookie is meant to be a race a first-timer can win — and one a good driver still has
 to race for. The levers all fade as the difficulty climbs: the rivals run slower (78%
 pace at Rookie, 90% at Pro, 97% at Ace, full at Legend), ease off harder when the

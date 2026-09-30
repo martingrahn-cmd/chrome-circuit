@@ -126,17 +126,9 @@
         <h2>Choose a circuit</h2>
         <button class="btn btn--ghost" data-action="back-menu">Back</button>
       </header>
+      <div class="levels" id="difficulty" data-group="race" role="group" aria-label="Difficulty"></div>
       <div class="card-grid" id="track-list"></div>
       <footer class="panel-foot">
-        <label class="field">
-          <span>Difficulty</span>
-          <select id="difficulty">
-            <option value="0" selected>Rookie</option>
-            <option value="1">Pro</option>
-            <option value="2">Ace</option>
-            <option value="3">Legend</option>
-          </select>
-        </label>
         <button class="btn btn--primary" data-action="to-cars">Next: pick a car</button>
       </footer>
     </div>
@@ -167,16 +159,8 @@
       </header>
       <ol class="champ-rounds" id="champ-rounds"></ol>
       <table class="standings hidden" id="champ-standings"></table>
+      <div class="levels" id="champ-difficulty" data-group="champ" role="group" aria-label="Difficulty"></div>
       <footer class="panel-foot">
-        <label class="field" id="champ-diff-field">
-          <span>Difficulty</span>
-          <select id="champ-difficulty">
-            <option value="0">Rookie</option>
-            <option value="1">Pro</option>
-            <option value="2">Ace</option>
-            <option value="3">Legend</option>
-          </select>
-        </label>
         <button class="btn" data-action="champ-abandon" id="champ-abandon">Abandon</button>
         <button class="btn btn--primary" data-action="champ-next" id="champ-next">Pick your car</button>
       </footer>
@@ -186,7 +170,10 @@
   <section class="screen" id="screen-results">
     <div class="panel panel--narrow">
       <header class="panel-head">
-        <h2 id="results-title">Race result</h2>
+        <div>
+          <h2 id="results-title">Race result</h2>
+          <p class="results-sub" id="results-sub"></p>
+        </div>
       </header>
       <ol class="results" id="results-list"></ol>
       <div class="unlocks hidden" id="results-unlocks"></div>

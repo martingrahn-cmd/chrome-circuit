@@ -26,6 +26,8 @@ export class Hud {
     this.itemIcon = root.querySelector('#hud-item-icon');
     this.item.addEventListener('animationend', () => this.item.classList.remove('pop', 'shake'));
     this.shownItem = null;
+    this.level = '';
+    this.shownPosLabel = null;
     this.seenBump = 0;
     this.itemHint = root.querySelector('#hud-item .item-hint');
     this.messages = root.querySelector('#hud-messages');
@@ -110,7 +112,11 @@ export class Hud {
     const t = race.track;
     this.lap.textContent = `${Math.min(p.lap, t.laps)}/${t.laps}`;
     this.pos.textContent = ORDINAL[p.racePosition] || `${p.racePosition}th`;
-    this.posLabel.textContent = `of ${race.cars.length}`;
+    const posLabel = `of ${race.cars.length}${this.level ? ` · ${this.level}` : ''}`;
+    if (posLabel !== this.shownPosLabel) {
+      this.posLabel.innerHTML = posLabel;
+      this.shownPosLabel = posLabel;
+    }
     this.speed.textContent = Math.round(Math.abs(p.vLong) * 9.4);
     this.time.textContent = formatTime(race.raceTime - p.lapStart);
     const best = p.lapTimes.length ? Math.min(...p.lapTimes) : null;
@@ -188,6 +194,11 @@ export class Hud {
     }
 
     this.drawMap(race);
+  }
+
+  /** The difficulty, as markup, shown beside the position all race. */
+  setLevel(html) {
+    this.level = html;
   }
 
   reset() {
