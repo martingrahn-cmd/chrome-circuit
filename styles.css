@@ -444,7 +444,7 @@ html, body {
 }
 .btn:hover { background: rgba(255, 255, 255, 0.12); transform: translateY(-1px); }
 .btn:focus-visible, .card:focus-visible,
-.btn:focus, .card:focus, select:focus {
+.btn:focus, .card:focus {
   outline: none;
   box-shadow: 0 0 0 2px var(--ink), 0 0 0 4px var(--accent);
 }
@@ -594,6 +594,38 @@ html, body {
 
 /* ----------------------------------------------------------- Championship */
 .nowrap { white-space: nowrap; }
+/* Difficulty: four big buttons in the level's own colour, not a select in the
+   footer — it decides more about a race than the car does. */
+.levels { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0 0 14px; }
+.level {
+  appearance: none;
+  text-align: left;
+  padding: 9px 12px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--panel-edge);
+  border-top: 3px solid var(--lvl);
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: background 0.16s, border-color 0.16s, transform 0.12s;
+}
+.level:hover { background: rgba(255, 255, 255, 0.08); transform: translateY(-1px); }
+.level-name { display: block; font-family: var(--display); font-size: 16px; letter-spacing: 0.03em; color: var(--lvl); }
+.level-blurb { display: block; margin-top: 2px; font-size: 12px; color: var(--muted); line-height: 1.35; }
+.level[aria-pressed='true'] {
+  border-color: var(--lvl);
+  background: color-mix(in srgb, var(--lvl) 18%, transparent);
+  box-shadow: 0 0 0 1px var(--lvl) inset;
+}
+.level[aria-pressed='true'] .level-blurb { color: var(--text); }
+.level:focus, .level:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--ink), 0 0 0 4px var(--accent);
+}
+.level-tag { font-family: var(--display); font-weight: 400; letter-spacing: 0.04em; text-transform: uppercase; }
+.results-sub { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+
 .champ-sub { margin: 4px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; max-width: 60ch; }
 .champ-rounds {
   list-style: none;
@@ -709,24 +741,6 @@ kbd {
 .item-legend { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; font-size: 13px; }
 .item-legend b { color: var(--c); font-family: var(--display); margin-right: 8px; letter-spacing: 0.02em; }
 
-.field { display: flex; align-items: center; gap: 9px; margin-right: auto; }
-.field span {
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-select {
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid var(--panel-edge);
-  color: var(--text);
-  border-radius: 9px;
-  padding: 8px 11px;
-  font: inherit;
-  font-size: 13px;
-}
-
 .toast {
   position: fixed;
   left: 50%;
@@ -839,6 +853,11 @@ body.racing .update-chip { display: none; }
 
   .results { grid-template-columns: 1fr 1fr; gap: 6px; }
   .results li { padding: 7px 10px; gap: 8px; }
+  .levels { gap: 6px; margin-bottom: 8px; }
+  .level { padding: 5px 10px 6px; }
+  .level-name { font-size: 14px; }
+  .level-blurb { display: none; }
+  .results-sub { font-size: 12px; margin-top: 2px; }
   .champ-sub { font-size: 12px; }
   .champ-rounds { gap: 6px; margin-bottom: 6px; }
   .round { padding: 5px; }
@@ -875,6 +894,11 @@ body.racing .update-chip { display: none; }
 @media (max-height: 360px) {
   .eyebrow, .tagline { display: none; }
   .title { margin-bottom: 10px; }
+  /* Room for the level buttons above the circuits. */
+  .levels { margin-bottom: 6px; }
+  .level { padding: 3px 10px 4px; }
+  .card-art { height: 40px; }
+  .card-blurb { -webkit-line-clamp: 1; }
 }
 
 @media (max-width: 720px) {
@@ -892,6 +916,10 @@ body.racing .update-chip { display: none; }
   .card-art { height: 64px; margin: -2px -2px 8px; }
   .card-name { font-size: 15px; }
   .bar { grid-template-columns: 42px 1fr; }
+  .levels { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .level { padding: 7px 10px 8px; }
+  .level-name { font-size: 14px; }
+  .level-blurb { font-size: 11px; }
   .champ-rounds { grid-auto-flow: row; grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .round-art { height: 40px; }
   .standings { font-size: 12px; }
