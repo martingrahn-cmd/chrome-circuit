@@ -114,8 +114,16 @@ world and difficulty. A new championship offers the furthest world you have
 reached. Championship rounds still set best laps and unlock circuits and cars
 the same way single races do.
 
-You start last on a six-car grid every race. Podium on a circuit to unlock the next
-one; two cars unlock the same way. Progress lives in `localStorage`, and so does the
+### Career and single race
+
+**Career** is the way through the game: podium on a circuit to unlock the next one,
+and two cars unlock the same way. **Single race** opens every circuit in every world
+from the start. A single race on a circuit the career has reached counts in full. On
+one it has not reached yet, it keeps your best lap but opens nothing — not the next
+circuit, not a car — and the car screen says so before you start. Cars in a single
+race are the ones you have unlocked.
+
+You start last on a six-car grid every race. Progress lives in `localStorage`, and so does the
 difficulty, which starts at Rookie.
 
 The difficulty is picked from four coloured buttons at the top of the circuit screen
