@@ -8,7 +8,17 @@ export const SURFACE = {
   // Run-off beside a street circuit: dusty and slow, but still tarmac.
   kerb: { grip: 10.0, maxSpeed: 0.87, drag: 1.6 },
   dirt: { grip: 7.0, maxSpeed: 0.72, drag: 2.4 },
+  // Deep snow off an alpine road: slower than dirt, about as slippery.
+  snow: { grip: 6.5, maxSpeed: 0.68, drag: 2.7 },
+  // Ice on the tarmac: full speed, a third of the grip. The car keeps going
+  // the way it was going.
+  ice: { grip: 4.2, maxSpeed: 1.0, drag: 0.8 },
 };
+
+// How hard a slope pulls: speed lost per second per unit of rise over run.
+// Enough that a climb is felt and a descent runs on, not so much that the
+// slow cars stall on the hill.
+const GRAVITY = 7;
 
 export class Car {
   constructor(spec, track, opts = {}) {
@@ -18,8 +28,9 @@ export class Car {
     this.name = opts.name || spec.name;
     this.tint = opts.tint || '#ffffff';
 
-    this.x = 0; this.z = 0;
+    this.x = 0; this.z = 0; this.y = 0;
     this.heading = 0;
+    this.pitch = 0;          // nose up on a climb, down on a descent
     this.vLong = 0;
     this.vLat = 0;
 
@@ -77,6 +88,7 @@ export class Car {
 
   placeAt(slot) {
     this.x = slot.x; this.z = slot.z;
+    this.y = this.track.line.heightOf(slot.index);
     this.heading = slot.heading;
     this.lineIndex = slot.index;
     this.progress = slot.index;
@@ -124,9 +136,11 @@ export class Car {
     this.totalProgress += delta;
 
     const offTrack = loc.dist > this.track.roadHalf;
-    this.surface = offTrack ? (this.track.walls ? 'kerb' : 'dirt') : 'road';
+    this.surface = offTrack ? (this.track.walls ? 'kerb' : this.track.offroad)
+      : line.iceAt(loc.index) ? 'ice' : 'road';
     const raw = SURFACE[this.surface];
-    const ease = this.surface === 'road' ? 0 : this.runoffEase;
+    // The run-off help is for running wide; ice is part of the road.
+    const ease = this.surface === 'road' || this.surface === 'ice' ? 0 : this.runoffEase;
     const surf = ease > 0 ? {
       grip: raw.grip + (SURFACE.road.grip - raw.grip) * ease * 0.4,
       maxSpeed: raw.maxSpeed + (1 - raw.maxSpeed) * ease * 0.45,
@@ -179,6 +193,11 @@ export class Car {
       const gripLoss = Math.exp(-(drifting ? surf.grip * 0.26 : surf.grip) * dt);
       this.vLat *= gripLoss;
 
+      // A climb takes speed off, a descent gives it back.
+      const f0 = this.forward, t0 = line.tangent(loc.index);
+      this.slopeAhead = line.slopeAt(loc.index) * (f0.x * t0.x + f0.z * t0.z);
+      this.vLong -= GRAVITY * this.slopeAhead * dt;
+
       // Drag and rolling resistance. Kept light: the throttle headroom term
       // above is what actually sets top speed.
       this.vLong -= (0.0012 * this.vLong * Math.abs(this.vLong) + surf.drag * this.vLong * 0.05) * dt;
@@ -218,13 +237,19 @@ export class Car {
       this.wallHit = 0;
     }
 
+    // Ride the road: height off the line, nose along the slope.
+    this.y = line.heightAt(after.progress);
+    const f1 = this.forward, t1 = after.tangent;
+    const along = line.slopeAt(after.index) * (f1.x * t1.x + f1.z * t1.z);
+    this.pitch += (-Math.atan(along) - this.pitch) * Math.min(1, dt * 10);
+
     this.syncObject(dt);
   }
 
   syncObject(dt = 0) {
     const o = this.object;
-    o.position.set(this.x, 0.17, this.z);
-    o.rotation.y = this.heading;
+    o.position.set(this.x, this.y + 0.17, this.z);
+    o.rotation.set(this.pitch, this.heading, 0, 'YXZ');
 
     // Body roll into the corner and pitch under power.
     const roll = THREE.MathUtils.clamp(-this.vLat * 0.035, -0.16, 0.16);

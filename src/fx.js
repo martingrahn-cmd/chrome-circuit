@@ -178,12 +178,12 @@ export class SkidMarks {
     scene.add(this.mesh);
   }
 
-  add(x, z, heading, width = 1) {
+  add(x, y, z, heading, pitch = 0) {
     const i = this.cursor;
     this.cursor = (this.cursor + 1) % SKIDS;
-    this.dummy.position.set(x, 0.185, z);
-    this.dummy.rotation.set(0, heading, 0);
-    this.dummy.scale.set(width, 1, 1);
+    this.dummy.position.set(x, y + 0.185, z);
+    this.dummy.rotation.set(pitch, heading, 0, 'YXZ');
+    this.dummy.scale.set(1, 1, 1);
     this.dummy.updateMatrix();
     this.mesh.setMatrixAt(i, this.dummy.matrix);
     this.age[i] = 0;
@@ -205,4 +205,63 @@ export const DUST = {
   road: [0.72, 0.72, 0.76],
   kerb: [0.70, 0.70, 0.73],
   dirt: [0.66, 0.55, 0.38],
+  snow: [0.95, 0.97, 1.0],
+  ice: [0.86, 0.93, 1.0],
 };
+
+/**
+ * Falling snow round the camera. The flakes live in world space and wrap in
+ * a box that follows the view, so they drift past instead of sliding along
+ * with the car.
+ */
+export class Snowfall {
+  constructor(scene, count = 650) {
+    this.w = 96; this.h = 46;
+    const pos = new Float32Array(count * 3);
+    this.speed = new Float32Array(count);
+    for (let i = 0; i < count; i++) {
+      pos[i * 3] = (Math.random() - 0.5) * this.w;
+      pos[i * 3 + 1] = Math.random() * this.h - 8;
+      pos[i * 3 + 2] = (Math.random() - 0.5) * this.w;
+      this.speed[i] = 3 + Math.random() * 3.5;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const c = document.createElement('canvas');
+    c.width = c.height = 32;
+    const g = c.getContext('2d');
+    const grad = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+    grad.addColorStop(0, 'rgba(255,255,255,1)');
+    grad.addColorStop(0.5, 'rgba(255,255,255,0.8)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 32, 32);
+    this.material = new THREE.PointsMaterial({
+      size: 5 * Math.min(devicePixelRatio, 2), sizeAttenuation: false, map: new THREE.CanvasTexture(c),
+      transparent: true, depthWrite: false, opacity: 0.9,
+    });
+    this.points = new THREE.Points(geo, this.material);
+    this.points.frustumCulled = false;
+    this.points.renderOrder = 6;
+    this.t = 0;
+    scene.add(this.points);
+  }
+
+  update(dt, target) {
+    this.t += dt;
+    const pos = this.points.geometry.attributes.position.array;
+    const hw = this.w / 2, n = this.speed.length;
+    const wind = Math.sin(this.t * 0.3) * 1.5;
+    for (let i = 0; i < n; i++) {
+      const o = i * 3;
+      pos[o] += (wind + Math.sin(this.t * 1.3 + i) * 0.6) * dt;
+      pos[o + 1] -= this.speed[i] * dt;
+      pos[o + 2] += Math.cos(this.t * 1.1 + i * 0.7) * 0.6 * dt;
+      if (pos[o] - target.x > hw) pos[o] -= this.w; else if (pos[o] - target.x < -hw) pos[o] += this.w;
+      if (pos[o + 2] - target.z > hw) pos[o + 2] -= this.w; else if (pos[o + 2] - target.z < -hw) pos[o + 2] += this.w;
+      if (pos[o + 1] < target.y - 8) pos[o + 1] += this.h;
+      else if (pos[o + 1] > target.y - 8 + this.h) pos[o + 1] -= this.h;
+    }
+    this.points.geometry.attributes.position.needsUpdate = true;
+  }
+}

@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { instance, materialsFor } from './assets.js';
 import { mergeGeometries } from 'three/utils/BufferGeometryUtils.js';
+import { Terrain } from './terrain.js';
 
 // Grid pitch the circuits are authored on. The road ribbon and everything
 // derived from it scale with this while cars keep their absolute size, so it
@@ -144,7 +145,33 @@ export class CentreLine {
     this.length = total;
     this.spacing = total / this.n;
     this.curvature = this.computeCurvature();
+    this.h = new Float32Array(this.n);        // road height at each sample
+    this.slope = new Float32Array(this.n);    // rise per unit run, forwards
+    this.ice = new Uint8Array(this.n);
   }
+
+  setHeights(h) {
+    this.h = Float32Array.from(h);
+    // Central differences: the resampled loop can close on one short step,
+    // and a one-sided slope across it would spike.
+    const n = this.n;
+    for (let i = 0; i < n; i++) {
+      const a = (i - 1 + n) % n, b = (i + 1) % n;
+      this.slope[i] = (this.h[b] - this.h[a]) / (this.tangents[a].len + this.tangents[i].len);
+    }
+  }
+
+  /** Road height at a fractional sample position (a car's `progress`). */
+  heightAt(progress) {
+    const n = this.n;
+    const f = Math.floor(progress);
+    const i = ((f % n) + n) % n;
+    return this.h[i] + (this.h[(i + 1) % n] - this.h[i]) * (progress - f);
+  }
+
+  slopeAt(i) { return this.slope[((i % this.n) + this.n) % this.n]; }
+  heightOf(i) { return this.h[((i % this.n) + this.n) % this.n]; }
+  iceAt(i) { return this.ice[((i % this.n) + this.n) % this.n] === 1; }
 
   computeCurvature() {
     const c = new Array(this.n);
@@ -208,23 +235,92 @@ export class CentreLine {
 }
 
 
+/**
+ * Road heights for a circuit that climbs. `def.heights` gives one height per
+ * move — where that leg ends — so a track reads like its moves: "R6 to 4,
+ * then D5 down to 0". Heights run linearly cell by cell along each leg, are
+ * carried onto the racing line, then smoothed so crests and dips round off.
+ */
+function lineHeights(def, path, line) {
+  const toks = def.moves.trim().split(/\s+/);
+  const H = def.heights;
+  if (H.length !== toks.length) throw new Error(`${def.id}: ${toks.length} moves but ${H.length} heights`);
+  const cellH = [];
+  let h = H[H.length - 1];
+  cellH.push(h);
+  toks.forEach((tok, k) => {
+    const n = parseInt(tok.slice(1), 10);
+    for (let s = 1; s <= n; s++) cellH.push(h + (H[k] - h) * (s / n));
+    h = H[k];
+  });
+  cellH.pop();
+
+  // Walk the line and the cells together, so a sample never matches a cell
+  // on some other leg that happens to pass close by.
+  const m = path.length, n = line.n;
+  const near = (p, c) => (p.x - c.x * TILE) ** 2 + (p.z - c.z * TILE) ** 2;
+  let ci = 0, best = Infinity;
+  for (let c = 0; c < m; c++) {
+    const d = near(line.pts[0], path[c]);
+    if (d < best) { best = d; ci = c; }
+  }
+  const raw = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const p = line.pts[i];
+    let bc = ci, bd = Infinity;
+    for (let k = -2; k <= 4; k++) {
+      const c = (ci + k + m) % m;
+      const d = near(p, path[c]);
+      if (d < bd) { bd = d; bc = c; }
+    }
+    ci = bc;
+    raw[i] = cellH[ci];
+  }
+  // Three box passes come out close to a Gaussian.
+  let cur = raw;
+  const r = Math.max(2, Math.round(7 / line.spacing));
+  for (let pass = 0; pass < 3; pass++) {
+    const out = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      let sum = 0;
+      for (let k = -r; k <= r; k++) sum += cur[(i + k + n) % n];
+      out[i] = sum / (2 * r + 1);
+    }
+    cur = out;
+  }
+  return cur;
+}
+
+/** One model's meshes baked into a single geometry in model space, kept so a
+ *  hundred trees cost a hundred matrix multiplies, not a hundred clones. */
+const baked = new Map();
+function bakedGeometry(kit, model) {
+  const key = `${kit}/${model}`;
+  if (baked.has(key)) return baked.get(key);
+  const obj = instance(kit, model);
+  obj.updateMatrixWorld(true);
+  const parts = [];
+  obj.traverse((o) => {
+    if (!o.isMesh) return;
+    const g = o.geometry.clone();
+    g.applyMatrix4(o.matrixWorld);
+    for (const name of Object.keys(g.attributes)) {
+      if (!['position', 'normal', 'uv'].includes(name)) g.deleteAttribute(name);
+    }
+    parts.push(g);
+  });
+  const g = parts.length ? mergeGeometries(parts, false) : null;
+  parts.forEach((p) => p.dispose());
+  baked.set(key, g);
+  return g;
+}
 
 /** Merge many instances of kit models into as few draw calls as possible. */
 function mergeInstances(entries, kit, shiny = false) {
   const geoms = [];
   for (const { model, matrix } of entries) {
-    const obj = instance(kit, model);
-    obj.updateMatrixWorld(true);
-    obj.traverse((o) => {
-      if (!o.isMesh) return;
-      const g = o.geometry.clone();
-      g.applyMatrix4(o.matrixWorld);
-      g.applyMatrix4(matrix);
-      for (const name of Object.keys(g.attributes)) {
-        if (!['position', 'normal', 'uv'].includes(name)) g.deleteAttribute(name);
-      }
-      geoms.push(g);
-    });
+    const base = bakedGeometry(kit, model);
+    if (base) geoms.push(base.clone().applyMatrix4(matrix));
   }
   if (!geoms.length) return null;
   const merged = mergeGeometries(geoms, false);
@@ -259,6 +355,20 @@ export class Track {
 
     this.group = new THREE.Group();
     this.startIndex = this.findStartIndex();
+
+    if (def.heights) this.line.setHeights(lineHeights(def, this.path, this.line));
+    // Ice: stretches given as fractions of the lap from the start line.
+    for (const [from, to] of def.ice ?? []) {
+      const n = this.line.n;
+      const a = Math.round(from * n), b = Math.round(to * n);
+      for (let k = a; k < b; k++) this.line.ice[(this.startIndex + k) % n] = 1;
+    }
+    this.offroad = def.theme?.offroad ?? 'dirt';
+  }
+
+  /** Height of the ground (or road) at a point; zero on a flat circuit. */
+  heightAt(x, z) {
+    return this.terrain ? this.terrain.sample(x, z) : 0;
   }
 
   /** Put the start/finish on the longest straight so the grid fits. */
@@ -308,15 +418,20 @@ export class Track {
 
   build(scene) {
     const theme = this.def.theme || {};
-    // Ground plane under everything.
-    const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(1400, 1400),
-      new THREE.MeshLambertMaterial({ color: theme.ground ?? 0x7aa25a }),
-    );
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.y = -0.06;
-    ground.receiveShadow = true;
-    this.group.add(ground);
+    if (theme.terrain) {
+      // Ground with height in it; its mesh goes in once the scenery has
+      // flattened what it stands on (see buildScenery).
+      this.terrain = new Terrain(this, theme.terrain);
+    } else {
+      const ground = new THREE.Mesh(
+        new THREE.PlaneGeometry(1400, 1400),
+        new THREE.MeshLambertMaterial({ color: theme.ground ?? 0x7aa25a }),
+      );
+      ground.rotation.x = -Math.PI / 2;
+      ground.position.y = -0.06;
+      ground.receiveShadow = true;
+      this.group.add(ground);
+    }
 
     this.buildRoad(theme);
 
@@ -334,11 +449,11 @@ export class Track {
     const nrm = new Float32Array((n + 1) * 2 * 3);
     const idx = [];
     for (let i = 0; i <= n; i++) {
-      const p = line.point(i), t = line.tangent(i);
+      const p = line.point(i), t = line.tangent(i), h = line.heightOf(i);
       const lx = t.z, lz = -t.x;
       const o = i * 6;
-      pos[o] = p.x + lx * outerOff; pos[o + 1] = y; pos[o + 2] = p.z + lz * outerOff;
-      pos[o + 3] = p.x + lx * innerOff; pos[o + 4] = y2 ?? y; pos[o + 5] = p.z + lz * innerOff;
+      pos[o] = p.x + lx * outerOff; pos[o + 1] = y + h; pos[o + 2] = p.z + lz * outerOff;
+      pos[o + 3] = p.x + lx * innerOff; pos[o + 4] = (y2 ?? y) + h; pos[o + 5] = p.z + lz * innerOff;
       nrm[o + 1] = 1; nrm[o + 4] = 1;
       if (i < n) {
         const a = i * 2;
@@ -352,6 +467,25 @@ export class Track {
     const mesh = new THREE.Mesh(g, material ?? new THREE.MeshLambertMaterial({ color: colour, side: THREE.DoubleSide }));
     mesh.receiveShadow = true;
     return mesh;
+  }
+
+  /** A short piece of ribbon from sample i0 to i1, riding the road's height. */
+  stripPiece(i0, i1, innerOff, outerOff, y) {
+    const line = this.line;
+    const pos = [], idx = [];
+    for (let i = i0; i <= i1; i++) {
+      const p = line.point(i), t = line.tangent(i), h = line.heightOf(i) + y;
+      pos.push(p.x + t.z * outerOff, h, p.z - t.x * outerOff, p.x + t.z * innerOff, h, p.z - t.x * innerOff);
+      if (i < i1) {
+        const a = (i - i0) * 2;
+        idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    return g;
   }
 
   /**
@@ -368,14 +502,8 @@ export class Track {
     const line = this.line, n = line.n;
     const geoms = [];
     const step = Math.max(4, Math.round(6 / line.spacing));
-    for (let i = 0; i < n; i += step) {
-      const p = line.point(i), t = line.tangent(i);
-      const g = new THREE.PlaneGeometry(0.26, 2.3);
-      g.rotateX(-Math.PI / 2);
-      g.rotateY(Math.atan2(t.x, t.z));
-      g.translate(p.x, 0.125, p.z);
-      geoms.push(g);
-    }
+    const dashLen = Math.max(1, Math.round(2.3 / line.spacing));
+    for (let i = 0; i < n; i += step) geoms.push(this.stripPiece(i, i + dashLen, -0.13, 0.13, 0.125));
     if (geoms.length) {
       const dashes = new THREE.Mesh(
         mergeGeometries(geoms, false),
@@ -387,6 +515,7 @@ export class Track {
 
     this.buildKerbs();
     this.buildGridBoxes();
+    this.buildIce();
 
     // On walled circuits the armco follows the same line the cars are
     // clamped to, so the rail you see is the limit you hit.
@@ -444,9 +573,10 @@ export class Track {
         const t0 = line.tangent(i), t1 = line.tangent(i + 1);
         const c = ((i % 2) + 2) % 2 ? red : white;
         for (const side of [-1, 1]) {
-          const q = (p, t, off) => [p.x + t.z * off * side, 0.118, p.z - t.x * off * side];
-          const a = q(p0, t0, w - 0.15), b = q(p0, t0, w + 0.85);
-          const d = q(p1, t1, w - 0.15), e = q(p1, t1, w + 0.85);
+          const q = (p, t, off, h) => [p.x + t.z * off * side, 0.118 + h, p.z - t.x * off * side];
+          const h0 = line.heightOf(i), h1 = line.heightOf(i + 1);
+          const a = q(p0, t0, w - 0.15, h0), b = q(p0, t0, w + 0.85, h0);
+          const d = q(p1, t1, w - 0.15, h1), e = q(p1, t1, w + 0.85, h1);
           pos.push(...a, ...b, ...d, ...b, ...e, ...d);
           for (let v = 0; v < 6; v++) col.push(c.r, c.g, c.b);
         }
@@ -465,21 +595,56 @@ export class Track {
   /** Painted grid slots: a bar ahead of each car and a tick either side. */
   buildGridBoxes() {
     const geoms = [];
-    const add = (x, z, heading, across, along, w, d) => {
+    const add = (x, y, z, heading, across, along, w, d) => {
       const g = new THREE.PlaneGeometry(w, d);
       g.rotateX(-Math.PI / 2);
       g.translate(across, 0, -along);   // local +X is the car's left, +Z its forward
       g.rotateY(heading);
-      g.translate(x, 0.122, z);
+      g.translate(x, 0.122 + y, z);
       geoms.push(g);
     };
     for (const slot of this.startSlots(6)) {
-      const h = slot.heading;
-      add(slot.x, slot.z, h, 0, -1.7, 2.5, 0.24);          // bar across, just ahead of the nose
-      for (const s of [-1, 1]) add(slot.x, slot.z, h, s * 1.25, -1.05, 0.2, 1.5);
+      const h = slot.heading, y = this.line.heightOf(slot.index);
+      add(slot.x, y, slot.z, h, 0, -1.7, 2.5, 0.24);          // bar across, just ahead of the nose
+      for (const s of [-1, 1]) add(slot.x, y, slot.z, h, s * 1.25, -1.05, 0.2, 1.5);
     }
     const mesh = new THREE.Mesh(mergeGeometries(geoms, false), new THREE.MeshLambertMaterial({ color: 0xeef1f6 }));
     geoms.forEach((g) => g.dispose());
+    mesh.receiveShadow = true;
+    this.group.add(mesh);
+  }
+
+  /**
+   * Ice: glossy pale patches across the tarmac with ragged edges, a touch
+   * above the road so they read as a surface, not a paint job.
+   */
+  buildIce() {
+    const line = this.line, n = line.n;
+    if (!line.ice.some((v) => v)) return;
+    const rng = mulberry32((this.def.seed ?? 1) + 404);
+    const w = this.roadHalf;
+    const pos = [], idx = [];
+    let row = 0;
+    for (let i = 0; i <= n; i++) {
+      const on = line.iceAt(i) || line.iceAt(i - 1);
+      if (!on) { row = 0; continue; }
+      const p = line.point(i), t = line.tangent(i), h = line.heightOf(i) + 0.13;
+      const a = w * (0.7 + rng() * 0.28), b = w * (0.7 + rng() * 0.28);
+      const base = pos.length / 3;
+      pos.push(p.x + t.z * a, h, p.z - t.x * a, p.x - t.z * b, h, p.z + t.x * b);
+      if (row > 0) idx.push(base - 2, base - 1, base, base - 1, base + 1, base);
+      row++;
+    }
+    if (!idx.length) return;
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    const mesh = new THREE.Mesh(g, new THREE.MeshPhongMaterial({
+      color: 0xd6ecff, specular: 0xffffff, shininess: 90, transparent: true, opacity: 0.72,
+      side: THREE.DoubleSide, depthWrite: false,
+    }));
+    mesh.renderOrder = 1;
     mesh.receiveShadow = true;
     this.group.add(mesh);
   }
@@ -498,7 +663,7 @@ export class Track {
       for (let i = 0; i < n; i += step) {
         const p = line.point(i), t = line.tangent(i);
         const g = new THREE.BoxGeometry(0.24, 1.0, 0.24);
-        g.translate(p.x + t.z * off * side, 0.5, p.z - t.x * off * side);
+        g.translate(p.x + t.z * off * side, 0.5 + line.heightOf(i), p.z - t.x * off * side);
         postGeoms.push(g);
       }
     }
@@ -538,7 +703,7 @@ export class Track {
     const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: this.checkerTexture(8, 2) }));
     const p = this.line.point(this.startIndex);
     const t = this.line.tangent(this.startIndex);
-    mesh.position.set(p.x, 0.175, p.z);
+    mesh.position.set(p.x, 0.175 + this.line.heightOf(this.startIndex), p.z);
     mesh.rotation.y = Math.atan2(t.x, t.z);
     mesh.renderOrder = 1;
     this.group.add(mesh);
@@ -600,7 +765,7 @@ export class Track {
       this.startLamps.push(mat);
     }
 
-    gantry.position.set(p.x, 0, p.z);
+    gantry.position.set(p.x, this.line.heightOf(this.startIndex), p.z);
     gantry.rotation.y = heading;
     this.group.add(gantry);
   }
@@ -669,6 +834,12 @@ export class Track {
       b.translate(side * (back - 0.02), wallH - 0.55, -length / 2 + (k + 0.5) * (length / cells));
       paint(b, k % 2 ? 0xf1f3f6 : 0xd63a3a);
     }
+    if (this.terrain) {
+      // On a hillside the stand needs a foundation to stand level on.
+      const footing = new THREE.BoxGeometry(tiers * step + 0.4, 6, length);
+      footing.translate(side * (inner + (tiers * step) / 2 + 0.2), -3, 0);
+      concrete.push(footing);
+    }
     const group = new THREE.Group();
     const standMesh = new THREE.Mesh(mergeGeometries(concrete, false), new THREE.MeshLambertMaterial({ color: 0xb7bdc8 }));
     standMesh.castShadow = true; standMesh.receiveShadow = true;
@@ -679,7 +850,8 @@ export class Track {
     crowdMesh.castShadow = true;
     group.add(crowdMesh);
     concrete.forEach((g) => g.dispose()); painted.forEach((g) => g.dispose());
-    group.position.set(p.x, 0, p.z);
+    const standY = line.heightOf(i);
+    group.position.set(p.x, standY, p.z);
     group.rotation.y = heading;
     this.group.add(group);
 
@@ -688,7 +860,7 @@ export class Track {
     const cover = [];
     for (let z = -length / 2; z <= length / 2; z += 4) {
       const lx = side * mid;                              // local +X is the left axis
-      cover.push({ x: p.x + t.z * lx + t.x * z, z: p.z - t.x * lx + t.z * z, r: tiers * step / 2 + 3 });
+      cover.push({ x: p.x + t.z * lx + t.x * z, z: p.z - t.x * lx + t.z * z, r: tiers * step / 2 + 3, h: standY - 0.05 });
     }
     return cover;
   }
@@ -713,7 +885,7 @@ export class Track {
       if (reserved.some((r) => Math.hypot(px - r.x, pz - r.z) < r.r)) return;
       const m = new THREE.Matrix4().makeRotationY(yaw(t, side)).scale(new THREE.Vector3(sc, sc, sc));
       m.setPosition(px, 0, pz);
-      push(spec.kit, spec.model, m);
+      push(spec.kit, spec.model, m, { x: px, z: pz, foot: 0 });
     };
     const beyond = this.walls ? 1.3 : 0.9;              // outside the armco where there is one
     // Model axes: lamp arms reach along local -Z; a sign's face and a fence's
@@ -738,8 +910,9 @@ export class Track {
         if (fromStart(i) > 10) place(dress.cornerSign, i, run.outside, this.wallHalf + beyond + 0.4, faceOncoming);
       }
       if (dress.cornerBarrier) {
-        const every = Math.max(1, Math.round(2.8 / sp));
-        for (let k = 0; k <= run.len; k += every) place(dress.cornerBarrier, run.start + k, run.outside, this.wallHalf + 1.0, alongZ);
+        const b = dress.cornerBarrier;
+        const every = Math.max(1, Math.round((b.every ?? 2.8) / sp));
+        for (let k = 0; k <= run.len; k += every) place(b, run.start + k, run.outside, this.wallHalf + 1.0, b.alongX ? alongX : alongZ);
       }
     }
     if (dress.fence) {
@@ -770,6 +943,7 @@ export class Track {
   buildScenery(theme) {
     const rng = mulberry32(this.def.seed ?? 1337);
     const reserved = this.buildGrandstand();
+    const pads = this.terrain ? reserved.map((r) => ({ ...r })) : [];
     const plots = [];
     const bounds = this.bounds();
     // Cells touching the road take low dressing only; the road itself takes none.
@@ -777,29 +951,39 @@ export class Track {
     for (const c of this.path) {
       for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) verge.add(`${c.x + dx},${c.z + dz}`);
     }
+    // Every model goes in with an anchor: the spot of ground it stands on.
+    // On a climbing circuit its height is filled in once the ground is final.
     const byKit = new Map();
-    const push = (kit, model, matrix) => {
+    const anchors = [];
+    const push = (kit, model, matrix, anchor) => {
       if (!byKit.has(kit)) byKit.set(kit, []);
-      byKit.get(kit).push({ model, matrix });
+      byKit.get(kit).push({ model, matrix, anchor });
+      if (!anchor.listed) { anchor.listed = true; anchors.push(anchor); }
     };
+    const ground = (x, z) => (this.terrain ? this.terrain.sample(x, z) : 0);
+    const spread = theme.spread ?? 4;
 
     const props = theme.props || [];
     if (props.length) {
-      for (let x = bounds.minX - 4; x <= bounds.maxX + 4; x++) {
-        for (let z = bounds.minZ - 4; z <= bounds.maxZ + 4; z++) {
+      for (let x = bounds.minX - spread; x <= bounds.maxX + spread; x++) {
+        for (let z = bounds.minZ - spread; z <= bounds.maxZ + spread; z++) {
           const key = `${x},${z}`;
           if (this.cellSet.has(key)) continue;
           const onVerge = verge.has(key);
           if (rng() > (theme.density ?? 0.42) * (onVerge ? 0.5 : 1)) continue;
 
+          // Height budget: how tall a prop here may be before it hides the
+          // road behind it — more if that road sits higher up the hill.
           let budget = onVerge ? TILE * 0.95 : Infinity;
           for (let k = 1; k <= 4; k++) {
             if (this.cellSet.has(`${x - k},${z - k}`)) {
-              budget = Math.min(budget, CAMERA_SLOPE * (k - 0.5) * TILE);
+              const rise = ground((x - k) * TILE, (z - k) * TILE) - ground(x * TILE, z * TILE);
+              budget = Math.min(budget, CAMERA_SLOPE * (k - 0.5) * TILE + rise);
               break;
             }
           }
-          const fits = props.filter((s) => s.h * (s.scale ?? 1) * TILE <= budget);
+          const here = ground(x * TILE, z * TILE);
+          const fits = props.filter((sp) => sp.h * (sp.scale ?? 1) * TILE <= budget && !(here > (sp.below ?? Infinity)));
           if (!fits.length) continue;
 
           const spec = fits[Math.floor(rng() * fits.length)];
@@ -807,33 +991,45 @@ export class Track {
           const wx = (x + (rng() - 0.5) * 0.3) * TILE;
           const wz = (z + (rng() - 0.5) * 0.3) * TILE;
           // Never place anything a car on track could drive into.
-          const clearance = this.wallHalf + (spec.r ?? 0.5) * scale * TILE + 0.6;
+          const foot = (spec.r ?? 0.5) * scale * TILE;
+          const clearance = this.wallHalf + foot + 0.6;
           const dist = this.line.locate(wx, wz, null).dist;
           if (dist < clearance) continue;
-          if (reserved.some((r) => Math.hypot(wx - r.x, wz - r.z) < r.r + (spec.r ?? 0.5) * scale * TILE)) continue;
+          if (reserved.some((r) => Math.hypot(wx - r.x, wz - r.z) < r.r + foot)) continue;
 
           const angle = Math.floor(rng() * 4) * Math.PI / 2;
           const m = new THREE.Matrix4()
             .makeRotationY(angle)
             .scale(new THREE.Vector3(TILE * scale, TILE * scale, TILE * scale));
           m.setPosition(wx, 0, wz);
-          push(spec.kit, spec.model, m);
+          // Trees root at the trunk; buildings dig in under their whole floor.
+          const anchor = { x: wx, z: wz, foot: spec.pad ? foot : foot * 0.35 };
+          if (spec.parts) {
+            // A model assembled from kit pieces: [model, x, y, z, quarter turns].
+            for (const [model, px, py, pz, rot] of spec.parts) {
+              const local = new THREE.Matrix4().makeRotationY((rot ?? 0) * Math.PI / 2).setPosition(px, py, pz);
+              push(spec.kit, model, m.clone().multiply(local), anchor);
+            }
+          } else {
+            push(spec.kit, spec.model, m, anchor);
+          }
+          if (spec.pad && this.terrain) pads.push({ x: wx, z: wz, r: foot + 0.6, h: ground(wx, wz) });
 
           // A building stands on its own paved plot, not on the lawn, and
           // now and then keeps its dumpster round the side.
           if (theme.plot != null && /building/.test(spec.model)) {
-            const half = Math.min((spec.r ?? 0.5) * scale * TILE + 0.9, dist - this.wallHalf - 0.4);
+            const half = Math.min(foot + 0.9, dist - this.wallHalf - 0.4);
             if (half > 1) {
               const slab = new THREE.BoxGeometry(half * 2, 0.16, half * 2);
               slab.translate(wx, 0.02, wz);
-              plots.push(slab);
+              plots.push({ g: slab, anchor });
               if (rng() < 0.35) {
                 const along = (rng() < 0.5 ? -1 : 1) * (half - 0.9);
                 const dx = rng() < 0.5 ? along : 0, dz = dx ? 0 : along;
                 if (this.line.locate(wx + dx, wz + dz, null).dist > this.wallHalf + 2) {
                   const d = new THREE.Matrix4().makeRotationY(angle).scale(new THREE.Vector3(TILE, TILE, TILE));
                   d.setPosition(wx + dx, 0, wz + dz);
-                  push('roads', 'dumpster', d);
+                  push('roads', 'dumpster', d, anchor);
                 }
               }
             }
@@ -844,14 +1040,23 @@ export class Track {
 
     this.buildDressing(theme.dress, push, reserved);
 
+    if (this.terrain) {
+      this.terrain.addPads(pads);
+      this.terrain.clampToView();
+      for (const a of anchors) a.y = this.terrain.footing(a.x, a.z, a.foot);
+      this.group.add(this.terrain.mesh(theme));
+    }
+
     if (plots.length) {
-      const mesh = new THREE.Mesh(mergeGeometries(plots, false), new THREE.MeshLambertMaterial({ color: theme.plot }));
-      plots.forEach((g) => g.dispose());
+      const geoms = plots.map(({ g, anchor }) => g.translate(0, anchor.y ?? 0, 0));
+      const mesh = new THREE.Mesh(mergeGeometries(geoms, false), new THREE.MeshLambertMaterial({ color: theme.plot }));
+      geoms.forEach((g) => g.dispose());
       mesh.receiveShadow = true;
       this.group.add(mesh);
     }
 
     for (const [kit, entries] of byKit) {
+      for (const e of entries) if (e.anchor.y) e.matrix.elements[13] += e.anchor.y;
       const mesh = mergeInstances(entries, kit);
       if (mesh) this.group.add(mesh);
     }
@@ -868,7 +1073,10 @@ export class Track {
 
   modelsUsed() {
     const list = new Set();
-    for (const spec of (this.def.theme?.props || [])) list.add(`${spec.kit}/${spec.model}`);
+    for (const spec of (this.def.theme?.props || [])) {
+      if (spec.parts) for (const [model] of spec.parts) list.add(`${spec.kit}/${model}`);
+      else list.add(`${spec.kit}/${spec.model}`);
+    }
     for (const spec of Object.values(this.def.theme?.dress || {})) list.add(`${spec.kit}/${spec.model}`);
     list.add('roads/dumpster');     // beside buildings
     return [...list].map((s) => s.split('/'));
