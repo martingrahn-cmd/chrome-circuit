@@ -22,7 +22,7 @@ export function load() {
     // here would crash the boot sequence, so each one must earn its place.
     const p = JSON.parse(raw);
     const d = blank();
-    return {
+    const out = {
       unlockedTracks: Array.isArray(p.unlockedTracks)
         ? [...new Set([...d.unlockedTracks, ...p.unlockedTracks])]
         : d.unlockedTracks,
@@ -37,6 +37,14 @@ export function load() {
         ? Object.fromEntries(Object.entries(p.champBest).map(([k, v]) => [/^\d$/.test(k) ? `grand:${k}` : k, v]))
         : d.champBest,
     };
+    // A podium opens the next circuit. Re-derive that from the places on
+    // record, so a circuit added after the podium was won is open too — a
+    // Pinecrest podium from before Alpine Winter existed opens Frostvale.
+    TRACKS.forEach((t, i) => {
+      const next = TRACKS[i + 1];
+      if (next && out.places[t.id] <= 3 && !out.unlockedTracks.includes(next.id)) out.unlockedTracks.push(next.id);
+    });
+    return out;
   } catch {
     return blank();
   }
