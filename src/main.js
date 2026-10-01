@@ -32,6 +32,7 @@ const state = {
   difficulty: 0,
   champDifficulty: 0,   // picked on the championship screen before round 1
   world: 'grand',       // the world whose circuits the circuit screen shows
+  single: false,        // single race: every circuit open, nothing to unlock
   champWorld: 'grand',  // and the one a new championship would tour
   inChamp: false,       // the race on screen is a championship round
   race: null,
@@ -188,17 +189,19 @@ function backOut() {
 const worldTracks = (id) => TRACKS.filter((t) => t.world === id);
 /** A world is open once its first circuit is. */
 const worldOpen = (id) => state.progress.unlockedTracks.includes(worldTracks(id)[0]?.id);
+/** Whether a circuit can be picked on the circuit screen right now. */
+const trackOpen = (id) => state.single || state.progress.unlockedTracks.includes(id);
 
 /** One button per world, built into each picker. A shut world says what
  *  opens it: a podium on the last circuit of the world before. */
-function renderWorlds(el, current) {
+function renderWorlds(el, current, anyWorld = false) {
   el.replaceChildren(...WORLDS.map((w, i) => {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'world';
     b.dataset.action = 'world';
     b.dataset.world = w.id;
-    const open = worldOpen(w.id);
+    const open = anyWorld || worldOpen(w.id);
     b.disabled = !open;
     b.setAttribute('aria-pressed', String(w.id === current));
     const prev = i > 0 ? worldTracks(WORLDS[i - 1].id).at(-1) : null;
@@ -211,9 +214,10 @@ function renderWorlds(el, current) {
 function renderTracks() {
   const list = document.getElementById('track-list');
   list.replaceChildren();
-  renderWorlds(document.getElementById('track-worlds'), state.world);
+  document.getElementById('tracks-title').textContent = state.single ? 'Single race' : 'Career';
+  renderWorlds(document.getElementById('track-worlds'), state.world, state.single);
   for (const def of worldTracks(state.world)) {
-    const unlocked = state.progress.unlockedTracks.includes(def.id);
+    const unlocked = trackOpen(def.id);
     const card = document.createElement('button');
     card.className = 'card';
     card.type = 'button';
@@ -322,8 +326,10 @@ function renderCars() {
   }
   const chosen = racerById(state.racerId);
   const track = trackById(state.trackId);
+  const offCareer = !state.progress.unlockedTracks.includes(track.id);
   const note = state.carsFrom === 'tracks'
-    ? `${track.name} — ${track.laps} laps — ${DIFFICULTY[state.difficulty]}. Pick a car to start.`
+    ? `${state.single ? 'Single race: ' : ''}${track.name} — ${track.laps} laps — ${DIFFICULTY[state.difficulty]}.`
+      + (state.single && offCareer ? ' Best lap counts; it opens nothing in the career.' : ' Pick a car to start.')
     : state.carsFrom === 'champ'
       ? `${WORLDS.find((w) => w.id === state.champWorld).name} championship — ${worldTracks(state.champWorld).length} rounds — ${DIFFICULTY[state.champDifficulty]}. Pick a car to start.`
       : `${chosen.name} selected.`;
@@ -416,6 +422,7 @@ function recordFinishedRace() {
     bestLap: mine.best,
     tracks: TRACKS,
     cars: RACERS,
+    single: state.single && !state.inChamp,
   });
 }
 
@@ -431,6 +438,7 @@ function finishRace() {
     bestLap: mine.best,
     tracks: TRACKS,
     cars: RACERS,
+    single: state.single && !state.inChamp,
   });
 
   document.getElementById('results-sub').innerHTML =
@@ -621,8 +629,13 @@ document.addEventListener('click', (e) => {
   audio.unlock();
   switch (action) {
     case 'race':
+    case 'single':
       audio.sfx.select();
       state.inChamp = false;
+      state.single = action === 'single';
+      // Career picks up where you were; a single race from anything you
+      // left selected, if the career has not reached it.
+      if (!trackOpen(state.trackId)) state.trackId = TRACKS[0].id;
       state.world = trackById(state.trackId).world;
       renderTracks();
       show('tracks');
@@ -712,7 +725,7 @@ document.addEventListener('click', (e) => {
       audio.sfx.select();
       const i = TRACKS.findIndex((t) => t.id === state.trackId);
       const next = TRACKS[i + 1];
-      if (next && state.progress.unlockedTracks.includes(next.id)) state.trackId = next.id;
+      if (next && trackOpen(next.id)) state.trackId = next.id;
       state.world = trackById(state.trackId).world;
       renderTracks();
       show('tracks');

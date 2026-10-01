@@ -54,9 +54,16 @@ export function save(state) {
   try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* private mode */ }
 }
 
-/** Record a finished race and return what it unlocked. */
-export function record(state, { trackId, place, bestLap, tracks, cars }) {
+/** Record a finished race and return what it unlocked. A single race on a
+ *  circuit the career has not reached yet keeps its best lap, but its place
+ *  opens nothing — not the next circuit, not a car. */
+export function record(state, { trackId, place, bestLap, tracks, cars, single = false }) {
   const unlocked = [];
+  if (single && !state.unlockedTracks.includes(trackId)) {
+    if (bestLap != null && (state.best[trackId] == null || bestLap < state.best[trackId])) state.best[trackId] = bestLap;
+    save(state);
+    return unlocked;
+  }
   const prevPlace = state.places[trackId];
   if (prevPlace == null || place < prevPlace) state.places[trackId] = place;
   if (bestLap != null && (state.best[trackId] == null || bestLap < state.best[trackId])) {

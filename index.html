@@ -109,21 +109,24 @@
       <h1 class="title">Chrome<span>Circuit</span></h1>
       <p class="tagline">Six cars. Three laps. Rockets optional.</p>
       <div class="menu-buttons">
-        <button class="btn btn--primary" data-action="race">Start a race</button>
+        <div class="menu-row">
+          <button class="btn btn--primary" data-action="race">Career</button>
+          <button class="btn" data-action="single">Single race</button>
+        </div>
         <button class="btn" data-action="champ" id="menu-champ">Championship</button>
         <button class="btn" data-action="garage">Garage</button>
         <button class="btn" data-action="howto">How to play</button>
         <!-- Revealed by pwa.js only when the browser offers to install. -->
         <button class="btn btn--install hidden" id="install-btn" data-action="install">Install</button>
       </div>
-      <p class="credits">Models by <strong>Kenney</strong> (CC0) — Car Kit, City Kit Roads, City Kit, Suburban, Toy Car Kit. <span class="version" id="version-badge"></span></p>
+      <p class="credits">Models by <strong>Kenney</strong> (CC0) — Car Kit, City Kit Roads, City Kit, Suburban, Toy Car Kit, Holiday Kit. <span class="version" id="version-badge"></span></p>
     </div>
   </section>
 
   <section class="screen" id="screen-tracks">
     <div class="panel">
       <header class="panel-head">
-        <h2>Choose a circuit</h2>
+        <h2 id="tracks-title">Career</h2>
         <div class="worlds" id="track-worlds" role="group" aria-label="World"></div>
         <button class="btn btn--ghost" data-action="back-menu">Back</button>
       </header>
