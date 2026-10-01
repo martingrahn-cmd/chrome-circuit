@@ -9,7 +9,7 @@ const KEY = 'chrome-circuit-progress-v1';
 const blank = () => ({
   unlockedTracks: ['downtown'], unlockedCars: [], best: {}, places: {}, difficulty: 0,
   champ: null,      // the championship in progress (or just finished)
-  champBest: {},    // best final championship place, by difficulty
+  champBest: {},    // best final championship place, by `world:difficulty`
 });
 
 const isObj = (v) => v != null && typeof v === 'object' && !Array.isArray(v);
@@ -31,7 +31,11 @@ export function load() {
       places: isObj(p.places) ? p.places : d.places,
       difficulty: [0, 1, 2, 3].includes(p.difficulty) ? p.difficulty : d.difficulty,
       champ: validateChamp(p.champ, RACERS.map((r) => r.id), TRACKS.map((t) => t.id)),
-      champBest: isObj(p.champBest) ? p.champBest : d.champBest,
+      // Bests used to be keyed by difficulty alone, from before there was
+      // more than one world; those were all Grand Tour.
+      champBest: isObj(p.champBest)
+        ? Object.fromEntries(Object.entries(p.champBest).map(([k, v]) => [/^\d$/.test(k) ? `grand:${k}` : k, v]))
+        : d.champBest,
     };
   } catch {
     return blank();

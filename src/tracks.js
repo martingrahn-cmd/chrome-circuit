@@ -84,9 +84,71 @@ const RALLY = {
   cornerSign: { kit: 'roads', model: 'road-sign-warning', scale: 1 },
 };
 
+// --- Alpine Winter -------------------------------------------------------
+
+// A log cabin, assembled from the holiday kit's pieces on a 2×2 floor:
+// [piece, x, y, z, quarter turns]. Walls sit on a cell's +z edge and turn
+// round its centre; roof halves meet at the ridge; the gables close the ends.
+function cabin({ chimney = true, windows = ['cabin-window-a', 'cabin-window-b'] } = {}) {
+  return [
+    [windows[0], 0.5, 0, 0.5, 0], ['cabin-wall', 0.5, 0, 0.5, 1],
+    ['cabin-wall', -0.5, 0, 0.5, 0], [windows[1], -0.5, 0, 0.5, 3],
+    ['cabin-wall', 0.5, 0, -0.5, 2], ['cabin-doorway', 0.5, 0, -0.5, 1],
+    ['cabin-wall', -0.5, 0, -0.5, 2], ['cabin-wall', -0.5, 0, -0.5, 3],
+    ['cabin-corner', -0.5, 0, 0.5, 0], ['cabin-corner', 0.5, 0, 0.5, 1],
+    ['cabin-corner', 0.5, 0, -0.5, 2], ['cabin-corner', -0.5, 0, -0.5, 3],
+    ['cabin-roof-snow', 0.5, 1, 0.5, 0], [chimney ? 'cabin-roof-snow-chimney' : 'cabin-roof-snow', 0.5, 1, -0.5, 0],
+    ['cabin-roof-snow', -0.5, 1, 0.5, 2], ['cabin-roof-snow', -0.5, 1, -0.5, 2],
+    ['cabin-wall-roof', 0.5, 1, 0.5, 0], ['cabin-wall-roof-center', -0.5, 1, 0.5, 0],
+    ['cabin-wall-roof-center', 0.5, 1, -0.5, 2], ['cabin-wall-roof', -0.5, 1, -0.5, 2],
+  ];
+}
+const CABINS = [
+  { kit: 'holiday', parts: cabin(), scale: 0.36, h: 2.34, r: 1.45, pad: true, below: 8 },
+  { kit: 'holiday', parts: cabin({ chimney: false, windows: ['cabin-window-c', 'cabin-window-large'] }), scale: 0.36, h: 2.34, r: 1.45, pad: true, below: 8 },
+];
+// `below`: the tree line — above it, only rock.
+const SNOW_TREES = [
+  { kit: 'holiday', model: 'tree-snow-a', scale: 0.44, h: 1.92, r: 0.6, below: 10 },
+  { kit: 'holiday', model: 'tree-snow-b', scale: 0.40, h: 1.97, r: 0.62, below: 10 },
+  { kit: 'holiday', model: 'tree-snow-c', scale: 0.36, h: 1.92, r: 0.6, below: 12 },
+  { kit: 'holiday', model: 'tree-snow-a', scale: 0.30, h: 1.92, r: 0.6, below: 13 },
+];
+const ROCKS = [
+  { kit: 'holiday', model: 'rocks-large', scale: 0.3, h: 1.71, r: 1.6 },
+  { kit: 'holiday', model: 'rocks-medium', scale: 0.32, h: 0.88, r: 1.0 },
+  { kit: 'holiday', model: 'rocks-small', scale: 0.3, h: 0.65, r: 0.77 },
+];
+const VILLAGE_PROPS = [
+  ...CABINS, ...SNOW_TREES,
+  { kit: 'holiday', model: 'snowman-hat', scale: 0.2, h: 1.36, r: 0.55 },
+];
+const PASS_PROPS = [...SNOW_TREES, ...SNOW_TREES, ...ROCKS, CABINS[0]];
+const SUMMIT_PROPS = [...ROCKS, ...ROCKS, ...SNOW_TREES];
+
+// Lanterns along the far side and snow walls round the outside of the
+// corners; warning signs before the ones that bite.
+const ALPINE = {
+  lamp: { kit: 'holiday', model: 'lantern', scale: 0.26 },
+  cornerSign: { kit: 'roads', model: 'road-sign-warning', scale: 1 },
+  cornerBarrier: { kit: 'holiday', model: 'snow-bunker', scale: 0.26, alongX: true, every: 5.5 },
+};
+const ALPINE_THEME = {
+  sky: 0xc9dbea, ground: 0xe4ebf2, valley: 0xbcc7c4, peak: 0xf1f7ff, rock: 0x7b8493, verge: 0xd2dae3,
+  kerbColour: 0xb4bcc8, offroad: 'snow', snowfall: true, spread: 7, card: [0x7fa3c6, 0x4f6b86],
+  light: { hemiSky: 0xdce8f8, hemiGround: 0x6f7c8f, hemi: 0.95, sun: 0xfff1e0, sunPower: 1.85 },
+  dress: ALPINE,
+};
+
+export const WORLDS = [
+  { id: 'grand', name: 'Grand Tour', blurb: 'City streets, harbour fronts and forest roads.' },
+  { id: 'alps', name: 'Alpine Winter', blurb: 'Snow, ice and mountain passes that climb.' },
+];
+
 export const TRACKS = [
   {
     id: 'downtown',
+    world: 'grand',
     name: 'Downtown Loop',
     blurb: 'Wide city streets and two quick esses. A friendly first outing.',
     start: [0, 0],
@@ -102,6 +164,7 @@ export const TRACKS = [
   },
   {
     id: 'harbour',
+    world: 'grand',
     name: 'Harbour Sprint',
     blurb: 'Armco all the way round. Kiss the barrier, lose the lap.',
     start: [0, 0],
@@ -117,6 +180,7 @@ export const TRACKS = [
   },
   {
     id: 'sakura',
+    world: 'grand',
     name: 'Sakura Hills',
     blurb: 'Long, flowing and no barriers. Cut the grass if you dare.',
     start: [0, 0],
@@ -133,6 +197,7 @@ export const TRACKS = [
   },
   {
     id: 'neon',
+    world: 'grand',
     name: 'Neon Speedway',
     blurb: 'The long one. Big straights, big towers, big speed.',
     start: [0, 0],
@@ -149,6 +214,7 @@ export const TRACKS = [
   },
   {
     id: 'pinecrest',
+    world: 'grand',
     name: 'Pinecrest Rally',
     blurb: 'Forest roads with a hairpin that bites. Dirt is faster than pride.',
     start: [0, 0],
@@ -161,6 +227,50 @@ export const TRACKS = [
       sky: 0xa9d8e0, ground: 0x5f8a4a, density: 0.66,
       props: WILD_PROPS, dress: RALLY,
     },
+  },
+  {
+    id: 'frostvale',
+    world: 'alps',
+    name: 'Frostvale Village',
+    blurb: 'Gentle hills through a ski village. Mind the snow on the verge.',
+    start: [0, 0],
+    moves: 'R10 D4 R5 D6 L4 D2 L3 U5 L8 U7',
+    heights: [0, 2, 3, 5, 5, 5, 4.5, 3, 1.5, 0],
+    laps: 3,
+    walls: false,
+    seed: 2601,
+    difficulty: 2,
+    theme: { ...ALPINE_THEME, density: 0.44, props: VILLAGE_PROPS, terrain: { peaks: 14, drifts: 0.7 } },
+  },
+  {
+    id: 'glacier',
+    world: 'alps',
+    name: 'Glacier Pass',
+    blurb: 'Hairpins up to the glacier, ice at the top, a long run back down.',
+    start: [0, 0],
+    moves: 'R14 U3 L10 U3 R9 U3 L13 D9',
+    heights: [0, 4, 7, 11, 14, 17, 16, 0],
+    ice: [[0.6, 0.7]],
+    laps: 3,
+    walls: true,
+    seed: 3907,
+    difficulty: 4,
+    theme: { ...ALPINE_THEME, density: 0.55, props: PASS_PROPS, terrain: { peaks: 26, drifts: 0.8 } },
+  },
+  {
+    id: 'summit',
+    world: 'alps',
+    name: 'Summit Run',
+    blurb: 'Up the ridge and over the top. Black ice and nothing to stop you.',
+    start: [0, 0],
+    moves: 'R16 U4 L5 U4 R5 U4 L9 D3 L4 U3 L3 D12',
+    heights: [0, 5, 8, 12, 15, 19, 21, 18, 17, 20, 20, 0],
+    ice: [[0.49, 0.57], [0.72, 0.77]],
+    laps: 3,
+    walls: false,
+    seed: 5150,
+    difficulty: 5,
+    theme: { ...ALPINE_THEME, density: 0.5, props: SUMMIT_PROPS, terrain: { peaks: 32, drifts: 0.9 } },
   },
 ];
 

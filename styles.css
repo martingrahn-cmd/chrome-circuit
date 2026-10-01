@@ -594,6 +594,40 @@ html, body {
 
 /* ----------------------------------------------------------- Championship */
 .nowrap { white-space: nowrap; }
+/* Worlds: a segmented switch in the circuit screen's header, and a row of
+   its own on the championship setup. */
+.worlds { display: flex; gap: 6px; flex-wrap: wrap; }
+.panel-head .worlds { margin-right: auto; }
+.worlds--wide { margin: 0 0 10px; }
+.worlds--wide .world { flex: 1 1 0; }
+.world {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 7px 14px 8px;
+  border-radius: 12px;
+  border: 1px solid var(--panel-edge);
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.16s, border-color 0.16s;
+}
+.world:hover:not([disabled]) { background: rgba(255, 255, 255, 0.09); }
+.world-name { font-family: var(--display); font-size: 14px; letter-spacing: 0.03em; }
+.world-sub { font-size: 11px; color: var(--muted); }
+.world[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: rgba(255, 204, 50, 0.13);
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}
+.world[aria-pressed='true'] .world-name { color: var(--accent); }
+.world[disabled] { opacity: 0.45; cursor: not-allowed; }
+.world:focus, .world:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--ink), 0 0 0 4px var(--accent); }
+
 /* Difficulty: four big buttons in the level's own colour, not a select in the
    footer — it decides more about a race than the car does. */
 .levels { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0 0 14px; }
@@ -855,6 +889,9 @@ body.racing .update-chip { display: none; }
   .results li { padding: 7px 10px; gap: 8px; }
   .levels { gap: 6px; margin-bottom: 8px; }
   .level { padding: 5px 10px 6px; }
+  .world { padding: 5px 12px 6px; }
+  .world-sub { display: none; }
+  .worlds--wide { margin-bottom: 6px; }
   .level-name { font-size: 14px; }
   .level-blurb { display: none; }
   .results-sub { font-size: 12px; margin-top: 2px; }
@@ -917,6 +954,9 @@ body.racing .update-chip { display: none; }
   .card-name { font-size: 15px; }
   .bar { grid-template-columns: 42px 1fr; }
   .levels { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .panel-head { flex-wrap: wrap; }
+  .panel-head .worlds { order: 3; width: 100%; margin-right: 0; }
+  .panel-head .world { flex: 1 1 0; }
   .level { padding: 7px 10px 8px; }
   .level-name { font-size: 14px; }
   .level-blurb { font-size: 11px; }

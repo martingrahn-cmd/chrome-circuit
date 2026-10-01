@@ -79,13 +79,19 @@ export class AIDriver {
     if (neighbour) steer += Math.sign(this.sideOf(neighbour)) * 0.28;
 
     // Brake for the corner that is coming, not the one under the wheels.
-    let worst = 0;
+    let worst = 0, iceAhead = car.surface === 'ice';
     const scan = Math.round((7 + speed * 0.85) / line.spacing);
-    for (let k = 2; k < scan; k++) worst = Math.max(worst, line.curveAt(idx + k));
+    for (let k = 2; k < scan; k++) {
+      worst = Math.max(worst, line.curveAt(idx + k));
+      if (line.iceAt(idx + k)) iceAhead = true;
+    }
     // Fastest speed at which the car can still generate the yaw rate the
     // corner asks for: omega = v * curvature must stay inside its handling.
     const cornerSpeed = Math.min(car.topSpeed, (car.handling * 0.8) / Math.max(0.006, worst));
-    const honest = cornerSpeed * (0.82 + 0.2 * this.skill) * (car.surface === 'road' ? 1 : 0.75);
+    const grip = car.surface === 'road' || car.surface === 'ice' ? 1 : 0.75;
+    // A bend on ice is taken gently, or not at all.
+    const ice = iceAhead && worst > 0.015 ? 0.8 : 1;
+    const honest = cornerSpeed * (0.82 + 0.2 * this.skill) * grip * ice;
     let target = honest;
     // Pace by difficulty. Skill alone only moved Rookie 5% off Pro, and a
     // first-timer following the road by eye laps 25% slower than that —

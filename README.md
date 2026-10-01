@@ -82,16 +82,36 @@ Choosing a circuit takes you straight to the car select, and choosing a car star
 the race — no walking down to a confirm button. The garage, reached from the main
 menu, is browse-only.
 
+### Worlds
+
+The circuits come in worlds, picked from a switch at the top of the circuit screen:
+
+- **Grand Tour** — the first five: city streets, the harbour, Sakura Hills, Neon
+  Speedway and the Pinecrest forest rally.
+- **Alpine Winter** — Frostvale Village, Glacier Pass and Summit Run. Roads that
+  climb, deep snow off the tarmac, ice on the high stretches and snow falling the
+  whole time.
+
+A world opens with a podium on the last circuit of the one before it, and the
+unlock card says so.
+
+Height on a climbing circuit is felt as well as seen: a climb takes speed off and a
+descent gives it back, and the car pitches with the road. Off the tarmac in the Alps
+is deep snow — slower than dirt, about as slippery. Ice keeps full speed but has a
+third of the grip, so a car goes on the way it was going; the rivals see it coming
+and ease off for the bends on it.
+
 ### Championship
 
-Every circuit in turn, against the same five rivals, with points for every
+Every circuit of one world in turn, against the same five rivals, with points for every
 place: 10, 7, 5, 3, 2, 1. Pick a difficulty and a car, and the table after each
 round shows every driver's finish so far. Ties go to more wins, then more
 seconds, then to whoever was ahead in the latest round. A championship in
 progress is saved with the rest of your progress, so the menu offers to continue
 it after a reload; quitting mid-round leaves that round to race again, and
 abandoning one takes a second press. Your best final place is kept per
-difficulty. Championship rounds still set best laps and unlock circuits and cars
+world and difficulty. A new championship offers the furthest world you have
+reached. Championship rounds still set best laps and unlock circuits and cars
 the same way single races do.
 
 You start last on a six-car grid every race. Podium on a circuit to unlock the next
@@ -155,7 +175,8 @@ src/
   engine.js           renderer, orthographic isometric camera, lighting
   assets.js           GLB loading, one shared material per kit
   track.js            grid path -> racing line, ribbon road, scenery
-  tracks.js           the five circuit definitions
+  terrain.js          ground with height in it, for circuits that climb
+  tracks.js           the worlds and their circuit definitions
   roster.js           the ten cars and their stats
   car.js              arcade vehicle physics and car-vs-car contact
   ai.js               AI drivers
@@ -192,6 +213,38 @@ and the minimap — is measured against that one centre line.
 Adding a circuit means adding an entry to `TRACKS`; the move string is validated by
 having to close the loop.
 
+A circuit that climbs adds one height per move — where that leg ends:
+
+```js
+{ moves: 'R14 U3 L10 U3 R9 U3 L13 D9', heights: [0, 4, 7, 11, 14, 17, 16, 0],
+  ice: [[0.6, 0.7]] }
+```
+
+Heights run linearly along each leg, carry over onto the racing line, and are
+smoothed so crests and dips round off. `ice` lists stretches of the lap, as fractions
+from the start line. Keep the start straight level; the grid stands on it.
+
+### Ground with height in it
+
+`terrain.js` builds the ground for a climbing circuit as one grid of heights. It is
+flat across the road at the road's own height, out past the track limit, so a car's
+height can come straight off the centre line. Beyond that, every road is a shelf cut
+into a hillside that rises away from the camera: the ground climbs behind each road
+and falls away in front of it. From this camera that is what makes height legible —
+you see the bank above each road and the drop below it. Where two legs pass at
+different heights, the slope between them comes from both, softly weighted toward
+the nearer. Further out, mountains rise.
+
+Snow lies on the level and rock shows where it is steep. The snow is grey-green down
+in the valley and bright up top, so altitude reads as colour too. Trees stop at a
+tree line, buildings get level footing dug into the slope, and the terrain casts
+shadows onto the road below.
+
+The camera looks down at 1.35 rise per unit of run, so ground between a car and the
+camera may only rise that steeply before it hides the car. The last pass cuts the
+grid down to that wherever a road lies behind it. Camera rays run along the grid's
+diagonal, so one sweep in that order does it.
+
 ### Which way is right
 
 Kenney's cars face +Z with their front-*left* wheel on local +X, so local +X is the
@@ -215,6 +268,7 @@ The camera looks down the `(-1, 0, -1)` ground direction, so a prop at cell `(x,
 can only ever hide the track cells at `(x-k, z-k)`. Each candidate cell gets a height
 budget from how far the nearest such track cell is, and only props that fit under it
 are eligible. Tall towers end up behind the circuit and low dressing in front of it.
+On a climbing circuit the budget also counts how much higher or lower that road sits.
 
 Every prop has a job. Street circuits get a row of lamps at even spacing along the
 camera-far side and a warning sign on the outside before each corner that asks you
@@ -235,4 +289,5 @@ draw calls.
 ## Credits
 
 All 3D models by [Kenney](https://kenney.nl) under CC0: Car Kit, City Kit (Roads),
-City Kit (Commercial), City Kit (Suburban) and Toy Car Kit. Three.js is MIT.
+City Kit (Commercial), City Kit (Suburban), Toy Car Kit and Holiday Kit. The log
+cabins in the Alps are assembled from the Holiday Kit's wall and roof pieces. Three.js is MIT.

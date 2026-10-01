@@ -57,8 +57,9 @@ export class ItemField {
         const off = k * this.track.roadHalf * 0.62;
         const mesh = instance('items', 'item-box');
         mesh.scale.setScalar(4.4);
-        mesh.position.set(p.x + t.z * off, 0.2, p.z - t.x * off);
-        mesh.userData.baseY = 0.2;
+        const y = line.heightOf(i) + 0.2;
+        mesh.position.set(p.x + t.z * off, y, p.z - t.x * off);
+        mesh.userData.baseY = y;
         group.add(mesh);
         this.boxes.push({ mesh, x: mesh.position.x, z: mesh.position.z, cooldown: 0, blocked: 0, phase: this.rng() * 6.28 });
       }
@@ -122,7 +123,8 @@ export class Projectile {
     this.dead = false;
     this.mesh = instance('cars', 'debris-bolt');
     this.mesh.scale.setScalar(3.2);
-    this.mesh.position.set(this.x + f.x * 2, 0.5, this.z + f.z * 2);
+    this.y = owner.y;
+    this.mesh.position.set(this.x + f.x * 2, this.y + 0.5, this.z + f.z * 2);
     scene.add(this.mesh);
     this.x = this.mesh.position.x; this.z = this.mesh.position.z;
   }
@@ -141,7 +143,9 @@ export class Projectile {
     }
     this.x += Math.sin(this.heading) * this.speed * dt;
     this.z += Math.cos(this.heading) * this.speed * dt;
-    this.mesh.position.set(this.x, 0.5, this.z);
+    const loc = track.line.locate(this.x, this.z, null, 0);
+    this.y = track.line.heightAt(loc.progress);
+    this.mesh.position.set(this.x, this.y + 0.5, this.z);
     this.mesh.rotation.y = this.heading;
     this.mesh.rotation.x += dt * 14;
 
@@ -154,7 +158,6 @@ export class Projectile {
         return;
       }
     }
-    const loc = track.line.locate(this.x, this.z, null, 0);
     if (loc.dist > track.wallHalf + 3) this.dead = true;
   }
 
@@ -233,8 +236,10 @@ export class Hazard {
     this.life = 12;
     this.dead = false;
     this.mesh = oilDrum(owner.radius + SPILL);
-    this.mesh.position.set(this.x, 0.02, this.z);
-    this.mesh.rotation.y = Math.random() * 6.28;
+    // Dropped behind the car, on the same slope it is driving up or down.
+    this.y = owner.y + Math.tan(owner.pitch) * 3.4;
+    this.mesh.position.set(this.x, this.y + 0.02, this.z);
+    this.mesh.rotation.set(owner.pitch, owner.heading, 0, 'YXZ');
     scene.add(this.mesh);
   }
 
@@ -242,7 +247,7 @@ export class Hazard {
     this.arm -= dt;
     this.life -= dt;
     if (this.life <= 0) { this.dead = true; return; }
-    this.mesh.position.y = 0.02 + Math.sin(this.life * 6) * 0.015;
+    this.mesh.position.y = this.y + 0.02 + Math.sin(this.life * 6) * 0.015;
     for (const car of cars) {
       if ((this.arm > 0 && car === this.owner) || car.finished) continue;
       if (Math.hypot(car.x - this.x, car.z - this.z) < car.radius + SPILL) {

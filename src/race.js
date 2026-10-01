@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { Car, resolveCollisions } from './car.js';
 import { AIDriver } from './ai.js';
 import { ItemField, Projectile, Hazard, ITEMS } from './items.js';
-import { Particles, SkidMarks, DUST } from './fx.js';
+import { Particles, SkidMarks, Snowfall, DUST } from './fx.js';
 import { mulberry32 } from './track.js';
 import { EngineSound, sfx } from './audio.js';
 
@@ -25,6 +25,7 @@ export class Race {
 
     this.particles = new Particles(engine.world);
     this.skids = new SkidMarks(engine.world);
+    this.snow = track.def.theme?.snowfall ? new Snowfall(engine.world) : null;
     this.camLead = 0;   // how far down the road the camera is looking, eased
     this.items = new ItemField(track, engine.world, this.rng, [1, 1, 0.5, 0][difficulty] ?? 1);
     this.projectiles = [];
@@ -141,7 +142,7 @@ export class Race {
     if (kind === 'boost') {
       car.giveBoost(2.1);
       if (car === this.player) { this.playSfx(sfx.boost); this.buzz(0.3, 0.6, 380); }
-      this.particles.burst(car.x, 0.35, car.z, 14, {
+      this.particles.burst(car.x, car.y + 0.35, car.z, 14, {
         colour: [0.4, 1, 0.6], size: 0.5, life: 0.5, spread: 5, glow: true, opacity: 0.9,
       });
     } else if (kind === 'missile') {
@@ -174,7 +175,7 @@ export class Race {
         // Six cars leave the line in a cloud of their own tyre smoke.
         for (const c of this.cars) {
           const f = c.forward;
-          this.particles.burst(c.x - f.x * 1.1, 0.25, c.z - f.z * 1.1, 14, {
+          this.particles.burst(c.x - f.x * 1.1, c.y + 0.25, c.z - f.z * 1.1, 14, {
             colour: [0.62, 0.62, 0.66], size: 0.9, life: 1.1, spread: 4, up: 2.5, opacity: 0.55,
           });
         }
@@ -230,7 +231,7 @@ export class Race {
         this.buzz(imp * 0.7, imp * 0.4, 110);
       }
       const mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2;
-      this.particles.burst(mx, 0.5, mz, 5, {
+      this.particles.burst(mx, (a.y + b.y) / 2 + 0.5, mz, 5, {
         colour: [1, 0.85, 0.4], size: 0.28, life: 0.35, spread: 4, glow: true, opacity: 1,
       });
     });
@@ -240,7 +241,7 @@ export class Race {
         this.playSfx(sfx.wall);
         this.engine.shake(car.wallHit * 0.9);
         this.buzz(car.wallHit * 0.8, car.wallHit * 0.5, 130);
-        this.particles.burst(car.x, 0.5, car.z, 4, {
+        this.particles.burst(car.x, car.y + 0.5, car.z, 4, {
           colour: [1, 0.9, 0.5], size: 0.22, life: 0.3, spread: 3, glow: true, opacity: 1,
         });
       }
@@ -249,7 +250,7 @@ export class Race {
     this.items.update(dt, this.cars, (car, kind) => {
       // Anyone taking a box bursts in its colour; the player also hears it.
       const c = ITEMS[kind].rgb;
-      this.particles.burst(car.x, 0.7, car.z, car === this.player ? 18 : 8, {
+      this.particles.burst(car.x, car.y + 0.7, car.z, car === this.player ? 18 : 8, {
         colour: c, size: 0.5, life: 0.55, spread: 5.5, up: 5, glow: true, opacity: 0.95,
       });
       if (car === this.player) {
@@ -268,7 +269,7 @@ export class Race {
       if (proj.dead) {
         if (proj.hitCar) {
           this.playSfx(sfx.explode);
-          this.particles.burst(proj.hitCar.x, 0.6, proj.hitCar.z, 22, {
+          this.particles.burst(proj.hitCar.x, proj.hitCar.y + 0.6, proj.hitCar.z, 22, {
             colour: [1, 0.6, 0.2], size: 0.55, life: 0.7, spread: 8, up: 6, glow: true, opacity: 1,
           });
           if (proj.hitCar === this.player) { this.engine.shake(1.8); this.buzz(1, 0.8, 420); }
@@ -283,11 +284,12 @@ export class Race {
     this.updateStandings();
     this.particles.update(dt);
     this.skids.update(dt);
+    if (this.snow) this.snow.update(dt, this.engine.target);
     this.engine.decayShake(dt);
 
     // Player marker.
     if (p) {
-      this.marker.position.set(p.x, 3.1 + Math.sin(this.raceTime * 4) * 0.16, p.z);
+      this.marker.position.set(p.x, p.y + 3.1 + Math.sin(this.raceTime * 4) * 0.16, p.z);
       this.marker.rotation.y = this.raceTime * 1.6;
       this.marker.visible = true;
     }
@@ -303,7 +305,9 @@ export class Race {
       const wantLead = Math.max(-reach, Math.min(reach, p.vLong * 0.42));
       this.camLead += (wantLead - this.camLead) * Math.min(1, dt * 3);
       const f = p.forward;
-      e.look(p.x + f.x * this.camLead, 0, p.z + f.z * this.camLead);
+      // Height eased too, so a crest does not jolt the whole picture.
+      this.camY = this.camY == null ? p.y : this.camY + (p.y - this.camY) * Math.min(1, dt * 4);
+      e.look(p.x + f.x * this.camLead, this.camY, p.z + f.z * this.camLead);
       // Pull in close for the finish celebration, back out while racing —
       // and keep backing out under a turbo instead of capping at top speed.
       const targetZoom = CAMERA_ZOOM * (this.coolDown
@@ -333,7 +337,7 @@ export class Race {
     if (!this.confettiStarted) {
       this.confettiStarted = true;
       for (const side of [-1, 1]) {
-        this.particles.burst(p.x + side * 2.5, 1.0, p.z, this.celebrate === 2 ? 22 : 14, {
+        this.particles.burst(p.x + side * 2.5, p.y + 1.0, p.z, this.celebrate === 2 ? 22 : 14, {
           colour: GOLD, size: 0.55, life: 1.0, spread: 7, up: 8, glow: true, opacity: 1,
         });
       }
@@ -346,7 +350,7 @@ export class Race {
       const colour = this.celebrate === 2 ? PARTY[Math.floor(Math.random() * PARTY.length)] : GOLD;
       this.particles.emit(
         p.x + (Math.random() - 0.5) * 9,
-        3.6 + Math.random() * 2.8,
+        p.y + 3.6 + Math.random() * 2.8,
         p.z + (Math.random() - 0.5) * 9,
         {
           velocity: [(Math.random() - 0.5) * 3, -0.6, (Math.random() - 0.5) * 3],
@@ -407,34 +411,34 @@ export class Race {
       if (car.skidAccum > 0.022) {
         car.skidAccum = 0;
         for (const side of [-1, 1]) {
-          this.skids.add(car.x + rx * side * 0.62 - f.x * 0.85, car.z + rz * side * 0.62 - f.z * 0.85, car.heading, 1);
+          this.skids.add(car.x + rx * side * 0.62 - f.x * 0.85, car.y + Math.tan(car.pitch) * 0.85, car.z + rz * side * 0.62 - f.z * 0.85, car.heading, car.pitch);
         }
       }
       if (Math.random() < car.slip * 0.7) {
         const c = DUST[car.surface];
-        this.particles.emit(car.x - f.x * 1.2, 0.24, car.z - f.z * 1.2, {
+        this.particles.emit(car.x - f.x * 1.2, car.y + 0.24, car.z - f.z * 1.2, {
           velocity: [(Math.random() - 0.5) * 3, 0.8 + Math.random(), (Math.random() - 0.5) * 3],
           colour: c, size: 0.42, life: 0.72, grow: 2.4, opacity: 0.5,
         });
       }
     }
 
-    if (car.surface !== 'road' && speed > 3 && Math.random() < 0.6) {
-      this.particles.emit(car.x - f.x * 1.1, 0.2, car.z - f.z * 1.1, {
+    if (car.surface !== 'road' && car.surface !== 'ice' && speed > 3 && Math.random() < 0.6) {
+      this.particles.emit(car.x - f.x * 1.1, car.y + 0.2, car.z - f.z * 1.1, {
         velocity: [(Math.random() - 0.5) * 4, 1.6 + Math.random() * 2, (Math.random() - 0.5) * 4],
         colour: DUST[car.surface], size: 0.4, life: 0.6, grow: 2.6, opacity: 0.6,
       });
     }
 
     if (car.boost > 0) {
-      this.particles.emit(car.x - f.x * 1.4, 0.36, car.z - f.z * 1.4, {
+      this.particles.emit(car.x - f.x * 1.4, car.y + 0.36, car.z - f.z * 1.4, {
         velocity: [-f.x * 6 + (Math.random() - 0.5) * 2, 0.6, -f.z * 6 + (Math.random() - 0.5) * 2],
         colour: [0.45, 1, 0.75], size: 0.34, life: 0.32, grow: 1.4, glow: true, opacity: 1,
       });
     }
 
     if (car.spin > 0 && Math.random() < 0.8) {
-      this.particles.emit(car.x, 0.5, car.z, {
+      this.particles.emit(car.x, car.y + 0.5, car.z, {
         velocity: [(Math.random() - 0.5) * 5, 1.6, (Math.random() - 0.5) * 5],
         colour: [0.3, 0.3, 0.33], size: 0.5, life: 0.6, grow: 2.2, opacity: 0.55,
       });

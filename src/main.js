@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { Engine } from './engine.js';
 import { loadModel, assetUrls } from './assets.js';
 import { Track } from './track.js';
-import { TRACKS, trackById } from './tracks.js';
+import { TRACKS, WORLDS, trackById } from './tracks.js';
 import { RACERS, racerById } from './roster.js';
 import { Race } from './race.js';
 import { Hud, formatTime } from './hud.js';
@@ -31,6 +31,8 @@ const state = {
   racerId: 'comet',
   difficulty: 0,
   champDifficulty: 0,   // picked on the championship screen before round 1
+  world: 'grand',       // the world whose circuits the circuit screen shows
+  champWorld: 'grand',  // and the one a new championship would tour
   inChamp: false,       // the race on screen is a championship round
   race: null,
   attract: false,
@@ -181,10 +183,36 @@ function backOut() {
 
 /* ------------------------------------------------------------ track list */
 
+/* ---------------------------------------------------------------- worlds */
+
+const worldTracks = (id) => TRACKS.filter((t) => t.world === id);
+/** A world is open once its first circuit is. */
+const worldOpen = (id) => state.progress.unlockedTracks.includes(worldTracks(id)[0]?.id);
+
+/** One button per world, built into each picker. A shut world says what
+ *  opens it: a podium on the last circuit of the world before. */
+function renderWorlds(el, current) {
+  el.replaceChildren(...WORLDS.map((w, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'world';
+    b.dataset.action = 'world';
+    b.dataset.world = w.id;
+    const open = worldOpen(w.id);
+    b.disabled = !open;
+    b.setAttribute('aria-pressed', String(w.id === current));
+    const prev = i > 0 ? worldTracks(WORLDS[i - 1].id).at(-1) : null;
+    b.innerHTML = `<span class="world-name">${w.name}</span>`
+      + `<span class="world-sub">${open ? `${worldTracks(w.id).length} circuits` : `Podium ${prev?.name ?? ''} to open`}</span>`;
+    return b;
+  }));
+}
+
 function renderTracks() {
   const list = document.getElementById('track-list');
   list.replaceChildren();
-  for (const def of TRACKS) {
+  renderWorlds(document.getElementById('track-worlds'), state.world);
+  for (const def of worldTracks(state.world)) {
     const unlocked = state.progress.unlockedTracks.includes(def.id);
     const card = document.createElement('button');
     card.className = 'card';
@@ -218,8 +246,8 @@ function renderTracks() {
 }
 
 function swatch(def) {
-  const c = def.theme.sky;
-  const g = def.theme.ground;
+  // Snow on a pale sky is white on white; a world can give its cards colour.
+  const [c, g] = def.theme.card ?? [def.theme.sky, def.theme.ground];
   const hex = (n) => `#${n.toString(16).padStart(6, '0')}`;
   return `linear-gradient(90deg, ${hex(c)}, ${hex(g)})`;
 }
@@ -297,7 +325,7 @@ function renderCars() {
   const note = state.carsFrom === 'tracks'
     ? `${track.name} — ${track.laps} laps — ${DIFFICULTY[state.difficulty]}. Pick a car to start.`
     : state.carsFrom === 'champ'
-      ? `Championship — ${TRACKS.length} rounds — ${DIFFICULTY[state.champDifficulty]}. Pick a car to start.`
+      ? `${WORLDS.find((w) => w.id === state.champWorld).name} championship — ${worldTracks(state.champWorld).length} rounds — ${DIFFICULTY[state.champDifficulty]}. Pick a car to start.`
       : `${chosen.name} selected.`;
   document.getElementById('car-note').textContent = note;
 }
@@ -352,7 +380,7 @@ function buildRace(def, { attract = false } = {}) {
     race.start();
   }
   const p = race.player;
-  engine.look(p.x, 0, p.z);
+  engine.look(p.x, p.y, p.z);
   return race;
 }
 
@@ -436,12 +464,13 @@ function finishRace() {
     const el = document.createElement('div');
     el.className = 'unlock';
     const isTrack = u.kind === 'track';
+    const newWorld = isTrack && trackById(u.id).world !== trackById(state.trackId).world;
     const art = isTrack ? trackArt.get(u.id) : carArt.get(u.id);
     const bg = isTrack ? `background:${swatch(trackById(u.id))}`
       : `background:radial-gradient(70% 90% at 50% 118%, ${racerById(u.id).colour}88, transparent 70%), rgba(255,255,255,0.06)`;
     el.innerHTML = `
       <div class="unlock-art" style="${bg}"><img src="${art || ''}" alt=""></div>
-      <div><span class="unlock-kind">${isTrack ? 'New circuit' : 'New car'}</span><span class="unlock-name">${u.name}</span></div>`;
+      <div><span class="unlock-kind">${newWorld ? `New world — ${WORLDS.find((w) => w.id === trackById(u.id).world).name}` : isTrack ? 'New circuit' : 'New car'}</span><span class="unlock-name">${u.name}</span></div>`;
     box.appendChild(el);
   }
 
@@ -477,7 +506,7 @@ function startChamp() {
     difficulty: state.champDifficulty,
     racerId: state.racerId,
     rivals,
-    rounds: TRACKS.map((t) => t.id),
+    rounds: worldTracks(state.champWorld).map((t) => t.id),
   });
   progress.save(state.progress);
   startChampRound();
@@ -501,8 +530,9 @@ function scoreChampRace(race, results) {
   const gained = champ.score(c, results);
   if (champ.isOver(c)) {
     const place = champ.standings(c).findIndex((row) => row.isPlayer) + 1;
-    const prev = state.progress.champBest[c.difficulty];
-    if (!prev || place < prev) state.progress.champBest[c.difficulty] = place;
+    const key = `${trackById(c.rounds[0]).world}:${c.difficulty}`;
+    const prev = state.progress.champBest[key];
+    if (!prev || place < prev) state.progress.champBest[key] = place;
   }
   progress.save(state.progress);
   return gained;
@@ -511,7 +541,8 @@ function scoreChampRace(race, results) {
 function renderChamp() {
   const c = state.progress.champ;
   const active = c && !champ.isOver(c);
-  const rounds = c ? c.rounds.map(trackById) : TRACKS;
+  const rounds = c ? c.rounds.map(trackById) : worldTracks(state.champWorld);
+  const world = WORLDS.find((w) => w.id === (c ? rounds[0].world : state.champWorld));
   const title = document.getElementById('champ-title');
   const sub = document.getElementById('champ-sub');
   const table = document.getElementById('champ-standings');
@@ -522,12 +553,14 @@ function renderChamp() {
   if (!c) {
     title.textContent = 'Championship';
     const best = Object.entries(state.progress.champBest)
+      .filter(([k]) => k.startsWith(`${world.id}:`))
+      .map(([k, place]) => [Number(k.split(':')[1]), place])
       .sort((a, b) => a[1] - b[1] || b[0] - a[0])[0];
-    sub.innerHTML = `Every circuit in turn, the same five rivals, points for every place: <span class="nowrap">${champ.POINTS.join(' · ')}</span>.`
+    sub.innerHTML = `Every circuit of ${world.name} in turn, the same five rivals, points for every place: <span class="nowrap">${champ.POINTS.join(' · ')}</span>.`
       + (best ? ` Your best: ${ordinal(best[1])} on ${DIFFICULTY[best[0]]}.` : '');
     next.textContent = 'Pick your car';
   } else if (active) {
-    title.textContent = `Championship — ${DIFFICULTY[c.difficulty]}`;
+    title.textContent = `${world.name} — ${DIFFICULTY[c.difficulty]}`;
     sub.textContent = c.round
       ? `After ${c.round} of ${c.rounds.length} rounds you are ${ordinal(myPlace)}. Next: ${rounds[c.round].name}.`
       : `Round 1 of ${c.rounds.length}: ${rounds[0].name}.`;
@@ -540,6 +573,9 @@ function renderChamp() {
   }
   screens.champ.classList.toggle('is-champion', !!c && !active && myPlace === 1);
   document.getElementById('champ-difficulty').classList.toggle('hidden', !!c);
+  const worlds = document.getElementById('champ-worlds');
+  worlds.classList.toggle('hidden', !!c);
+  renderWorlds(worlds, state.champWorld);
   showLevel(document.getElementById('champ-difficulty'), state.champDifficulty);
   document.getElementById('champ-abandon').classList.toggle('hidden', !active);
 
@@ -584,11 +620,33 @@ document.addEventListener('click', (e) => {
   const action = btn.dataset.action;
   audio.unlock();
   switch (action) {
-    case 'race': audio.sfx.select(); state.inChamp = false; renderTracks(); show('tracks'); break;
+    case 'race':
+      audio.sfx.select();
+      state.inChamp = false;
+      state.world = trackById(state.trackId).world;
+      renderTracks();
+      show('tracks');
+      break;
+    case 'world': {
+      audio.sfx.select();
+      const id = btn.dataset.world;
+      if (btn.closest('#champ-worlds')) {
+        state.champWorld = id;
+        renderChamp();
+      } else {
+        state.world = id;
+        renderTracks();
+      }
+      // The buttons were rebuilt; keep the keyboard on the one just pressed.
+      document.querySelector(`#screen-${state.screen} .world[data-world="${id}"]`)?.focus();
+      break;
+    }
     case 'champ':
     case 'champ-standings':
       audio.sfx.select();
       state.champDifficulty = state.difficulty;
+      // Offer the furthest world reached.
+      state.champWorld = [...WORLDS].reverse().find((w) => worldOpen(w.id))?.id ?? WORLDS[0].id;
       renderChamp();
       show('champ');
       break;
@@ -655,6 +713,7 @@ document.addEventListener('click', (e) => {
       const i = TRACKS.findIndex((t) => t.id === state.trackId);
       const next = TRACKS[i + 1];
       if (next && state.progress.unlockedTracks.includes(next.id)) state.trackId = next.id;
+      state.world = trackById(state.trackId).world;
       renderTracks();
       show('tracks');
       break;
