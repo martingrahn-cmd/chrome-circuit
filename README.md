@@ -133,19 +133,21 @@ title on the results screen.
 
 Rookie is meant to be a race a first-timer can win — and one a good driver still has
 to race for. The levers all fade as the difficulty climbs: the rivals run slower (78%
-pace at Rookie, 90% at Pro, 97% at Ace, full at Legend), ease off harder when the
+pace at Rookie, 94% at Pro, 98.5% at Ace, full at Legend), ease off harder when the
 player drops back, and pick their pace back up — never past their honest Legend speed
 — when the player leads and pulls away, so a win is by seconds rather than a lap; a
 steering assist blends the player's input toward the clean line out near the edge
 of the road, so a late or shaky input is nudged back before a wheel drops (0.7 at
-Rookie, 0.45 Pro, 0.2 Ace, none at Legend); and the run-off punishes the player
-less (Rookie fully, Pro half). The item boxes lean the same way: a backmarker
+Rookie, 0.3 Pro, 0.1 Ace, none at Legend); and the run-off punishes the player
+less (Rookie fully, Pro a third). The item boxes lean the same way: a backmarker
 draws turbos half the time and the leader mostly draws things to defend with, in
-full at Rookie and Pro, half at Ace and not at all at Legend, where every box
+full at Rookie, 70% at Pro, a third at Ace and not at all at Legend, where every box
 deals even odds. Legend's rivals are also a clear step sharper than Ace's rather
 than one more even rung. A simulated beginner — road followed by eye, 0.3 s
 reaction lag, shaky hands, never lifting — went from last every race to P1–P5 at
-Rookie; a near-flawless stand-in driver wins about half its races at Legend.
+Rookie. Pro is a fair fight, not a formality: a strong stand-in driver with no
+assist won 58% of its Pro races before the levers were tightened and 40% after,
+and about one in five at Ace and Legend.
 
 The rivals hold an item until it is worth using — a turbo for a straight, a
 rocket for a car ahead, a drum for a car close behind — and steer round oil drums

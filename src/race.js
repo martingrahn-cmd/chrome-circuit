@@ -27,7 +27,7 @@ export class Race {
     this.skids = new SkidMarks(engine.world);
     this.snow = track.def.theme?.snowfall ? new Snowfall(engine.world) : null;
     this.camLead = 0;   // how far down the road the camera is looking, eased
-    this.items = new ItemField(track, engine.world, this.rng, [1, 1, 0.5, 0][difficulty] ?? 1);
+    this.items = new ItemField(track, engine.world, this.rng, [1, 0.7, 0.35, 0][difficulty] ?? 1);
     this.projectiles = [];
 
     this.cars = [];
@@ -49,11 +49,11 @@ export class Race {
       this.cars.push(car);
       if (isPlayer) {
         this.player = car;
-        car.runoffEase = [1, 0.5, 0, 0][difficulty] ?? 0;
+        car.runoffEase = [1, 0.35, 0, 0][difficulty] ?? 0;
       } else {
         // Legend steps up further than the rest: at the old even spacing a
         // near-perfect driver still won six Legend races in ten.
-        const base = [0.48, 0.595, 0.71, 0.9][difficulty] ?? 0.71;
+        const base = [0.48, 0.65, 0.78, 0.9][difficulty] ?? 0.71;
         const skill = Math.min(0.99, base + this.rng() * 0.09);
         this.drivers.push(new AIDriver(car, track, {
           skill,
@@ -369,7 +369,7 @@ export class Race {
    *  nothing, and at Legend it is gone. A first-timer on touch spent a third
    *  of every race on the grass without it. */
   assistSteer(p, steer) {
-    const strength = [0.7, 0.45, 0.2, 0][this.difficulty] ?? 0;
+    const strength = [0.7, 0.3, 0.1, 0][this.difficulty] ?? 0;
     if (!strength || p.lateral == null) return steer;
     const edge = Math.min(1, Math.max(0, (Math.abs(p.lateral) / this.track.roadHalf - 0.55) / 0.45));
     if (edge <= 0) return steer;
