@@ -96,7 +96,7 @@ export class AIDriver {
     // Pace by difficulty. Skill alone only moved Rookie 5% off Pro, and a
     // first-timer following the road by eye laps 25% slower than that —
     // Rookie has to be a race such a driver can win.
-    if (race) target *= [0.78, 0.9, 0.97, 1][race.difficulty] ?? 1;
+    if (race) target *= [0.78, 0.94, 0.985, 1][race.difficulty] ?? 1;
 
     // Rubber-band, both ways, fading with difficulty and cancelling out for
     // the attract autopilot, which races against itself. A rival well ahead
@@ -108,10 +108,10 @@ export class AIDriver {
     if (race && race.player && race.player !== car && !race.player.finished) {
       const gapAhead = (car.totalProgress - race.player.totalProgress) * line.spacing;
       if (gapAhead > 0) {
-        const band = [0.2, 0.1, 0.05, 0.02][race.difficulty] ?? 0.08;
+        const band = [0.2, 0.06, 0.03, 0.02][race.difficulty] ?? 0.08;
         target *= 1 - Math.min(1, gapAhead / 70) * band;
       } else if (race.player.racePosition === 1) {
-        const chase = [0.2, 0.12, 0.05, 0][race.difficulty] ?? 0;
+        const chase = [0.2, 0.1, 0.04, 0][race.difficulty] ?? 0;
         target = Math.min(honest, target * (1 + Math.min(1, -gapAhead / 60) * chase));
       }
     }
