@@ -8,6 +8,13 @@ import { mulberry32 } from './track.js';
 import { EngineSound, sfx } from './audio.js';
 
 const GRID = 6;
+
+// Rocket start: the gas going down in this window round the green light
+// (seconds, green at 0) launches with a turbo; going down before it, and
+// still held at green, spins the wheels instead.
+const LAUNCH = { from: -0.3, to: 0.15, boost: 1.0, stall: 0.6 };
+// The first races of a visit say how the start works; after that, they don't.
+let launchHints = 2;
 const DRAFT_RANGE = 15;
 
 // How much world the camera shows, relative to the original framing: 0.85 is
@@ -59,9 +66,24 @@ export class Race {
           skill,
           aggression: 0.35 + this.rng() * 0.5,
           seed: Math.floor(this.rng() * 1e6),
+          // Sliding the tight bends for the kick is part of the difficulty:
+          // no rival does it at Rookie, every one at Legend.
+          drift: this.rng() < ([0, 0.5, 0.8, 1][difficulty] ?? 0.5),
         }));
       }
     });
+
+    // The player hears and feels a drift build and pay out.
+    if (this.player) {
+      this.player.onDriftLevel = (level) => {
+        this.playSfx(() => sfx.driftLevel(level));
+        if (!this.autopilot) this.onTick?.();
+      };
+      this.player.onKick = (level) => {
+        this.playSfx(() => sfx.kick(level));
+        this.buzz(0.15, 0.45, level === 2 ? 220 : 140);
+      };
+    }
 
     this.marker = this.buildMarker();
     engine.world.add(this.marker);
@@ -93,7 +115,7 @@ export class Race {
   /** Hand the player's car to the AI — used for the attract loop and tests. */
   setAutopilot(on, skill = 0.92) {
     if (!on) { this.autopilot = null; return; }
-    this.autopilot = new AIDriver(this.player, this.track, { skill, aggression: 0.6, seed: 7 });
+    this.autopilot = new AIDriver(this.player, this.track, { skill, aggression: 0.6, seed: 7, drift: true });
   }
 
   buildField(playerSpec, roster) {
@@ -158,6 +180,14 @@ export class Race {
   }
 
   update(dt, input) {
+    if (this.phase === 'countdown' && !this.hinted && !this.autopilot) {
+      this.hinted = true;
+      if (launchHints > 0) {
+        launchHints--;
+        this.message(input.touch ? 'Rocket start: touch right as it goes green' : 'Rocket start: gas as it goes green', 'tip', 3.2);
+      }
+    }
+    this.watchLaunch(input);
     if (this.phase === 'countdown') {
       this.clock += dt;
       const remaining = Math.ceil(-this.clock);
@@ -180,6 +210,7 @@ export class Race {
           });
         }
         for (const c of this.cars) c.lapStart = 0;
+        this.judgeLaunch(true);
       }
     } else if (this.phase === 'racing') {
       this.raceTime += dt;
@@ -361,6 +392,46 @@ export class Race {
     }
   }
 
+  /** Note when the player's launch input goes down round the green light. */
+  watchLaunch(input) {
+    if (!this.player || this.autopilot || this.launchJudged) return;
+    const down = !!input.launch;
+    const t = this.phase === 'countdown' ? this.clock : this.raceTime;
+    if (down && !this.launchHeld) this.launchAt = t;
+    if (!down) this.launchAt = null;
+    this.launchHeld = down;
+    // Just after green a late press can still catch the window.
+    if (this.phase !== 'countdown') this.judgeLaunch(false);
+  }
+
+  /** Rocket start, wheelspin, or an ordinary getaway. */
+  judgeLaunch(atGreen) {
+    if (!this.player || this.autopilot || this.launchJudged) return;
+    const p = this.player, at = this.launchAt;
+    if (at != null && at < LAUNCH.from) {
+      if (!atGreen) return;
+      this.launchJudged = true;
+      p.stall = LAUNCH.stall;
+      this.message('WHEELSPIN', 'bad', 1.4);
+      this.playSfx(sfx.wheelspin);
+      this.particles.burst(p.x, p.y + 0.3, p.z, 16, {
+        colour: [0.6, 0.6, 0.64], size: 0.9, life: 0.9, spread: 3, up: 2, opacity: 0.6,
+      });
+    } else if (at != null && at <= LAUNCH.to) {
+      this.launchJudged = true;
+      p.giveBoost(LAUNCH.boost);
+      this.message('ROCKET START!', 'good', 1.6);
+      this.playSfx(sfx.boost);
+      this.buzz(0.6, 0.8, 300);
+      this.onTick?.();
+      this.particles.burst(p.x, p.y + 0.35, p.z, 18, {
+        colour: [0.4, 1, 0.6], size: 0.5, life: 0.5, spread: 5, glow: true, opacity: 0.9,
+      });
+    } else if (!atGreen && this.raceTime > LAUNCH.to) {
+      this.launchJudged = true;
+    }
+  }
+
   /** Sitting in the tow of the car ahead is worth a little extra speed. */
   /** Training wheels that come off as the difficulty climbs. Out near the
    *  edge of the road the player's steering is blended toward the line a
@@ -427,6 +498,27 @@ export class Race {
       this.particles.emit(car.x - f.x * 1.1, car.y + 0.2, car.z - f.z * 1.1, {
         velocity: [(Math.random() - 0.5) * 4, 1.6 + Math.random() * 2, (Math.random() - 0.5) * 4],
         colour: DUST[car.surface], size: 0.4, life: 0.6, grow: 2.6, opacity: 0.6,
+      });
+    }
+
+    // Drift sparks off the rear wheels: blue once a kick is banked, orange
+    // for the big one. Before that, nothing — the skid smoke is enough.
+    if (car.drift && car.driftLevel > 0 && speed > 4) {
+      const c = car.driftLevel === 2 ? [1, 0.62, 0.15] : [0.35, 0.72, 1];
+      for (const side of [-1, 1]) {
+        if (Math.random() < 0.25) continue;
+        this.particles.emit(car.x + rx * side * 0.66 - f.x * 1.0, car.y + 0.22, car.z + rz * side * 0.66 - f.z * 1.0, {
+          velocity: [(Math.random() - 0.5) * 3 - f.x * 2, 1.2 + Math.random() * 1.6, (Math.random() - 0.5) * 3 - f.z * 2],
+          colour: c, size: car.driftLevel === 2 ? 0.62 : 0.5, life: 0.34, grow: 0.3, glow: true, opacity: 1,
+        });
+      }
+    }
+    // The kick out of a drift: a short flame in the same colour.
+    if (car.kick > 0) {
+      const c = car.kickLevel === 2 ? [1, 0.62, 0.15] : [0.35, 0.72, 1];
+      this.particles.emit(car.x - f.x * 1.4, car.y + 0.36, car.z - f.z * 1.4, {
+        velocity: [-f.x * 6 + (Math.random() - 0.5) * 2, 0.6, -f.z * 6 + (Math.random() - 0.5) * 2],
+        colour: c, size: 0.42, life: 0.3, grow: 1.2, glow: true, opacity: 1,
       });
     }
 

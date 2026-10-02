@@ -259,6 +259,8 @@ html, body {
 .hud-msg--good { color: var(--good); }
 .hud-msg--bad { color: var(--accent-2); }
 .hud-msg--item { color: #93c5fd; }
+/* A how-to line, not an event: smaller, sentence case, one line. */
+.hud-msg--tip { font-family: var(--body); font-size: 14px; font-weight: 600; color: var(--text); padding: 7px 16px; }
 @keyframes msgIn { from { opacity: 0; transform: translateY(12px) scale(0.9); } }
 
 /* ------------------------------------------------------------ Touch pad */
@@ -304,10 +306,12 @@ html, body {
   touch-action: none;
 }
 .touch-btn:active { background: rgba(255, 204, 50, 0.28); }
-/* Above the speedo, where the right thumb already rests. */
+/* Left, just above the item it fires. The right thumb holds drifts now, and
+   a committed drift holds its line while the left thumb leaves the steering
+   for a tap. */
 .touch-btn--item {
-  right: max(18px, env(safe-area-inset-right));
-  bottom: 128px;
+  left: max(18px, env(safe-area-inset-left));
+  bottom: 104px;
   width: 76px;
   height: 76px;
   color: var(--accent);
@@ -969,7 +973,8 @@ body.racing .update-chip { display: none; }
   .standings { font-size: 12px; }
   .standings td { padding: 6px 3px; }
   .standings th { padding: 0 3px; }
-  /* The bottom edge is the item slot and the speedo; the hint goes above ★. */
-  .touch-hint { bottom: 220px; }
+  /* The bottom edge is the item slot and the speedo; the hint goes above ★,
+     and wraps rather than running off an upright phone. */
+  .touch-hint { bottom: 220px; white-space: normal; width: calc(100% - 32px); text-align: center; border-radius: 14px; }
 }
 

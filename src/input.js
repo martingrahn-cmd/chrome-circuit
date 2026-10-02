@@ -90,11 +90,16 @@ export class Input {
     if (this.touch.item) item = true;
     if (this.touch.handbrake) handbrake = true;
 
+    // The rocket-start trigger: the gas, or — on a phone, where the car
+    // drives itself — the right thumb going down.
+    const launch = this.touch.auto && !p ? this.touch.handbrake : throttle > 0.5;
     return {
       steer: Math.max(-1, Math.min(1, steer)),
       throttle: Math.max(-1, Math.min(1, throttle)),
       item,
       handbrake,
+      launch,
+      touch: this.touch.auto && !p,
     };
   }
 
@@ -133,6 +138,13 @@ export class Input {
   }
 
   /** Fire-and-forget haptics; silently ignored on pads without an actuator. */
+  /** A short tick you feel: a pad's rumble, or a phone's vibration where the
+   *  browser has one (not Safari). Kept for moments that are worth it. */
+  tick(ms = 18) {
+    if (this.pad()) { this.rumble(0.2, 0.5, ms * 3); return; }
+    if (this.touch.auto) navigator.vibrate?.(ms);
+  }
+
   rumble(strong = 0.4, weak = 0.2, ms = 140) {
     const p = this.pad();
     const actuator = p?.vibrationActuator;

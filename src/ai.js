@@ -1,6 +1,9 @@
 // AI drivers: follow a personal racing line, brake for curvature, use items.
 import { mulberry32 } from './track.js';
 
+// How far a corner must turn before a rival will slide it, in radians.
+const DRIFT_TURN = 1.1;
+
 export class AIDriver {
   constructor(car, track, opts = {}) {
     this.car = car;
@@ -15,6 +18,17 @@ export class AIDriver {
     this.itemDelay = 0.6 + this.rng() * 1.6;
     // Humans need a beat to react to the lights; so should the field.
     this.launchDelay = 0.15 + (1 - this.skill) * (0.4 + this.rng() * 0.5);
+    // Whether this driver slides the tight bends for the kick out of them.
+    // Sharper drivers do it more; `drift` overrides for tests.
+    this.drifts = opts.drift ?? this.rng() < 0.25 + 0.7 * this.skill;
+    this.drifting = false;
+    // Each sample's corner, if it is in one worth sliding.
+    const n = track.line.n;
+    this.bendAt = new Array(n).fill(null);
+    for (const run of track.corners()) {
+      if (run.turn < DRIFT_TURN) continue;
+      for (let k = 0; k < run.len; k++) this.bendAt[(run.start + k) % n] = { ...run, k };
+    }
   }
 
   update(dt, cars, race) {
@@ -126,7 +140,22 @@ export class AIDriver {
     // analog, scaling a negative throttle would soften corner entries.
     if (this.mistake > 0.5 && throttle > 0) throttle *= 0.75;
 
-    car.applyInput(throttle, Math.max(-1, Math.min(1, steer)), dt);
+    // Drift the tight bends: handbrake on as one arrives with the wheel
+    // already turned, off again at the exit, where the kick pays out.
+    if (this.drifts) {
+      const n = line.n;
+      const bend = this.bendAt[(idx + Math.round(2 / line.spacing)) % n];
+      const here = this.bendAt[idx % n];
+      // Steering into it: a left-hand bend (inside +1) wants negative steer.
+      const into = bend && Math.sign(steer) === -bend.inside && Math.abs(steer) > 0.35;
+      const outside = car.drift && car.lateral * car.drift < -this.track.roadHalf * 0.7;
+      if (!this.drifting && speed > 11 && into && bend.k < bend.len * 0.5) this.drifting = true;
+      else if (this.drifting && (!here || here.k > here.len - 3 || outside || speed < 7)) this.drifting = false;
+    } else {
+      this.drifting = false;
+    }
+
+    car.applyInput(throttle, Math.max(-1, Math.min(1, steer)), dt, this.drifting);
 
     // Items. Hold them until they are worth something: a turbo waits for a
     // straight, a rocket for a car ahead to lock onto, a drum for a car close
