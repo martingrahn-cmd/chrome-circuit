@@ -121,6 +121,17 @@ export const sfx = {
     [523, 659, 784, 1047].forEach((f, i) => tone({ freq: f, type: 'square', dur: 0.3, gain: 0.2, delay: i * 0.1 }));
   },
   select: () => tone({ freq: 720, type: 'square', dur: 0.07, gain: 0.14 }),
+  // A drift ticking up a level: blue, then orange, higher each time.
+  driftLevel: (level = 1) => {
+    tone({ freq: level === 2 ? 1320 : 990, type: 'triangle', dur: 0.1, gain: 0.16 });
+    tone({ freq: level === 2 ? 1760 : 1320, type: 'triangle', dur: 0.12, gain: 0.1, delay: 0.05 });
+  },
+  // The kick out of a drift: a short whoosh, bigger for orange.
+  kick: (level = 1) => {
+    tone({ freq: 260, sweep: level === 2 ? 1300 : 900, type: 'sawtooth', dur: level === 2 ? 0.4 : 0.28, gain: 0.13 });
+    thump({ dur: 0.3, gain: 0.16, cutoff: 2400 });
+  },
+  wheelspin: () => tone({ freq: 160, sweep: 120, type: 'sawtooth', dur: 0.5, gain: 0.14 }),
   back: () => tone({ freq: 320, type: 'square', dur: 0.09, gain: 0.13 }),
 };
 

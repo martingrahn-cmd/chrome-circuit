@@ -29,8 +29,11 @@ service worker below runs against a local checkout too.
 On a phone the car drives itself and there are two invisible halves: slide a
 thumb anywhere on the left to steer — the distance from where it landed is the
 input, analog, with the same curve as a pad stick — and hold anywhere on the
-right for the handbrake. One real button, **★**, fires the item, and a small
-pause sits at the top. Held sideways, the circuit and car
+right to drift, letting go for the kick. One real button, **★**, fires the item.
+It sits on the left, just above the item it fires, so the right thumb can hold a
+drift; a committed drift keeps its line while the left thumb leaves the steering
+to tap it. Touching the right side as the lights go green is the rocket start. A
+small pause sits at the top. Held sideways, the circuit and car
 pickers become a strip that scrolls across under a pinned header and footer, the
 how-to and results spread into two columns, and the HUD loses its best-lap readout
 so the minimap and the speedo do not meet. Held upright the pickers run in two
@@ -156,9 +159,24 @@ in their path. Drums last twelve seconds and no more than six are down at once.
 Tuck in behind the car ahead and you pick up its slipstream — worth about 14% on
 top speed, and the surest way past on a long straight. The HUD says when you have it.
 
-The handbrake is for drifting, not stopping: hold it into a corner and the rear
-lets go, the car rotates faster and the slide carries through, scrubbing only a
-little speed. Let go and grip returns.
+The handbrake is for drifting, not stopping. Hold it into a corner with the wheel
+turned and the car commits to a slide that way. From then on, steering only makes
+the arc tighter or wider, so a slipping thumb or a tap on a key cannot swap ends.
+The slide keeps most of its speed. While it lasts on the road, sparks at the back
+wheels turn blue (0.6 s), then orange (1.4 s). Let go and the slide pays out a
+kick of speed: half a second for blue, a second for orange. Snow, grass or dirt
+drains the charge.
+
+There is no timing window on the release, which no thumb on a phone could hit:
+how long the car stayed sideways is what counts. Drifting the tight corners well
+is worth three to five percent a lap. Rivals drift too, which is one more
+difficulty lever: none of them at Rookie, half at Pro, most at Ace, all at Legend.
+They slide only real corners and let go at the exit.
+A plain handbrake with the wheel straight is still a brake.
+
+**Rocket start:** put the gas down in the instant the lights go green (on a
+phone, touch the right side) and you leave on a turbo. Do it while the lights are
+still red and hold it, and the wheels spin for a moment instead.
 
 Items come from the boxes on track: **Turbo** (a short overdose of speed), **Rocket**
 (fires forward, leans toward whoever is ahead) and **Oil Drum** (dropped behind you —

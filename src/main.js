@@ -378,6 +378,7 @@ function buildRace(def, { attract = false } = {}) {
   state.race = race;
   state.attract = attract;
   race.onRumble = attract ? null : (strong, weak, ms) => input.rumble(strong, weak, ms);
+  race.onTick = attract ? null : () => input.tick();
   if (attract) {
     race.setAutopilot(true, 0.95);
     race.phase = 'racing';

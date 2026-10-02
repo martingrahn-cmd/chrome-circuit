@@ -20,6 +20,24 @@ export const SURFACE = {
 // slow cars stall on the hill.
 const GRAVITY = 7;
 
+// Drift boost. Hold the handbrake into a corner with some steering on and the
+// car commits to a slide that way; let go and the slide pays out a short kick
+// of speed. How long the car stayed sideways sets how much — never a timing
+// window on the release, which no thumb on a phone could hit.
+export const DRIFT = {
+  minSpeed: 6,            // slower than this there is nothing to slide
+  commitSteer: 0.2,       // how much steering picks the direction
+  levels: [0.6, 1.4],     // seconds of good slide for blue, then orange
+  kick: [0, 0.55, 1.05],  // seconds of kick per level
+  kickSpeed: 1.2,         // top-speed multiplier while it lasts
+  kickPower: 1.8,         // acceleration multiplier while it lasts
+  // A committed slide is a racing line, not a brake: it keeps most of its
+  // speed and enough grip to hold the arc it was put on.
+  scrub: 0.12,            // speed lost per second while sliding (a plain handbrake: 0.55)
+  grip: 0.5,              // share of the surface's grip kept while sliding (plain: 0.26)
+  turn: 1.3,              // rotation multiplier while sliding (plain: 1.35)
+};
+
 export class Car {
   constructor(spec, track, opts = {}) {
     this.spec = spec;
@@ -52,6 +70,11 @@ export class Car {
     this.boost = 0;
     this.spin = 0;
     this.spinRate = 0;
+    this.drift = 0;          // -1 or +1 while committed to a slide that way
+    this.driftCharge = 0;
+    this.driftLevel = 0;     // 0, then 1 (blue), then 2 (orange)
+    this.kick = 0;           // seconds of drift (or launch) kick left
+    this.stall = 0;          // seconds of wheelspin left after a jumped start
 
     this.lap = 0;
     this.lineIndex = 0;
@@ -115,6 +138,20 @@ export class Car {
     this.spinRate = (Math.random() < 0.5 ? -1 : 1) * 11;
     this.vLong *= 0.35;
     this.boost = 0;
+    this.kick = 0;
+    this.endDrift(false);
+  }
+
+  /** Leave a drift; paid out as a kick if it was held long enough. */
+  endDrift(payOut = true) {
+    if (payOut && this.driftLevel > 0) {
+      this.kick = Math.max(this.kick, DRIFT.kick[this.driftLevel]);
+      this.kickLevel = this.driftLevel;
+      this.onKick?.(this.driftLevel);
+    }
+    this.drift = 0;
+    this.driftCharge = 0;
+    this.driftLevel = 0;
   }
 
   giveBoost(duration = 2.0) {
@@ -157,13 +194,18 @@ export class Car {
     } else {
       const boosting = this.boost > 0;
       if (boosting) this.boost -= dt;
+      const kicking = this.kick > 0;
+      if (kicking) this.kick -= dt;
 
       // Tucking in behind someone is worth real speed on the straights.
       const tow = 1 + 0.14 * this.draft;
-      const maxSpeed = this.topSpeed * surf.maxSpeed * (boosting ? 1.42 : 1) * tow;
-      const power = this.engine * (boosting ? 2.0 : 1) * (1 + 0.3 * this.draft);
+      const maxSpeed = this.topSpeed * surf.maxSpeed * (boosting ? 1.42 : 1) * (kicking ? DRIFT.kickSpeed : 1) * tow;
+      const power = this.engine * (boosting ? 2.0 : 1) * (kicking ? DRIFT.kickPower : 1) * (1 + 0.3 * this.draft);
 
-      if (this.throttle > 0) {
+      // A jumped start: the wheels spin and the car goes nowhere for a moment.
+      if (this.stall > 0) {
+        this.stall -= dt;
+      } else if (this.throttle > 0) {
         const headroom = Math.max(0, 1 - this.vLong / maxSpeed);
         this.vLong += power * this.throttle * headroom * dt;
       } else if (this.throttle < 0) {
@@ -183,14 +225,37 @@ export class Car {
       // speed — a drift, not a brake. Released, grip returns and the slide
       // straightens out on its own.
       const drifting = this.handbrake && sp > 3;
+      // Committing: steering when the handbrake goes on picks the side.
+      // Once committed the slide holds that way, and steering only makes the
+      // arc tighter or wider — a slipping thumb can no longer swap ends.
+      if (drifting && !this.drift && sp > DRIFT.minSpeed && Math.abs(this.steer) > DRIFT.commitSteer) {
+        this.drift = Math.sign(this.steer);
+      } else if (this.drift && (!this.handbrake || sp < DRIFT.minSpeed * 0.7)) {
+        this.endDrift(this.handbrake === false);
+      }
+      let steer = this.steer;
+      if (this.drift) {
+        steer = this.drift * Math.max(0.1, Math.min(1, 0.55 + 0.45 * this.steer * this.drift));
+        // Charge while actually sliding on the road; snow or dirt drains it.
+        if (this.surface === 'road' || this.surface === 'ice') {
+          this.driftCharge += dt * Math.min(1, 0.35 + Math.abs(this.vLat) / 3);
+        } else {
+          this.driftCharge = Math.max(0, this.driftCharge - dt * 2);
+        }
+        const level = this.driftCharge >= DRIFT.levels[1] ? 2 : this.driftCharge >= DRIFT.levels[0] ? 1 : 0;
+        if (level !== this.driftLevel) {
+          this.driftLevel = level;
+          if (level) this.onDriftLevel?.(level);
+        }
+      }
       // The Kenney models face +Z with their front-LEFT wheel on local +X, so
       // local +X is the car's left and a right-hand turn *lowers* the heading.
-      const turn = -this.steer * this.handling * authority * dir * (drifting ? 1.35 : 1);
+      const turn = -steer * this.handling * authority * dir * (this.drift ? DRIFT.turn : drifting ? 1.35 : 1);
       this.heading += turn * dt;
 
       // Cornering throws weight to the outside of the turn; grip bleeds it off.
       this.vLat -= turn * this.vLong * dt;
-      const gripLoss = Math.exp(-(drifting ? surf.grip * 0.26 : surf.grip) * dt);
+      const gripLoss = Math.exp(-(this.drift ? surf.grip * DRIFT.grip : drifting ? surf.grip * 0.26 : surf.grip) * dt);
       this.vLat *= gripLoss;
 
       // A climb takes speed off, a descent gives it back.
@@ -204,7 +269,7 @@ export class Car {
       if (this.vLong > maxSpeed) this.vLong += (maxSpeed - this.vLong) * Math.min(1, dt * 3);
 
       if (drifting) {
-        this.vLong *= 1 - dt * 0.55;
+        this.vLong *= 1 - dt * (this.drift ? DRIFT.scrub : 0.55);
         // Sideways faster than three-quarters of forward is a spin, not a
         // slide — held as the last word on the step, after the run-off speed
         // clamp above has had its say on vLong.
