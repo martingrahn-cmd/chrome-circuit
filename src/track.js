@@ -170,6 +170,12 @@ export class CentreLine {
   }
 
   slopeAt(i) { return this.slope[((i % this.n) + this.n) % this.n]; }
+  /** How fast the slope changes along the road at sample i: negative over a
+   *  crest, positive in a dip. */
+  bendAt(i) {
+    const n = this.n, k = ((i % n) + n) % n;
+    return (this.slope[(k + 1) % n] - this.slope[(k - 1 + n) % n]) / (2 * this.spacing);
+  }
   heightOf(i) { return this.h[((i % this.n) + this.n) % this.n]; }
   iceAt(i) { return this.ice[((i % this.n) + this.n) % this.n] === 1; }
 
@@ -364,6 +370,63 @@ export class Track {
       for (let k = a; k < b; k++) this.line.ice[(this.startIndex + k) % n] = 1;
     }
     this.offroad = def.theme?.offroad ?? 'dirt';
+
+    // Crests: a sharp hump in the road, full width. Taken flat out the car
+    // goes light over the top and the wheels leave the tarmac for a moment.
+    // Added after the smoothing, or the smoothing would iron them out.
+    const n = this.line.n, sp = this.line.spacing;
+    const at = (frac) => (this.startIndex + Math.round(frac * n)) % n;
+    if (def.crests?.length) {
+      const h = Array.from(this.line.h);
+      for (const c of def.crests) {
+        const s0 = at(c.at), len = Math.max(4, Math.round((c.length ?? 12) / sp));
+        for (let k = 0; k <= len; k++) h[(s0 + k) % n] += (c.height ?? 0.7) * 0.5 * (1 - Math.cos((2 * Math.PI * k) / len));
+      }
+      this.line.setHeights(h);
+    }
+    this.crests = (def.crests ?? []).map((c) => ({ start: at(c.at), len: Math.round((c.length ?? 12) / sp) }));
+    // Jump ramps: a wedge on the road, across part of it or all of it, that
+    // throws a car into the air off its lip. `lane` is where across the road
+    // it sits (-1 one edge, 0 the middle, 1 the other), `width` how much of
+    // the road it covers — a part-width ramp is a choice, not an obligation.
+    this.ramps = (def.jumps ?? []).map((j) => ({
+      start: at(j.at),
+      len: Math.max(3, Math.round((j.length ?? 8) / sp)),
+      height: j.height ?? 1.5,
+      center: (j.lane ?? 0) * this.roadHalf,
+      half: j.width === 'full' ? this.wallHalf + 0.6 : (j.width ?? 0.5) * this.roadHalf,
+    }));
+  }
+
+  /** The ramp under a point given as a line progress and a lateral offset. */
+  rampUnder(progress, lateral) {
+    if (!this.ramps.length) return null;
+    const n = this.line.n;
+    for (const r of this.ramps) {
+      const d = (((progress - r.start) % n) + n) % n;
+      if (d < r.len && Math.abs(lateral - r.center) <= r.half) return { r, d };
+    }
+    return null;
+  }
+
+  /** Extra height from a ramp, and its slope (rise per unit run). */
+  rampAt(progress, lateral) {
+    const u = this.rampUnder(progress, lateral);
+    return u ? u.r.height * (u.d / u.r.len) : 0;
+  }
+
+  rampSlopeAt(progress, lateral) {
+    const u = this.rampUnder(progress, lateral);
+    return u ? u.r.height / (u.r.len * this.line.spacing) : 0;
+  }
+
+  /** Whether a crest or ramp lies within `dist` units of sample i. */
+  featureNear(i, dist) {
+    const n = this.line.n, k = dist / this.line.spacing;
+    return [...this.ramps, ...this.crests].some((f) => {
+      const d = (((i - f.start) % n) + n) % n;
+      return d < f.len + k || d > n - k;
+    });
   }
 
   /** Height of the ground (or road) at a point; zero on a flat circuit. */
@@ -516,6 +579,7 @@ export class Track {
     this.buildKerbs();
     this.buildGridBoxes();
     this.buildIce();
+    this.buildRamps();
 
     // On walled circuits the armco follows the same line the cars are
     // clamped to, so the rail you see is the limit you hit.
@@ -647,6 +711,60 @@ export class Track {
     mesh.renderOrder = 1;
     mesh.receiveShadow = true;
     this.group.add(mesh);
+  }
+
+  /**
+   * Ramps: a striped wedge riding the road, with plain sides and a dark lip
+   * face, and an orange pole with a pennant either side of its foot so it
+   * reads from a distance.
+   */
+  buildRamps() {
+    if (!this.ramps.length) return;
+    const line = this.line;
+    const pos = [], col = [];
+    const stripeA = new THREE.Color(0xf59e0b), stripeB = new THREE.Color(0x262a33);
+    const side = new THREE.Color(0x8f9aa8), lip = new THREE.Color(0x1d2129);
+    const quad = (a, b, c, d, colour) => {
+      pos.push(...a, ...b, ...c, ...b, ...d, ...c);
+      for (let v = 0; v < 6; v++) col.push(colour.r, colour.g, colour.b);
+    };
+    const poles = [];
+    for (const r of this.ramps) {
+      const at = (k, off, lift) => {
+        const i = r.start + k, p = line.point(i), t = line.tangent(i);
+        const y = line.heightOf(i) + 0.11 + lift;
+        return [p.x + t.z * off, y, p.z - t.x * off];
+      };
+      const lo = r.center - r.half, hi = r.center + r.half;
+      for (let k = 0; k < r.len; k++) {
+        const h0 = (r.height * k) / r.len, h1 = (r.height * (k + 1)) / r.len;
+        const c = Math.floor(k / 2) % 2 ? stripeA : stripeB;
+        quad(at(k, hi, h0), at(k, lo, h0), at(k + 1, hi, h1), at(k + 1, lo, h1), c);
+        for (const off of [lo, hi]) quad(at(k, off, 0), at(k, off, h0), at(k + 1, off, 0), at(k + 1, off, h1), side);
+      }
+      quad(at(r.len, hi, 0), at(r.len, lo, 0), at(r.len, hi, r.height), at(r.len, lo, r.height), lip);
+      for (const off of [lo - 0.5, hi + 0.5]) {
+        const [x, y, z] = at(0, off, 0);
+        const pole = new THREE.CylinderGeometry(0.07, 0.07, 2.4, 6);
+        pole.translate(x, y + 1.2, z);
+        poles.push(pole);
+        const flag = new THREE.BoxGeometry(0.06, 0.45, 0.7);
+        flag.translate(x, y + 2.15, z + 0.35);
+        poles.push(flag);
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    g.computeVertexNormals();
+    const mesh = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }));
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    this.group.add(mesh);
+    const flags = new THREE.Mesh(mergeGeometries(poles, false), new THREE.MeshLambertMaterial({ color: 0xff7a1a }));
+    poles.forEach((p) => p.dispose());
+    flags.castShadow = true;
+    this.group.add(flags);
   }
 
   buildArmco() {

@@ -20,6 +20,11 @@ export const SURFACE = {
 // slow cars stall on the hill.
 const GRAVITY = 7;
 
+// Pull on a car in the air, units/s². Arcade, not Earth: enough that a crest
+// taken flat out lifts the wheels for a moment and a ramp gives real air,
+// without the cars floating.
+export const AIR_G = 24;
+
 // Drift boost. Hold the handbrake into a corner with some steering on and the
 // car commits to a slide that way; let go and the slide pays out a short kick
 // of speed. How long the car stayed sideways sets how much — never a timing
@@ -49,6 +54,9 @@ export class Car {
     this.x = 0; this.z = 0; this.y = 0;
     this.heading = 0;
     this.pitch = 0;          // nose up on a climb, down on a descent
+    this.vy = 0;             // vertical speed, following the road or in flight
+    this.airborne = false;
+    this.airTime = 0;
     this.vLong = 0;
     this.vLat = 0;
 
@@ -112,6 +120,8 @@ export class Car {
   placeAt(slot) {
     this.x = slot.x; this.z = slot.z;
     this.y = this.track.line.heightOf(slot.index);
+    this.vy = 0;
+    this.airborne = false;
     this.heading = slot.heading;
     this.lineIndex = slot.index;
     this.progress = slot.index;
@@ -202,9 +212,14 @@ export class Car {
       const maxSpeed = this.topSpeed * surf.maxSpeed * (boosting ? 1.42 : 1) * (kicking ? DRIFT.kickSpeed : 1) * tow;
       const power = this.engine * (boosting ? 2.0 : 1) * (kicking ? DRIFT.kickPower : 1) * (1 + 0.3 * this.draft);
 
+      // In the air the wheels have nothing to push on, steer with or grip.
+      const air = this.airborne;
+
       // A jumped start: the wheels spin and the car goes nowhere for a moment.
       if (this.stall > 0) {
         this.stall -= dt;
+      } else if (air) {
+        // nothing: the car keeps the speed it left the ground with
       } else if (this.throttle > 0) {
         const headroom = Math.max(0, 1 - this.vLong / maxSpeed);
         this.vLong += power * this.throttle * headroom * dt;
@@ -224,7 +239,7 @@ export class Car {
       // most of the grip goes so the slide carries, and it scrubs a little
       // speed — a drift, not a brake. Released, grip returns and the slide
       // straightens out on its own.
-      const drifting = this.handbrake && sp > 3;
+      const drifting = this.handbrake && sp > 3 && !air;
       // Committing: steering when the handbrake goes on picks the side.
       // Once committed the slide holds that way, and steering only makes the
       // arc tighter or wider — a slipping thumb can no longer swap ends.
@@ -233,8 +248,8 @@ export class Car {
       } else if (this.drift && (!this.handbrake || sp < DRIFT.minSpeed * 0.7)) {
         this.endDrift(this.handbrake === false);
       }
-      let steer = this.steer;
-      if (this.drift) {
+      let steer = air ? 0 : this.steer;
+      if (this.drift && !air) {
         steer = this.drift * Math.max(0.1, Math.min(1, 0.55 + 0.45 * this.steer * this.drift));
         // Charge while actually sliding on the road; snow or dirt drains it.
         if (this.surface === 'road' || this.surface === 'ice') {
@@ -255,13 +270,13 @@ export class Car {
 
       // Cornering throws weight to the outside of the turn; grip bleeds it off.
       this.vLat -= turn * this.vLong * dt;
-      const gripLoss = Math.exp(-(this.drift ? surf.grip * DRIFT.grip : drifting ? surf.grip * 0.26 : surf.grip) * dt);
+      const gripLoss = air ? 1 : Math.exp(-(this.drift ? surf.grip * DRIFT.grip : drifting ? surf.grip * 0.26 : surf.grip) * dt);
       this.vLat *= gripLoss;
 
       // A climb takes speed off, a descent gives it back.
       const f0 = this.forward, t0 = line.tangent(loc.index);
       this.slopeAhead = line.slopeAt(loc.index) * (f0.x * t0.x + f0.z * t0.z);
-      this.vLong -= GRAVITY * this.slopeAhead * dt;
+      if (!air) this.vLong -= GRAVITY * this.slopeAhead * dt;
 
       // Drag and rolling resistance. Kept light: the throttle headroom term
       // above is what actually sets top speed.
@@ -302,11 +317,50 @@ export class Car {
       this.wallHit = 0;
     }
 
-    // Ride the road: height off the line, nose along the slope.
-    this.y = line.heightAt(after.progress);
+    // Ride the road — or leave it. The ground under the car is the road's
+    // height plus any ramp it is on. On the ground the car follows it; where
+    // the ground falls away faster than gravity can pull the car down after
+    // it (over a crest taken quickly, off the lip of a ramp), the car flies,
+    // keeping the vertical speed it had, until it comes back down.
     const f1 = this.forward, t1 = after.tangent;
-    const along = line.slopeAt(after.index) * (f1.x * t1.x + f1.z * t1.z);
-    this.pitch += (-Math.atan(along) - this.pitch) * Math.min(1, dt * 10);
+    const ground = line.heightAt(after.progress) + this.track.rampAt(after.progress, after.lateral);
+    const along = (line.slopeAt(after.index) + this.track.rampSlopeAt(after.progress, after.lateral)) * (f1.x * t1.x + f1.z * t1.z);
+    if (this.airborne) {
+      this.vy -= AIR_G * dt;
+      this.y += this.vy * dt;
+      this.airTime += dt;
+      if (this.y <= ground) {
+        const impact = Math.max(0, along * this.vLong - this.vy);
+        const time = this.airTime;
+        this.y = ground;
+        this.airborne = false;
+        this.airTime = 0;
+        this.vy = along * this.vLong;
+        this.onLand?.(time, impact);
+      }
+    } else {
+      // Where the car would be if nothing held it down; ground more than a
+      // hair below that has dropped away beneath it.
+      const ballistic = this.y + this.vy * dt - 0.5 * AIR_G * dt * dt;
+      // Over a crest the road bends away beneath the car; once that asks for
+      // more downward pull than gravity gives, the wheels lift.
+      const align = f1.x * t1.x + f1.z * t1.z;
+      const pull = this.vLong * this.vLong * line.bendAt(after.index) * align * align;
+      const dropped = ground < ballistic - 0.06 || pull < -AIR_G - 4;
+      if (dropped && this.vLong > 8 && this.spin <= 0) {
+        this.airborne = true;
+        this.y = ballistic;
+        this.vy -= AIR_G * dt;
+      } else {
+        this.y = ground;
+        // On the ground the car climbs as fast as the slope under it says —
+        // not as fast as a step in the ground would (sliding onto a ramp
+        // from the side must not fire it into the sky).
+        this.vy = along * this.vLong;
+      }
+    }
+    const nose = this.airborne ? -Math.atan(this.vy / Math.max(6, this.vLong)) * 0.8 : -Math.atan(along);
+    this.pitch += (nose - this.pitch) * Math.min(1, dt * (this.airborne ? 4 : 10));
 
     this.syncObject(dt);
   }
@@ -371,7 +425,15 @@ function hull(car) {
  * and the speed each car loses are split by mass, so a heavy van really does
  * barge a kart aside.
  */
+/** Clearance between two cars' capsules: negative when they overlap. */
+export function carGap(a, b) {
+  const [a0, a1] = hull(a), [b0, b1] = hull(b);
+  const cp = segmentClosest(a0, a1, b0, b1);
+  return Math.hypot(cp.bx - cp.ax, cp.bz - cp.az) - a.hullRadius - b.hullRadius;
+}
+
 export function resolveCollisions(cars, onImpact) {
+  for (const c of cars) c.touching = false;
   for (let i = 0; i < cars.length; i++) {
     for (let j = i + 1; j < cars.length; j++) {
       const a = cars[i], b = cars[j];
@@ -381,6 +443,7 @@ export function resolveCollisions(cars, onImpact) {
       const dist = Math.hypot(dx, dz);
       const min = a.hullRadius + b.hullRadius;
       if (dist >= min) continue;
+      a.touching = b.touching = true;
 
       const total = a.mass + b.mass;
       const aShare = b.mass / total;   // the lighter car gives way

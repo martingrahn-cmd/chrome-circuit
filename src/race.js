@@ -1,6 +1,6 @@
 // Race director: grid, countdown, laps, standings, items and effects.
 import * as THREE from 'three';
-import { Car, resolveCollisions } from './car.js';
+import { Car, resolveCollisions, carGap, DRIFT } from './car.js';
 import { AIDriver } from './ai.js';
 import { ItemField, Projectile, Hazard, ITEMS } from './items.js';
 import { Particles, SkidMarks, Snowfall, DUST } from './fx.js';
@@ -8,6 +8,12 @@ import { mulberry32 } from './track.js';
 import { EngineSound, sfx } from './audio.js';
 
 const GRID = 6;
+
+// Airtime long enough to count as a jump pays out a kick, like a drift does.
+const BIG_AIR = 0.45;
+// A close call: passing within this much of another car without touching it,
+// at least this much faster, pays a short kick. Each rival once per few seconds.
+const CLOSE = { gap: 0.45, speed: 4, every: 6, kick: 0.35 };
 
 // Rocket start: the gas going down in this window round the green light
 // (seconds, green at 0) launches with a turbo; going down before it, and
@@ -72,6 +78,10 @@ export class Race {
         }));
       }
     });
+
+    for (const car of this.cars) car.onLand = (time, impact) => this.landed(car, time, impact);
+    this.rivalMarker = this.buildRivalMarker();
+    engine.world.add(this.rivalMarker);
 
     // The player hears and feels a drift build and pay out.
     if (this.player) {
@@ -143,6 +153,90 @@ export class Race {
     group.add(arrow, ring);
     group.renderOrder = 5;
     return group;
+  }
+
+  /** A smaller marker in red over the car to catch (or, leading, the one
+   *  closing in behind, in orange). */
+  buildRivalMarker() {
+    const geo = new THREE.ConeGeometry(0.42, 0.8, 4);
+    geo.rotateX(Math.PI);
+    this.rivalMat = new THREE.MeshBasicMaterial({ color: 0xff4d6d });
+    const m = new THREE.Mesh(geo, this.rivalMat);
+    m.renderOrder = 5;
+    m.visible = false;
+    return m;
+  }
+
+  /** Wheels back down: dust, a thump, and for real air a kick. */
+  landed(car, time, impact) {
+    if (time < 0.12) return;
+    const c = DUST[car.surface] ?? DUST.road;
+    this.particles.burst(car.x, car.y + 0.2, car.z, Math.min(16, 4 + Math.round(time * 14)), {
+      colour: c, size: 0.6, life: 0.55, spread: 4, up: 1.5, opacity: 0.5,
+    });
+    if (time >= BIG_AIR) {
+      car.kick = Math.max(car.kick, DRIFT.kick[1]);
+      car.kickLevel = 1;
+    }
+    if (car !== this.player) return;
+    this.playSfx(() => sfx.land(Math.min(1, impact / 8)));
+    this.engine.shake(Math.min(1.4, impact * 0.12));
+    this.buzz(Math.min(1, impact / 8), 0.3, 120);
+    if (time >= BIG_AIR) {
+      this.message('BIG AIR!', 'good', 1.3);
+      this.playSfx(() => sfx.kick(1));
+    }
+  }
+
+  /** Overtakes, close calls and the rival marker: the moment-to-moment
+   *  feedback on how the race is going. */
+  updateDuel(dt) {
+    const p = this.player;
+    if (!p || this.autopilot || this.phase === 'countdown') {
+      this.rivalMarker.visible = false;
+      return;
+    }
+    // A place gained and held for a moment is an overtake; a pass that is
+    // undone at once, side by side, is not worth shouting about.
+    if (this.heldPos == null) { this.heldPos = p.racePosition; this.posSince = 0; }
+    if (p.racePosition !== this.pendingPos) { this.pendingPos = p.racePosition; this.posSince = 0; }
+    this.posSince += dt;
+    if (this.posSince > 0.35 && this.pendingPos !== this.heldPos) {
+      if (this.pendingPos < this.heldPos && !p.finished && this.raceTime > 2.5) {
+        this.message(`OVERTAKE! P${this.pendingPos}`, 'good', 1.2);
+        this.playSfx(sfx.overtake);
+      }
+      this.heldPos = this.pendingPos;
+    }
+
+    // Close calls: shaving past a car, faster than it, without touching.
+    if (p.touching) this.lastTouch = this.raceTime;
+    const f = p.forward;
+    for (const other of this.cars) {
+      if (other === p || other.finished || p.finished) continue;
+      const rel = (p.vLong - (other.forward.x * f.x + other.forward.z * f.z) * other.vLong);
+      if (rel < CLOSE.speed) continue;
+      const gap = carGap(p, other);
+      if (gap <= 0 || gap > CLOSE.gap) continue;
+      if (this.raceTime - (this.lastTouch ?? -9) < 0.6) continue;
+      if (this.raceTime - (other.closeCallAt ?? -99) < CLOSE.every) continue;
+      other.closeCallAt = this.raceTime;
+      if (p.kick < CLOSE.kick) { p.kick = CLOSE.kick; p.kickLevel = 1; }
+      this.message('CLOSE CALL!', 'good', 1.0);
+      this.playSfx(sfx.closeCall);
+      this.onTick?.();
+    }
+
+    // The rival marker.
+    const ranked = this.standings ?? [];
+    const target = p.racePosition > 1 ? ranked[p.racePosition - 2] : ranked[1];
+    const show = target && !p.finished && Math.hypot(target.x - p.x, target.z - p.z) < 70;
+    this.rivalMarker.visible = !!show;
+    if (show) {
+      this.rivalMat.color.setHex(p.racePosition > 1 ? 0xff4d6d : 0xffa62b);
+      this.rivalMarker.position.set(target.x, target.y + 2.6 + Math.sin(this.raceTime * 5) * 0.12, target.z);
+      this.rivalMarker.rotation.y = -this.raceTime * 1.6;
+    }
   }
 
   start() {
@@ -313,6 +407,7 @@ export class Race {
     this.projectiles = this.projectiles.filter((p2) => !p2.dead);
 
     this.updateStandings();
+    this.updateDuel(dt);
     this.particles.update(dt);
     this.skids.update(dt);
     if (this.snow) this.snow.update(dt, this.engine.target);
@@ -477,7 +572,7 @@ export class Race {
     const f = car.forward;
     const rx = f.z, rz = -f.x;
 
-    if (car.slip > 0.22 && speed > 4) {
+    if (car.slip > 0.22 && speed > 4 && !car.airborne) {
       car.skidAccum = (car.skidAccum || 0) + dt;
       if (car.skidAccum > 0.022) {
         car.skidAccum = 0;
@@ -494,7 +589,7 @@ export class Race {
       }
     }
 
-    if (car.surface !== 'road' && car.surface !== 'ice' && speed > 3 && Math.random() < 0.6) {
+    if (car.surface !== 'road' && car.surface !== 'ice' && speed > 3 && !car.airborne && Math.random() < 0.6) {
       this.particles.emit(car.x - f.x * 1.1, car.y + 0.2, car.z - f.z * 1.1, {
         velocity: [(Math.random() - 0.5) * 4, 1.6 + Math.random() * 2, (Math.random() - 0.5) * 4],
         colour: DUST[car.surface], size: 0.4, life: 0.6, grow: 2.6, opacity: 0.6,

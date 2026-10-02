@@ -52,6 +52,8 @@ export class ItemField {
       if (line.curveAt(i) > 0.025) continue;
       const a = fromLine(i);
       if (a > -32 && a < 14) continue;
+      // Nor on a ramp or crest, where a car would fly over the row.
+      if (this.track.featureNear(i, 14)) continue;
       const p = line.point(i), t = line.tangent(i);
       for (let k = -1; k <= 1; k++) {
         const off = k * this.track.roadHalf * 0.62;
