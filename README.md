@@ -178,6 +178,22 @@ A plain handbrake with the wheel straight is still a brake.
 phone, touch the right side) and you leave on a turbo. Do it while the lights are
 still red and hold it, and the wheels spin for a moment instead.
 
+**Air.** A car leaves the ground in two ways. Over a crest, the road can bend away
+beneath it faster than gravity can pull it down. Off the lip of a ramp, the ground
+simply drops away. In the air there is no grip, steering or throttle, and the car
+pitches with its flight. Landing kicks up dust and thumps. A jump of nearly half a
+second or more is **BIG AIR** and pays out a kick, as a drift does. On the ground,
+a car climbs only as fast as the slope under it, so sliding onto a ramp from the side
+does not fire it into the sky. In the Alps, crests lift for 0.2–0.3 s and ramps for
+0.5–0.6 s. Glacier Pass has a full-width ski jump halfway down the long descent;
+Frostvale and Summit Run have one-lane ramps.
+
+**In the moment.** A place gained and held for a moment calls **OVERTAKE!** with the
+new position. A short-lived swap side by side does not. Shaving past a car, a few
+units faster than it, without touching, is a **CLOSE CALL** and a short kick. Each
+rival counts once every few seconds. A small red marker floats over the car you are
+chasing; when you lead, an orange one marks whoever is closest behind.
+
 Items come from the boxes on track: **Turbo** (a short overdose of speed), **Rocket**
 (fires forward, leans toward whoever is ahead) and **Oil Drum** (dropped behind you —
 built in code, since none of the kits has a barrel; the spill around it is exactly as
@@ -251,6 +267,18 @@ A circuit that climbs adds one height per move — where that leg ends:
 Heights run linearly along each leg, carry over onto the racing line, and are
 smoothed so crests and dips round off. `ice` lists stretches of the lap, as fractions
 from the start line. Keep the start straight level; the grid stands on it.
+
+Crests and jump ramps go in the same way:
+
+```js
+crests: [{ at: 0.72, height: 0.55, length: 13 }],
+jumps: [{ at: 0.83, width: 'full', length: 9, height: 1.6 }],   // or lane: -1..1, width: share of the road
+```
+
+A crest is a smooth hump added to the road after the smoothing, so it stays sharp
+enough to lift a car taken flat out. A ramp is a striped wedge on the road with an
+orange pole either side of its foot. It can span the whole road, so everyone flies,
+or one lane, so it is a choice. Item boxes stay off both.
 
 ### Ground with height in it
 

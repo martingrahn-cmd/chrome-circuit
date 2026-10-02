@@ -131,6 +131,14 @@ export const sfx = {
     tone({ freq: 260, sweep: level === 2 ? 1300 : 900, type: 'sawtooth', dur: level === 2 ? 0.4 : 0.28, gain: 0.13 });
     thump({ dur: 0.3, gain: 0.16, cutoff: 2400 });
   },
+  // Up a place: a quick rising pair.
+  overtake: () => {
+    [740, 990].forEach((f, i) => tone({ freq: f, type: 'square', dur: 0.09, gain: 0.12, delay: i * 0.06 }));
+  },
+  // Shaving past another car: a fast whoosh.
+  closeCall: () => tone({ freq: 1600, sweep: 500, type: 'sawtooth', dur: 0.22, gain: 0.08 }),
+  // Wheels back on the ground.
+  land: (hard = 0.5) => thump({ dur: 0.2, gain: 0.2 + hard * 0.4, cutoff: 900 }),
   wheelspin: () => tone({ freq: 160, sweep: 120, type: 'sawtooth', dur: 0.5, gain: 0.14 }),
   back: () => tone({ freq: 320, type: 'square', dur: 0.09, gain: 0.13 }),
 };
