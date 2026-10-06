@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { Engine } from './engine.js';
 import { loadModel, assetUrls } from './assets.js';
 import { Track } from './track.js';
-import { TRACKS, WORLDS, trackById } from './tracks.js';
+import { TRACKS, WORLDS, MEDALS, medalTimes, medalFor, trackById } from './tracks.js';
 import { RACERS, racerById } from './roster.js';
 import { Race } from './race.js';
 import { Hud, formatTime } from './hud.js';
@@ -33,6 +33,7 @@ const state = {
   champDifficulty: 0,   // picked on the championship screen before round 1
   world: 'grand',       // the world whose circuits the circuit screen shows
   single: false,        // single race: every circuit open, nothing to unlock
+  trial: false,         // time trial: alone, against the ghost of your best lap
   champWorld: 'grand',  // and the one a new championship would tour
   inChamp: false,       // the race on screen is a championship round
   race: null,
@@ -211,10 +212,19 @@ function renderWorlds(el, current, anyWorld = false) {
   }));
 }
 
+/** A medal coin, as markup; `i` is 0 gold, 1 silver, 2 bronze. */
+function medalTag(i, title = '') {
+  return i >= 0
+    ? `<i class="medal" style="--m:${MEDALS[i].colour}" title="${title || MEDALS[i].name}"></i>`
+    : '<i class="medal medal--none"></i>';
+}
+
 function renderTracks() {
   const list = document.getElementById('track-list');
   list.replaceChildren();
-  document.getElementById('tracks-title').textContent = state.single ? 'Single race' : 'Career';
+  document.getElementById('tracks-title').textContent = state.trial ? 'Time trial' : state.single ? 'Single race' : 'Career';
+  // A time trial has no rivals to set a level for.
+  document.getElementById('difficulty').classList.toggle('hidden', state.trial);
   renderWorlds(document.getElementById('track-worlds'), state.world, state.single);
   for (const def of worldTracks(state.world)) {
     const unlocked = trackOpen(def.id);
@@ -225,17 +235,21 @@ function renderTracks() {
     card.setAttribute('aria-pressed', String(state.trackId === def.id));
     const best = state.progress.best[def.id];
     const place = state.progress.places[def.id];
+    const trialBest = state.progress.trials[def.id]?.time;
+    const medal = medalFor(def, trialBest);
     card.innerHTML = `
       <div class="card-art" style="background:${swatch(def)}">
         <img src="${trackArt.get(def.id) || ''}" alt="" ${unlocked ? '' : 'style="opacity:.25"'}>
       </div>
       <p class="card-name">${unlocked ? def.name : 'Locked'}</p>
       <p class="card-blurb">${unlocked ? def.blurb : 'Finish the previous circuit in the top three.'}</p>
-      <div class="card-meta">
+      <div class="card-meta">${state.trial ? `
+        <span>${medalTag(medal)} ${trialBest ? formatTime(trialBest) : `gold ${medalTimes(def)[0].toFixed(1)}`}</span>` : `
         <span>${def.laps} laps</span>
         <span>${'★'.repeat(def.difficulty)}${'·'.repeat(5 - def.difficulty)}</span>
+        ${medal >= 0 ? `<span>${medalTag(medal)}</span>` : ''}
         ${best ? `<span>best ${formatTime(best)}</span>` : ''}
-        ${place ? `<span>P${place}</span>` : ''}
+        ${place ? `<span>P${place}</span>` : ''}`}
       </div>`;
     // Picking a circuit is the choice; do not make people walk to a button.
     card.addEventListener('click', () => {
@@ -327,7 +341,12 @@ function renderCars() {
   const chosen = racerById(state.racerId);
   const track = trackById(state.trackId);
   const offCareer = !state.progress.unlockedTracks.includes(track.id);
-  const note = state.carsFrom === 'tracks'
+  const times = medalTimes(track);
+  const mine = state.progress.trials[track.id]?.time;
+  const note = state.carsFrom === 'tracks' && state.trial
+    ? `Time trial: ${track.name} — ${MEDALS.map((m, i) => `${m.name.toLowerCase()} ${times[i].toFixed(1)}`).join(' · ')}`
+      + (mine ? ` · your best ${formatTime(mine)}` : '') + '.'
+    : state.carsFrom === 'tracks'
     ? `${state.single ? 'Single race: ' : ''}${track.name} — ${track.laps} laps — ${DIFFICULTY[state.difficulty]}.`
       + (state.single && offCareer ? ' Best lap counts; it opens nothing in the career.' : ' Pick a car to start.')
     : state.carsFrom === 'champ'
@@ -368,9 +387,12 @@ function buildRace(def, { attract = false } = {}) {
   const roster = c
     ? [c.racerId, ...c.rivals].map(racerById)
     : RACERS.filter((r) => !r.unlock || state.progress.unlockedCars.includes(r.id));
+  const trial = !attract && !c && state.trial;
   const race = new Race({
     engine,
     track,
+    trial,
+    ghost: trial ? state.progress.trials[def.id] : null,
     playerSpec: attract ? RACERS[Math.floor(Math.random() * 4)] : racerById(c ? c.racerId : state.racerId),
     roster: roster.length >= 6 ? roster : RACERS,
     difficulty: attract ? 3 : c ? c.difficulty : state.difficulty,
@@ -379,6 +401,14 @@ function buildRace(def, { attract = false } = {}) {
   state.attract = attract;
   race.onRumble = attract ? null : (strong, weak, ms) => input.rumble(strong, weak, ms);
   race.onTick = attract ? null : () => input.tick();
+  // A new best trial lap is saved the moment it is set, and a better medal
+  // is called out on the spot.
+  race.onBestLap = (ghost) => {
+    const before = medalFor(def, state.progress.trials[def.id]?.time);
+    if (!progress.recordTrial(state.progress, def.id, ghost)) return;
+    const now = medalFor(def, ghost.time);
+    if (now >= 0 && (before < 0 || now < before)) race.message(`${MEDALS[now].name.toUpperCase()} MEDAL!`, 'finish', 2.4);
+  };
   if (attract) {
     race.setAutopilot(true, 0.95);
     race.phase = 'racing';
@@ -402,7 +432,9 @@ function startRace() {
   const def = trackById(state.trackId);
   const race = buildRace(def);
   hud.reset();
-  hud.setLevel(levelTag(race.difficulty));
+  hud.setLevel(race.trial ? '' : levelTag(race.difficulty));
+  hud.setTrial(race.trial ? MEDALS.map((m, i) => ({ name: m.name, time: medalTimes(def)[i] })) : null);
+  state.trialBefore = race.trial ? state.progress.trials[def.id]?.time ?? null : null;
   hud.prepareMap(race.track);
   state.paused = false;
   show('race');
@@ -412,7 +444,8 @@ function startRace() {
 /** A race quit between the flag and the results screen still counts. */
 function recordFinishedRace() {
   const race = state.race;
-  if (!race || state.attract || race.phase !== 'finished') return;
+  // A time trial saved its best lap as it was set.
+  if (!race || state.attract || race.phase !== 'finished' || race.trial) return;
   race.settle();
   const all = race.results();
   const mine = all.find((r) => r.isPlayer);
@@ -427,8 +460,54 @@ function recordFinishedRace() {
   });
 }
 
+/** Results of a time trial: every lap, the best one marked, and the medal
+ *  if the run won a better one. */
+function finishTrial(race) {
+  const def = trackById(state.trackId);
+  const laps = race.player.lapTimes;
+  const runBest = Math.min(...laps);
+  const before = state.trialBefore;
+  const record = state.progress.trials[def.id]?.time ?? runBest;
+  const improved = before == null || record < before;
+  document.getElementById('results-title').textContent = improved ? 'New best lap!' : 'Time trial';
+  document.getElementById('results-sub').innerHTML = `${def.name} · best ${formatTime(record)} ${medalTag(medalFor(def, record))}`;
+  const list = document.getElementById('results-list');
+  list.replaceChildren();
+  laps.forEach((t, i) => {
+    const li = document.createElement('li');
+    li.className = t === runBest ? 'me' : '';
+    li.innerHTML = `
+      <span class="place">${i + 1}</span>
+      <span class="who">Lap ${i + 1}</span>
+      <span class="when">${formatTime(t)} ${medalTag(medalFor(def, t))}</span>`;
+    list.appendChild(li);
+  });
+  document.getElementById('results-retry').classList.remove('hidden');
+  document.getElementById('results-next').classList.remove('hidden');
+  document.getElementById('results-standings').classList.add('hidden');
+  // A better medal than before gets the card.
+  const box = document.getElementById('results-unlocks');
+  box.replaceChildren();
+  const now = medalFor(def, record), was = medalFor(def, before);
+  const won = now >= 0 && (was < 0 || now < was);
+  box.classList.toggle('hidden', !won);
+  if (won) {
+    const el = document.createElement('div');
+    el.className = 'unlock';
+    el.innerHTML = `
+      <div class="unlock-art unlock-art--medal">${medalTag(now)}</div>
+      <div><span class="unlock-kind">${MEDALS[now].name} medal</span><span class="unlock-name">${def.name}</span></div>`;
+    box.appendChild(el);
+  }
+  race.dispose();
+  show('results');
+  renderTracks();
+  startAttract();
+}
+
 function finishRace() {
   const race = state.race;
+  if (race.trial) { finishTrial(race); return; }
   race.settle();
   const results = race.results();
   const mine = results.find((r) => r.isPlayer);
@@ -631,9 +710,12 @@ document.addEventListener('click', (e) => {
   switch (action) {
     case 'race':
     case 'single':
+    case 'trial':
       audio.sfx.select();
       state.inChamp = false;
-      state.single = action === 'single';
+      // A time trial, like a single race, opens every circuit.
+      state.single = action !== 'race';
+      state.trial = action === 'trial';
       // Career picks up where you were; a single race from anything you
       // left selected, if the career has not reached it.
       if (!trackOpen(state.trackId)) state.trackId = TRACKS[0].id;

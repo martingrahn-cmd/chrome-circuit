@@ -255,7 +255,7 @@ export const TRACKS = [
     ice: [[0.6, 0.7]],
     crests: [{ at: 0.72, height: 0.55, length: 13 }],
     // The ski jump: the whole road, halfway down the long descent.
-    jumps: [{ at: 0.83, width: 'full', length: 9, height: 1.6 }],
+    jumps: [{ at: 0.83, width: 'full', length: 10, height: 2.2 }],
     laps: 3,
     walls: true,
     seed: 3907,
@@ -280,6 +280,33 @@ export const TRACKS = [
     theme: { ...ALPINE_THEME, density: 0.5, props: SUMMIT_PROPS, terrain: { peaks: 32, drifts: 0.9 } },
   },
 ];
+
+// Medals, for time trial laps. Gold is the best flying lap a near-flawless
+// driver set in the Comet — the balanced car — drifting the tight corners,
+// rounded up to a tenth; silver and bronze sit 6% and 14% off it. Measured
+// with the AI alone on the road (a skill-0.95 driver), so a faster car makes
+// a medal easier and a slower one harder, which is fair.
+const GOLD = {
+  downtown: 22.9, harbour: 22.7, sakura: 27.3, neon: 33.3, pinecrest: 29.4,
+  frostvale: 19.5, glacier: 24.9, summit: 26.8,
+};
+export const MEDALS = [
+  { id: 'gold', name: 'Gold', colour: '#fbbf24', factor: 1 },
+  { id: 'silver', name: 'Silver', colour: '#cbd5e1', factor: 1.06 },
+  { id: 'bronze', name: 'Bronze', colour: '#d08b5b', factor: 1.14 },
+];
+
+/** The lap time each medal asks for on a circuit, gold first. */
+export function medalTimes(def) {
+  const gold = GOLD[def.id] ?? 60;
+  return MEDALS.map((m) => Math.round(gold * m.factor * 10) / 10);
+}
+
+/** The best medal a lap earns: 0 gold, 1 silver, 2 bronze, -1 none. */
+export function medalFor(def, lap) {
+  if (lap == null) return -1;
+  return medalTimes(def).findIndex((t) => lap <= t);
+}
 
 export function trackById(id) {
   return TRACKS.find((t) => t.id === id) || TRACKS[0];

@@ -18,6 +18,8 @@ export class Hud {
     this.lap = root.querySelector('#hud-lap');
     this.pos = root.querySelector('#hud-pos');
     this.posLabel = root.querySelector('#hud-pos-label');
+    this.posName = root.querySelector('#hud-pos-name');
+    this.trial = null;
     this.speed = root.querySelector('#hud-speed');
     this.time = root.querySelector('#hud-time');
     this.best = root.querySelector('#hud-best');
@@ -107,20 +109,40 @@ export class Hud {
     }
   }
 
+  /** Time trial: the position box shows the gap to the ghost instead, and
+   *  under it the next medal still to win. `medals` is [{ name, time }]. */
+  setTrial(medals) {
+    this.trial = medals;
+    this.posName.textContent = medals ? 'Delta' : 'Pos';
+    if (!medals) this.pos.classList.remove('is-ahead', 'is-behind');
+  }
+
   update(race) {
     const p = race.player;
     const t = race.track;
     this.lap.textContent = `${Math.min(p.lap, t.laps)}/${t.laps}`;
-    this.pos.textContent = ORDINAL[p.racePosition] || `${p.racePosition}th`;
-    const posLabel = `of ${race.cars.length}${this.level ? ` · ${this.level}` : ''}`;
+    let posLabel;
+    if (this.trial) {
+      const d = race.delta;
+      this.pos.textContent = d == null ? '—' : `${d < 0 ? '−' : '+'}${Math.abs(d).toFixed(2)}`;
+      this.pos.classList.toggle('is-ahead', d != null && d < 0);
+      this.pos.classList.toggle('is-behind', d != null && d >= 0);
+      const best = race.ghost?.time ?? Infinity;
+      const next = this.trial.find((m) => best > m.time);
+      posLabel = next ? `${next.name} ${next.time.toFixed(1)}` : 'Gold ✓';
+    } else {
+      this.pos.textContent = ORDINAL[p.racePosition] || `${p.racePosition}th`;
+      posLabel = `of ${race.cars.length}${this.level ? ` · ${this.level}` : ''}`;
+    }
     if (posLabel !== this.shownPosLabel) {
       this.posLabel.innerHTML = posLabel;
       this.shownPosLabel = posLabel;
     }
     this.speed.textContent = Math.round(Math.abs(p.vLong) * 9.4);
     this.time.textContent = formatTime(race.raceTime - p.lapStart);
-    const best = p.lapTimes.length ? Math.min(...p.lapTimes) : null;
-    this.best.textContent = formatTime(best);
+    // In a time trial the best to show is the ghost's: the lap on record.
+    const best = Math.min(p.lapTimes.length ? Math.min(...p.lapTimes) : Infinity, race.trial ? race.ghost?.time ?? Infinity : Infinity);
+    this.best.textContent = formatTime(Number.isFinite(best) ? best : null);
 
     if (p.item) {
       const it = ITEMS[p.item];

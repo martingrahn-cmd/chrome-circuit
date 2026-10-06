@@ -20,10 +20,12 @@ export const SURFACE = {
 // slow cars stall on the hill.
 const GRAVITY = 7;
 
-// Pull on a car in the air, units/s². Arcade, not Earth: enough that a crest
-// taken flat out lifts the wheels for a moment and a ramp gives real air,
-// without the cars floating.
-export const AIR_G = 24;
+// Pull on a car in the air, units/s². Arcade, not Earth: low enough that a
+// ramp gives a real jump with hang time and a crest taken flat out lifts the
+// wheels, high enough that the cars do not float.
+export const AIR_G = 15;
+// A little steering survives in the air — enough to line up the landing.
+const AIR_STEER = 0.3;
 
 // Drift boost. Hold the handbrake into a corner with some steering on and the
 // car commits to a slide that way; let go and the slide pays out a short kick
@@ -248,7 +250,7 @@ export class Car {
       } else if (this.drift && (!this.handbrake || sp < DRIFT.minSpeed * 0.7)) {
         this.endDrift(this.handbrake === false);
       }
-      let steer = air ? 0 : this.steer;
+      let steer = air ? this.steer * AIR_STEER : this.steer;
       if (this.drift && !air) {
         steer = this.drift * Math.max(0.1, Math.min(1, 0.55 + 0.45 * this.steer * this.drift));
         // Charge while actually sliding on the road; snow or dirt drains it.
@@ -336,6 +338,8 @@ export class Car {
         this.airborne = false;
         this.airTime = 0;
         this.vy = along * this.vLong;
+        // The springs take the landing: the body squats, then recovers.
+        if (time > 0.12) this.squash = Math.min(0.22, 0.05 + impact * 0.025);
         this.onLand?.(time, impact);
       }
     } else {
@@ -375,6 +379,12 @@ export class Car {
     const pitch = THREE.MathUtils.clamp(this.throttle * 0.022 - (this.throttle < 0 ? 0.03 : 0), -0.05, 0.05);
     this.body.rotation.z += (roll - this.body.rotation.z) * Math.min(1, dt * 9 || 1);
     this.body.rotation.x += (pitch - this.body.rotation.x) * Math.min(1, dt * 9 || 1);
+    if (this.squash > 0) {
+      this.squash = Math.max(0, this.squash - dt * 0.9);
+      this.body.scale.y = 1 - this.squash;
+    } else if (this.body.scale.y !== 1) {
+      this.body.scale.y = 1;
+    }
 
     if (dt > 0) {
       const spin = (this.vLong / 0.3) * dt; // wheel radius 0.3
