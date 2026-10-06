@@ -117,6 +117,29 @@ world and difficulty. A new championship offers the furthest world you have
 reached. Championship rounds still set best laps and unlock circuits and cars
 the same way single races do.
 
+### Time trial and medals
+
+**Time trial** puts you alone on any circuit: no rivals, no item boxes. Your first
+complete flying lap becomes a ghost, a see-through glowing car. From then on you
+race it, and every lap that beats it becomes the new ghost. The position box turns
+into a **delta**: how far ahead (green) or behind (red) you are against the ghost at
+the same point of the lap. Under it is the next medal still to win. A new best is
+saved the moment it is set, ghost and all, so the next time trial there starts
+against it.
+
+Every circuit has three medals:
+
+- **Gold** is the best flying lap a near-flawless driver (the AI at skill 0.95,
+  alone, drifting the tight corners) set in the Comet, the balanced car, rounded up
+  to a tenth.
+- **Silver** is 6% slower than gold.
+- **Bronze** is 14% slower than gold.
+
+A faster car makes a medal easier and a slower one harder. Medals show on the circuit
+cards in every mode. A better one is called out on the spot and gets the card on the
+results screen. A ghost is stored as fifteen samples a second of time, position,
+heading and distance round the lap, about 11 KB a lap.
+
 ### Career and single race
 
 **Career** is the way through the game: podium on a circuit to unlock the next one,
@@ -179,14 +202,18 @@ phone, touch the right side) and you leave on a turbo. Do it while the lights ar
 still red and hold it, and the wheels spin for a moment instead.
 
 **Air.** A car leaves the ground in two ways. Over a crest, the road can bend away
-beneath it faster than gravity can pull it down. Off the lip of a ramp, the ground
-simply drops away. In the air there is no grip, steering or throttle, and the car
-pitches with its flight. Landing kicks up dust and thumps. A jump of nearly half a
-second or more is **BIG AIR** and pays out a kick, as a drift does. On the ground,
-a car climbs only as fast as the slope under it, so sliding onto a ramp from the side
-does not fire it into the sky. In the Alps, crests lift for 0.2–0.3 s and ramps for
-0.5–0.6 s. Glacier Pass has a full-width ski jump halfway down the long descent;
-Frostvale and Summit Run have one-lane ramps.
+beneath it faster than gravity (15 units/s², light, for hang time) can pull it down.
+Off the lip of a ramp, the ground simply drops away. In the air there is no grip or
+throttle and only a little steering, enough to line up the landing. The car pitches
+with its flight. The ring under the player's car stays on the ground, so the gap to
+it shows the height. Landing squats the body on its springs, kicks up dust and
+thumps. Six-tenths of a second in the air or more is **BIG AIR** and pays out a kick,
+as a drift does. On the ground, a car climbs only as fast as the slope under it, so
+sliding onto a ramp from the side does not fire it into the sky.
+
+In the Alps, crests lift for about 0.4 s. Glacier Pass has a full-width ski jump
+halfway down the long descent, with a second of hang time. Frostvale and Summit Run
+have one-lane ramps, worth 0.7–0.9 s.
 
 **In the moment.** A place gained and held for a moment calls **OVERTAKE!** with the
 new position. A short-lived swap side by side does not. Shaving past a car, a few

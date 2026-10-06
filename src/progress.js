@@ -10,6 +10,7 @@ const blank = () => ({
   unlockedTracks: ['downtown'], unlockedCars: [], best: {}, places: {}, difficulty: 0,
   champ: null,      // the championship in progress (or just finished)
   champBest: {},    // best final championship place, by `world:difficulty`
+  trials: {},       // time trial best lap per circuit, with its ghost
 });
 
 const isObj = (v) => v != null && typeof v === 'object' && !Array.isArray(v);
@@ -36,6 +37,7 @@ export function load() {
       champBest: isObj(p.champBest)
         ? Object.fromEntries(Object.entries(p.champBest).map(([k, v]) => [/^\d$/.test(k) ? `grand:${k}` : k, v]))
         : d.champBest,
+      trials: validTrials(p.trials),
     };
     // A podium opens the next circuit. Re-derive that from the places on
     // record, so a circuit added after the podium was won is open too — a
@@ -52,6 +54,28 @@ export function load() {
 
 export function save(state) {
   try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* private mode */ }
+}
+
+/** Saved time trials, entry by entry: a bad one is dropped, not the lot. */
+function validTrials(raw) {
+  if (!isObj(raw)) return {};
+  const out = {};
+  for (const [id, t] of Object.entries(raw)) {
+    if (!TRACKS.some((d) => d.id === id) || !isObj(t)) continue;
+    if (!(t.time > 0) || typeof t.car !== 'string' || !Array.isArray(t.s) || t.s.length % 6) continue;
+    if (!t.s.every(Number.isFinite)) continue;
+    out[id] = { time: t.time, car: t.car, s: t.s };
+  }
+  return out;
+}
+
+/** Keep a time trial lap if it beats the one on record. Returns whether it did. */
+export function recordTrial(state, trackId, ghost) {
+  const prev = state.trials[trackId];
+  if (prev && prev.time <= ghost.time) return false;
+  state.trials[trackId] = { time: ghost.time, car: ghost.car, s: ghost.s };
+  save(state);
+  return true;
 }
 
 /** Record a finished race and return what it unlocked. A single race on a

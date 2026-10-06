@@ -6,11 +6,12 @@ import { ItemField, Projectile, Hazard, ITEMS } from './items.js';
 import { Particles, SkidMarks, Snowfall, DUST } from './fx.js';
 import { mulberry32 } from './track.js';
 import { EngineSound, sfx } from './audio.js';
+import { instance } from './assets.js';
 
 const GRID = 6;
 
 // Airtime long enough to count as a jump pays out a kick, like a drift does.
-const BIG_AIR = 0.45;
+const BIG_AIR = 0.6;
 // A close call: passing within this much of another car without touching it,
 // at least this much faster, pays a short kick. Each rival once per few seconds.
 const CLOSE = { gap: 0.45, speed: 4, every: 6, kick: 0.35 };
@@ -29,18 +30,49 @@ const DRAFT_RANGE = 15;
 // look-ahead, the particle size, the celebration pull-in — scales with it.
 const CAMERA_ZOOM = 0.85;
 
+// Time trial ghosts: samples a second, and the stride of one stored sample
+// [t, x, y, z, heading, d] — seconds into the lap, position, facing, and
+// distance round the lap.
+export const GHOST_RATE = 15;
+const GS = 6;
+
+/** A see-through copy of a car, for the ghost of a best lap. */
+function ghostMesh(model) {
+  const g = instance('cars', model);
+  g.traverse((o) => {
+    if (!o.isMesh) return;
+    o.material = o.material.clone();
+    o.material.transparent = true;
+    o.material.opacity = 0.5;
+    o.material.depthWrite = false;
+    o.material.color?.setHex(0xd6f0ff);
+    // A faint glow of its own, so it reads on dark tarmac and white snow.
+    o.material.emissive?.setHex(0x3f7fb0);
+    o.castShadow = false;
+    o.receiveShadow = false;
+  });
+  g.renderOrder = 4;
+  g.visible = false;
+  return g;
+}
+
 export class Race {
-  constructor({ engine, track, playerSpec, roster, difficulty = 1 }) {
+  constructor({ engine, track, playerSpec, roster, difficulty = 1, trial = false, ghost = null }) {
     this.engine = engine;
     this.track = track;
     this.difficulty = difficulty;
+    // Time trial: the player alone on the road, no item boxes, racing the
+    // ghost of their own best lap.
+    this.trial = trial;
     this.rng = mulberry32((track.def.seed || 1) * 7919 + 13);
 
     this.particles = new Particles(engine.world);
     this.skids = new SkidMarks(engine.world);
     this.snow = track.def.theme?.snowfall ? new Snowfall(engine.world) : null;
     this.camLead = 0;   // how far down the road the camera is looking, eased
-    this.items = new ItemField(track, engine.world, this.rng, [1, 0.7, 0.35, 0][difficulty] ?? 1);
+    this.items = trial
+      ? { boxes: [], update() {} }
+      : new ItemField(track, engine.world, this.rng, [1, 0.7, 0.35, 0][difficulty] ?? 1);
     this.projectiles = [];
 
     this.cars = [];
@@ -95,6 +127,12 @@ export class Race {
       };
     }
 
+    // The ghost to beat, and the lap being recorded to become the next one.
+    this.ghost = null;
+    if (trial && ghost?.s?.length) this.setGhost(ghost);
+    this.recording = [];
+    this.delta = null;
+
     this.marker = this.buildMarker();
     engine.world.add(this.marker);
 
@@ -136,6 +174,7 @@ export class Race {
       picked.push(pool.splice(Math.floor(rng() * pool.length), 1)[0]);
     }
     const player = { ...playerSpec, __player: true };
+    if (this.trial) return [player];
     // Grid order: rivals first, player last.
     return [...picked, player];
   }
@@ -150,6 +189,7 @@ export class Race {
       new THREE.MeshBasicMaterial({ color: 0xffe14d, transparent: true, opacity: 0.5, depthWrite: false }),
     );
     ring.position.y = -2.9;
+    this.markerRing = ring;
     group.add(arrow, ring);
     group.renderOrder = 5;
     return group;
@@ -245,6 +285,63 @@ export class Race {
 
   dispose() {
     this.engineSound.stop();
+  }
+
+  /** Race this lap from now on: `{ time, car, s }` as recorded below. */
+  setGhost(ghost) {
+    if (this.ghost?.mesh) this.engine.world.remove(this.ghost.mesh);
+    const mesh = ghostMesh(ghost.car);
+    this.engine.world.add(mesh);
+    this.ghost = { ...ghost, mesh, cursor: 0 };
+  }
+
+  /** Lap distance round from the line, in world units. */
+  lapDistance(car) {
+    const n = this.track.line.n;
+    return ((((car.totalProgress - this.track.startIndex) % n) + n) % n) * this.track.line.spacing;
+  }
+
+  /** Record the player's lap; show the ghost where it was at this point of
+   *  its lap; work out how far ahead of it (or behind) the player is. */
+  updateTrial(dt) {
+    const p = this.player;
+    if (!this.trial || !p) return;
+    const t = this.raceTime - p.lapStart;
+    const live = p.crossedLine && !p.finished && this.phase !== 'countdown';
+    if (live) {
+      const rec = this.recording;
+      const last = rec.length ? rec[rec.length - GS] : -1;
+      if (t - last >= 1 / GHOST_RATE - 1e-6) {
+        rec.push(+t.toFixed(3), +p.x.toFixed(2), +p.y.toFixed(2), +p.z.toFixed(2), +p.heading.toFixed(3), +this.lapDistance(p).toFixed(1));
+      }
+    }
+    const g = this.ghost;
+    if (!g) return;
+    const s = g.s, count = s.length / GS;
+    if (!live || t > g.time) { g.mesh.visible = false; this.delta = null; return; }
+    // The ghost: walk the cursor to the sample at this time and blend.
+    if (g.cursor > 0 && s[g.cursor * GS] > t) g.cursor = 0;
+    while (g.cursor < count - 2 && s[(g.cursor + 1) * GS] <= t) g.cursor++;
+    const a = g.cursor * GS, b = Math.min(count - 1, g.cursor + 1) * GS;
+    const span = s[b] - s[a];
+    const u = span > 0 ? Math.max(0, Math.min(1, (t - s[a]) / span)) : 0;
+    let dh = s[b + 4] - s[a + 4];
+    while (dh > Math.PI) dh -= Math.PI * 2;
+    while (dh < -Math.PI) dh += Math.PI * 2;
+    g.mesh.position.set(s[a + 1] + (s[b + 1] - s[a + 1]) * u, s[a + 2] + (s[b + 2] - s[a + 2]) * u + 0.17, s[a + 3] + (s[b + 3] - s[a + 3]) * u);
+    g.mesh.rotation.set(0, s[a + 4] + dh * u, 0);
+    g.mesh.visible = true;
+    // The delta: when did the ghost pass the distance the player is at now?
+    const d = this.lapDistance(p);
+    let lo = 0, hi = count - 1;
+    if (d <= s[5]) { this.delta = null; return; }
+    while (hi - lo > 1) {
+      const mid = (lo + hi) >> 1;
+      if (s[mid * GS + 5] < d) lo = mid; else hi = mid;
+    }
+    const d0 = s[lo * GS + 5], d1 = s[hi * GS + 5];
+    const tg = s[lo * GS] + (d1 > d0 ? (d - d0) / (d1 - d0) : 0) * (s[hi * GS] - s[lo * GS]);
+    this.delta = t - tg;
   }
 
   message(text, kind = 'info', ttl = 2.2) {
@@ -408,6 +505,7 @@ export class Race {
 
     this.updateStandings();
     this.updateDuel(dt);
+    this.updateTrial(dt);
     this.particles.update(dt);
     this.skids.update(dt);
     if (this.snow) this.snow.update(dt, this.engine.target);
@@ -416,6 +514,9 @@ export class Race {
     // Player marker.
     if (p) {
       this.marker.position.set(p.x, p.y + 3.1 + Math.sin(this.raceTime * 4) * 0.16, p.z);
+      // The ring stays on the ground: in the air, the gap to it is the height.
+      const ground = this.track.line.heightAt(p.lineIndex) + 0.25;
+      this.markerRing.position.y = (p.airborne ? ground : p.y + 0.25) - this.marker.position.y;
       this.marker.rotation.y = this.raceTime * 1.6;
       this.marker.visible = true;
     }
@@ -485,6 +586,21 @@ export class Race {
         },
       );
     }
+  }
+
+  /** A trial lap done: a new best becomes the ghost for the next one. */
+  bookTrialLap(lapTime) {
+    const rec = this.recording;
+    this.recording = [];
+    const best = this.ghost?.time ?? Infinity;
+    // A lap needs most of its samples to be a ghost worth keeping.
+    if (lapTime >= best || rec.length / GS < lapTime * GHOST_RATE * 0.8) return;
+    const ghost = { time: +lapTime.toFixed(3), car: this.player.spec.model, s: rec };
+    const first = !this.ghost;
+    this.setGhost(ghost);
+    this.message(first ? 'LAP SET — NOW BEAT IT' : 'NEW BEST LAP!', 'good', 1.8);
+    this.playSfx(sfx.lap);
+    this.onBestLap?.(ghost);
   }
 
   /** Note when the player's launch input goes down round the green light. */
@@ -656,12 +772,15 @@ export class Race {
     if (!car.crossedLine) {
       car.crossedLine = true;
       car.lapStart = this.raceTime;
+      if (car === this.player) this.recording = [];
       return;
     }
 
-    car.lapTimes.push(this.raceTime - car.lapStart);
+    const lapTime = this.raceTime - car.lapStart;
+    car.lapTimes.push(lapTime);
     car.lapStart = this.raceTime;
     car.lap += 1;
+    if (this.trial && car === this.player) this.bookTrialLap(lapTime);
 
     if (car.lap > this.track.laps) {
       car.finished = true;
@@ -678,13 +797,15 @@ export class Race {
           this.setAutopilot(true, 0.85);
           this.coolDown = true;
           const place = this.finishOrder.length;
-          const label = place === 1 ? 'WINNER!'
+          // Alone on the road there is no one to beat but the clock.
+          const label = this.trial ? 'TIME!'
+            : place === 1 ? 'WINNER!'
             : place === 2 ? '2ND PLACE!'
             : place === 3 ? '3RD PLACE!'
             : `FINISHED ${place}TH`;
-          this.message(label, place <= 3 ? 'finish' : 'go', 3.4);
+          this.message(label, this.trial || place <= 3 ? 'finish' : 'go', 3.4);
           this.buzz(0.9, 0.6, place === 1 ? 650 : 380);
-          this.celebrate = place === 1 ? 2 : place <= 3 ? 1 : 0;
+          this.celebrate = this.trial ? 0 : place === 1 ? 2 : place <= 3 ? 1 : 0;
         }
       }
     } else if (car === this.player && car.lap === this.track.laps && !this.finalLapAnnounced) {

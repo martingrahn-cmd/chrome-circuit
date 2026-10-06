@@ -70,6 +70,20 @@ html, body {
 .stat-value { font-size: 27px; line-height: 1.05; letter-spacing: -0.02em; }
 .stat-value--mono { font-family: var(--mono); font-size: 20px; font-weight: 700; }
 .stat-value--dim { color: var(--muted); }
+/* The time trial delta: green when ahead of the ghost, red when behind. */
+.stat-value.is-ahead { color: var(--good); }
+.stat-value.is-behind { color: var(--accent-2); }
+/* A medal: a coin in its colour, wherever one is shown. */
+.medal {
+  display: inline-block;
+  width: 0.9em;
+  height: 0.9em;
+  border-radius: 50%;
+  vertical-align: -0.1em;
+  background: radial-gradient(circle at 35% 30%, #fff8, transparent 45%), var(--m);
+  box-shadow: 0 0 0 1px #0006 inset;
+}
+.medal--none { --m: transparent; box-shadow: 0 0 0 1px var(--muted) inset; }
 .stat-sub {
   font-family: var(--body);
   font-size: 10px;
@@ -756,6 +770,7 @@ html, body {
 .unlock:nth-child(2) { animation-delay: 0.14s; }
 .unlock:nth-child(3) { animation-delay: 0.28s; }
 .unlock-art { position: relative; height: 54px; border-radius: 8px; overflow: hidden; background: rgba(255, 255, 255, 0.06); }
+.unlock-art--medal { display: grid; place-items: center; font-size: 34px; }
 .unlock-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 .unlock-kind { display: block; font-size: 9px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); }
 .unlock-name { font-family: var(--display); font-size: 15px; }
