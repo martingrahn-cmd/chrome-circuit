@@ -19,6 +19,8 @@ const VERTEX_KITS = {
   // canyon they are sand, sage and sun-baked red rock.
   nature: { grass: 0xd9b27c, leafsGreen: 0x7d9c55, dirt: 0xc4643c, woodBark: 0x9a6a44 },
   racing: {},
+  // Our own Blender models (tools/blender): they carry their colours already.
+  canyon: null,
 };
 export const isVertexKit = (kit) => kit in VERTEX_KITS;
 
@@ -72,7 +74,15 @@ export function loadModel(kit, name) {
         if (!o.isMesh) return;
         o.castShadow = true;
         o.receiveShadow = true;
-        if (isVertexKit(kit)) {
+        if (isVertexKit(kit) && !VERTEX_KITS[kit]) {
+          // Painted in Blender: keep the colours, as plain RGB like the rest.
+          const src = o.geometry.attributes.color;
+          const n = o.geometry.attributes.position.count;
+          const col = new Float32Array(n * 3);
+          for (let i = 0; i < n; i++) { col[i * 3] = src.getX(i); col[i * 3 + 1] = src.getY(i); col[i * 3 + 2] = src.getZ(i); }
+          o.geometry.setAttribute('color', new THREE.BufferAttribute(col, 3));
+          o.geometry.deleteAttribute('uv');
+        } else if (isVertexKit(kit)) {
           // Bake the material's colour (recoloured if the kit says so).
           const remap = VERTEX_KITS[kit];
           const c = new THREE.Color(remap[o.material.name] ?? o.material.color ?? 0xffffff);
