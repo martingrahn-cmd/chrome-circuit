@@ -111,6 +111,15 @@ The circuits come in worlds, picked from a switch at the top of the circuit scre
 - **Alpine Winter** — Frostvale Village, Glacier Pass and Summit Run. Roads that
   climb, deep snow off the tarmac, ice on the high stretches and snow falling the
   whole time.
+- **Red Rock Canyon:** three circuits, each built around something the other worlds
+  do not have.
+  - **Mesa Eight** is a figure of eight that runs under its own bridge just after the
+    line and over it a lap later.
+  - **Dust Bowl Rally** is gravel all the way, with whoops, a yump and a rock arch.
+  - **Canyon Run** goes down switchbacks off a mesa to the canyon floor, leaps a dry
+    river, then makes the long climb home.
+
+  Off the road is soft sand.
 
 A world opens with a podium on the last circuit of the one before it, and the
 unlock card says so.
@@ -313,6 +322,22 @@ Heights run linearly along each leg, carry over onto the racing line, and are
 smoothed so crests and dips round off. `ice` lists stretches of the lap, as fractions
 from the start line. Keep the start straight level; the grid stands on it.
 
+A track can pass over itself. A bridge is not authored: any stretch of road more
+than 3 units above another part of the lap is found, and becomes a deck from a
+little before the crossing to a little after. The deck has parapets, and pillars
+that never stand on the road underneath. The terrain ignores the deck, so the land
+under it belongs to the road below. Cars, rockets, oil drums, item boxes, slipstream
+and the AI all compare heights, so a car on the bridge and one underneath pass
+without touching. A rocket searches near where it was on the line, so at a crossing
+it stays on its own deck.
+
+Gravel is a surface. `theme.road: 'gravel'` makes the whole road gravel, and
+`gravel: [[from, to]]` makes stretches of it. Gravel keeps nearly full speed with
+less grip, so the tail steps out, and it throws a dust plume. Drift charge still
+builds on it. `arches: [{ at }]` puts a rough rock arch over the road, which fades
+while the player is under it. `theme.strata` bands steep ground in darker and
+lighter rock, like canyon walls.
+
 Crests and jump ramps go in the same way:
 
 ```js
@@ -390,5 +415,9 @@ draw calls.
 ## Credits
 
 All 3D models by [Kenney](https://kenney.nl) under CC0: Car Kit, City Kit (Roads),
-City Kit (Commercial), City Kit (Suburban), Toy Car Kit and Holiday Kit. The log
-cabins in the Alps are assembled from the Holiday Kit's wall and roof pieces. Three.js is MIT.
+City Kit (Commercial), City Kit (Suburban), Toy Car Kit, Holiday Kit, Nature Kit and
+Racing Kit. The log cabins in the Alps are assembled from the Holiday Kit's wall and
+roof pieces. The Nature and Racing kits colour their models by named materials
+rather than a texture atlas. Those colours are baked into the vertices on load, so
+each kit still merges into one mesh. The Nature Kit is recoloured for the desert as
+it loads: grass tops to sand, leaves to sage, rock to sun-baked red. Three.js is MIT.

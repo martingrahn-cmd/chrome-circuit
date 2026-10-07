@@ -98,8 +98,11 @@ export class Terrain {
     const V = Math.SQRT1_2;                     // (1, 0, 1)/√2 points at the camera
     // Every fourth sample (under five units apart) is plenty for the soft
     // blend, and for a first guess at the nearest that is then refined.
+    // A bridge deck is not ground: the land under it belongs to whatever
+    // road passes below, so bridge samples take no part.
+    const ground = (k) => !line.bridge?.[k];
     const coarse = [];
-    for (let i = 0; i < n; i += 4) coarse.push(i);
+    for (let i = 0; i < n; i += 4) if (ground(i)) coarse.push(i);
     const dk = new Float32Array(coarse.length);
     for (let j = 0; j < this.nz; j++) {
       const z = this.z0 + j * CELL;
@@ -114,6 +117,7 @@ export class Terrain {
         }
         for (let k = -3; k <= 3; k++) {
           const kk = (bestK + k + n) % n, p = line.pts[kk];
+          if (!ground(kk)) continue;
           const d2 = (p.x - x) ** 2 + (p.z - z) ** 2;
           if (d2 < best) { best = d2; bestK = kk; }
         }
@@ -252,6 +256,12 @@ export class Terrain {
       c.copy(low).lerp(snow, alt).lerp(high, smoothstep(0.65, 1, alt) * 0.6);
       c.lerp(verge, 1 - smoothstep(this.flat, this.flat + 5, this.dist[id]));
       c.lerp(rock, steep * (0.75 + 0.25 * noise(x / 7, z / 7, 2)));
+      // Canyon walls show their strata: bands of darker and lighter rock.
+      if (theme.strata) {
+        const band = Math.floor((pos[id * 3 + 1] + noise(x / 9, z / 9, 2) * 1.2) / 1.7) % 3;
+        const f = [1, 0.82, 1.12][(band + 3) % 3];
+        c.multiplyScalar(1 + (f - 1) * Math.max(steep, 0.35));
+      }
       const shade = 0.95 + 0.07 * noise(x / 23, z / 23, 2);
       col[id * 3] = c.r * shade; col[id * 3 + 1] = c.g * shade; col[id * 3 + 2] = c.b * shade;
     }
