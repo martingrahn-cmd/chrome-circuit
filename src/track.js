@@ -414,6 +414,10 @@ export class Track {
     const span = Math.round(16 / sp);
     for (const i of over) for (let k = -span; k <= span; k++) L.bridge[(i + k + n) % n] = 1;
     this.hasBridge = over.length > 0;
+    // Where the deck runs, for the race to tell when the player is under it.
+    this.bridgeMeshes = [];
+    this.bridgePts = [];
+    for (let i = 0; i < n; i += 2) if (L.bridge[i]) this.bridgePts.push({ x: L.pts[i].x, z: L.pts[i].z, h: L.h[i] });
     this.arches = [];
     // Jump ramps: a wedge on the road, across part of it or all of it, that
     // throws a car into the air off its lip. `lane` is where across the road
@@ -536,7 +540,7 @@ export class Track {
   }
 
   /** A ribbon strip that follows the racing line between two lateral offsets. */
-  lineStrip(innerOff, outerOff, y, colour, y2 = null, material = null) {
+  lineStrip(innerOff, outerOff, y, colour, y2 = null, material = null, keep = null) {
     const line = this.line, n = line.n;
     const pos = new Float32Array((n + 1) * 2 * 3);
     const nrm = new Float32Array((n + 1) * 2 * 3);
@@ -548,7 +552,7 @@ export class Track {
       pos[o] = p.x + lx * outerOff; pos[o + 1] = y + h; pos[o + 2] = p.z + lz * outerOff;
       pos[o + 3] = p.x + lx * innerOff; pos[o + 4] = (y2 ?? y) + h; pos[o + 5] = p.z + lz * innerOff;
       nrm[o + 1] = 1; nrm[o + 4] = 1;
-      if (i < n) {
+      if (i < n && (!keep || keep(i))) {
         const a = i * 2;
         idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
       }
@@ -560,6 +564,34 @@ export class Track {
     const mesh = new THREE.Mesh(g, material ?? new THREE.MeshLambertMaterial({ color: colour, side: THREE.DoubleSide }));
     mesh.receiveShadow = true;
     return mesh;
+  }
+
+  /** Whether the stretch from sample i to the next is bridge deck. */
+  onDeck(i) { return this.line.bridgeAt(i) && this.line.bridgeAt(i + 1); }
+
+  /** Something on a bridge: it gets its own material, ready to fade while
+   *  the player drives underneath (race.js). */
+  fadeable(mesh) {
+    mesh.material = mesh.material.clone();
+    mesh.material.transparent = true;
+    this.bridgeMeshes.push(mesh);
+    return mesh;
+  }
+
+  /**
+   * A strip the length of the lap. On a circuit with a bridge the deck's
+   * stretch is a mesh of its own, so the bridge can fade as a whole.
+   */
+  addStrip(innerOff, outerOff, y, colour, y2 = null, material = null) {
+    if (!this.hasBridge) {
+      const m = this.lineStrip(innerOff, outerOff, y, colour, y2, material);
+      this.group.add(m);
+      return [m];
+    }
+    const ground = this.lineStrip(innerOff, outerOff, y, colour, y2, material, (i) => !this.onDeck(i));
+    const deck = this.fadeable(this.lineStrip(innerOff, outerOff, y, colour, y2, material, (i) => this.onDeck(i)));
+    this.group.add(ground, deck);
+    return [ground, deck];
   }
 
   /** A short piece of ribbon from sample i0 to i1, riding the road's height. */
@@ -588,23 +620,23 @@ export class Track {
    */
   buildRoad(theme) {
     const w = this.roadHalf;
-    this.group.add(this.lineStrip(-w - 0.8, w + 0.8, 0.09, theme.kerbColour ?? 0x99a1b0));
-    this.group.add(this.lineStrip(-w, w, 0.11, theme.roadColour ?? 0x4a505c));
+    this.addStrip(-w - 0.8, w + 0.8, 0.09, theme.kerbColour ?? 0x99a1b0);
+    this.addStrip(-w, w, 0.11, theme.roadColour ?? 0x4a505c);
 
     // Dashed centre line.
     const line = this.line, n = line.n;
-    const geoms = [];
+    const geoms = [], deckGeoms = [];
     const step = Math.max(4, Math.round(6 / line.spacing));
     const dashLen = Math.max(1, Math.round(2.3 / line.spacing));
     // A gravel road has no paint.
-    for (let i = 0; i < n && theme.dashes !== false; i += step) geoms.push(this.stripPiece(i, i + dashLen, -0.13, 0.13, 0.125));
-    if (geoms.length) {
-      const dashes = new THREE.Mesh(
-        mergeGeometries(geoms, false),
-        new THREE.MeshLambertMaterial({ color: 0xe9edf5 }),
-      );
-      geoms.forEach((g) => g.dispose());
-      this.group.add(dashes);
+    for (let i = 0; i < n && theme.dashes !== false; i += step) {
+      (this.onDeck(i) ? deckGeoms : geoms).push(this.stripPiece(i, i + dashLen, -0.13, 0.13, 0.125));
+    }
+    for (const [list, onBridge] of [[geoms, false], [deckGeoms, true]]) {
+      if (!list.length) continue;
+      const dashes = new THREE.Mesh(mergeGeometries(list, false), new THREE.MeshLambertMaterial({ color: 0xe9edf5 }));
+      list.forEach((g) => g.dispose());
+      this.group.add(onBridge ? this.fadeable(dashes) : dashes);
     }
 
     if (theme.kerbs !== false) this.buildKerbs();
@@ -886,13 +918,13 @@ export class Track {
     const deck = new THREE.Mesh(g, mat);
     deck.castShadow = true;
     deck.receiveShadow = true;
-    this.group.add(deck);
+    this.group.add(this.fadeable(deck));
     if (posts.length) {
       const m = new THREE.Mesh(mergeGeometries(posts, false), mat);
       posts.forEach((p) => p.dispose());
       m.castShadow = true;
       m.receiveShadow = true;
-      this.group.add(m);
+      this.group.add(this.fadeable(m));
     }
   }
 
@@ -932,28 +964,24 @@ export class Track {
     const line = this.line, n = line.n;
     const off = this.wallHalf + 0.4;
     const railMat = new THREE.MeshLambertMaterial({ color: 0xc6cdd9, side: THREE.DoubleSide });
-    const postGeoms = [];
+    const postGeoms = [], deckPosts = [];
     for (const side of [-1, 1]) {
-      const rail = this.lineStrip(off * side, off * side, 0.95, 0xc6cdd9, 0.45, railMat);
-      rail.castShadow = true;
-      this.group.add(rail);
+      for (const rail of this.addStrip(off * side, off * side, 0.95, 0xc6cdd9, 0.45, railMat)) rail.castShadow = true;
 
       const step = Math.max(3, Math.round(5 / line.spacing));
       for (let i = 0; i < n; i += step) {
         const p = line.point(i), t = line.tangent(i);
         const g = new THREE.BoxGeometry(0.24, 1.0, 0.24);
         g.translate(p.x + t.z * off * side, 0.5 + line.heightOf(i), p.z - t.x * off * side);
-        postGeoms.push(g);
+        (this.onDeck(i) ? deckPosts : postGeoms).push(g);
       }
     }
-    if (postGeoms.length) {
-      const posts = new THREE.Mesh(
-        mergeGeometries(postGeoms, false),
-        new THREE.MeshLambertMaterial({ color: 0x6a7280 }),
-      );
-      postGeoms.forEach((g) => g.dispose());
+    for (const [list, onBridge] of [[postGeoms, false], [deckPosts, true]]) {
+      if (!list.length) continue;
+      const posts = new THREE.Mesh(mergeGeometries(list, false), new THREE.MeshLambertMaterial({ color: 0x6a7280 }));
+      list.forEach((g) => g.dispose());
       posts.castShadow = true;
-      this.group.add(posts);
+      this.group.add(onBridge ? this.fadeable(posts) : posts);
     }
   }
 
