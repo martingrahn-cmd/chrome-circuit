@@ -102,7 +102,7 @@ export class AIDriver {
     // Fastest speed at which the car can still generate the yaw rate the
     // corner asks for: omega = v * curvature must stay inside its handling.
     const cornerSpeed = Math.min(car.topSpeed, (car.handling * 0.8) / Math.max(0.006, worst));
-    const grip = car.surface === 'road' || car.surface === 'ice' ? 1 : 0.75;
+    const grip = car.surface === 'road' || car.surface === 'ice' ? 1 : car.surface === 'gravel' ? 0.93 : 0.75;
     // A bend on ice is taken gently, or not at all.
     const ice = iceAhead && worst > 0.015 ? 0.8 : 1;
     const honest = cornerSpeed * (0.82 + 0.2 * this.skill) * grip * ice;
@@ -183,7 +183,7 @@ export class AIDriver {
     const f = this.car.forward;
     let best = null, bestD = range;
     for (const h of projectiles || []) {
-      if (h.dead || h.arm === undefined) continue;
+      if (h.dead || h.arm === undefined || Math.abs(h.y - this.car.y) > 2.2) continue;
       const dx = h.x - this.car.x, dz = h.z - this.car.z;
       const along = dx * f.x + dz * f.z;
       if (along <= 0 || along > bestD) continue;
@@ -198,7 +198,7 @@ export class AIDriver {
   nearby(cars, from, to) {
     const f = this.car.forward;
     for (const o of cars) {
-      if (o === this.car || o.finished) continue;
+      if (o === this.car || o.finished || Math.abs(o.y - this.car.y) > 2.2) continue;
       const dx = o.x - this.car.x, dz = o.z - this.car.z;
       const along = dx * f.x + dz * f.z;
       if (along < from || along > to) continue;
@@ -218,7 +218,7 @@ export class AIDriver {
     const f = this.car.forward;
     let best = null, bestSide = Infinity;
     for (const o of cars) {
-      if (o === this.car) continue;
+      if (o === this.car || Math.abs(o.y - this.car.y) > 2.2) continue;
       const dx = o.x - this.car.x, dz = o.z - this.car.z;
       const ahead = dx * f.x + dz * f.z;
       if (Math.abs(ahead) > 2.6) continue;
@@ -233,7 +233,7 @@ export class AIDriver {
     const f = this.car.forward;
     let best = null, bestD = 9;
     for (const o of cars) {
-      if (o === this.car) continue;
+      if (o === this.car || Math.abs(o.y - this.car.y) > 2.2) continue;
       const dx = o.x - this.car.x, dz = o.z - this.car.z;
       const ahead = dx * f.x + dz * f.z;
       if (ahead <= 0.5 || ahead > bestD) continue;

@@ -140,9 +140,49 @@ const ALPINE_THEME = {
   dress: ALPINE,
 };
 
+// --- Red Rock Canyon -------------------------------------------------------
+
+// Hoodoos, mesas, cacti and the odd camp, from the Nature Kit recoloured for
+// the desert (see assets.js), with Racing Kit tents and posts.
+const HOODOOS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'].map((k, i) => (
+  { kit: 'nature', model: `rock_tall${k}`, scale: 0.42 + (i % 3) * 0.12, h: 1.0, r: 0.5 }
+));
+const DESERT_LOW = [
+  { kit: 'nature', model: 'cactus_tall', scale: 0.3, h: 0.75, r: 0.2 },
+  { kit: 'nature', model: 'cactus_short', scale: 0.32, h: 0.53, r: 0.17 },
+  { kit: 'nature', model: 'rock_largeA', scale: 0.6, h: 0.26, r: 0.5 },
+  { kit: 'nature', model: 'rock_largeC', scale: 0.6, h: 0.3, r: 0.5 },
+  { kit: 'nature', model: 'plant_bushSmall', scale: 0.5, h: 0.21, r: 0.19 },
+];
+// Buttes: the same spires, three times the size, standing off the road.
+const MESAS = ['B', 'D', 'H'].map((k) => ({ kit: 'nature', model: `rock_tall${k}`, scale: 1.0, h: 1.0, r: 0.5 }));
+const CAMP = [
+  { kit: 'nature', model: 'tent_detailedOpen', scale: 0.5, h: 0.56, r: 0.45, pad: true },
+  { kit: 'nature', model: 'tree_palmTall', scale: 0.45, h: 1.36, r: 0.5 },
+  { kit: 'nature', model: 'campfire_stones', scale: 0.6, h: 0.1, r: 0.2 },
+];
+const CANYON_PROPS = [...HOODOOS, ...DESERT_LOW, ...DESERT_LOW, ...MESAS];
+const RALLY_PROPS = [...DESERT_LOW, ...DESERT_LOW, ...HOODOOS, ...CAMP];
+const DESCENT_PROPS = [...HOODOOS, ...HOODOOS, ...MESAS, ...DESERT_LOW];
+
+const CANYON_THEME = {
+  sky: 0xf0c08a, ground: 0xd8a66c, valley: 0xc0844e, peak: 0xe9bd85, rock: 0xa84a2a, verge: 0xcf9a60,
+  kerbColour: 0xc9a27a, offroad: 'sand', spread: 7, strata: true, card: [0xd9844a, 0x8a3f22],
+  light: { hemiSky: 0xffe0b5, hemiGround: 0x8a5a3a, hemi: 1.0, sun: 0xffdcae, sunPower: 2.05 },
+};
+const CANYON_STREET = {
+  lamp: { kit: 'racing', model: 'lightPostModern', scale: 0.55 },
+  cornerSign: { kit: 'roads', model: 'road-sign-warning', scale: 1 },
+};
+const CANYON_RALLY = {
+  cornerBarrier: { kit: 'racing', model: 'barrierWall', scale: 0.4, alongX: true, every: 4.6 },
+  cornerSign: { kit: 'roads', model: 'road-sign-warning', scale: 1 },
+};
+
 export const WORLDS = [
   { id: 'grand', name: 'Grand Tour', blurb: 'City streets, harbour fronts and forest roads.' },
   { id: 'alps', name: 'Alpine Winter', blurb: 'Snow, ice and mountain passes that climb.' },
+  { id: 'canyon', name: 'Red Rock Canyon', blurb: 'A bridge over yourself, a gravel rally and a canyon to jump.' },
 ];
 
 export const TRACKS = [
@@ -279,6 +319,62 @@ export const TRACKS = [
     difficulty: 5,
     theme: { ...ALPINE_THEME, density: 0.5, props: SUMMIT_PROPS, terrain: { peaks: 32, drifts: 0.9 } },
   },
+  {
+    id: 'mesa',
+    world: 'canyon',
+    name: 'Mesa Eight',
+    blurb: 'A figure of eight. Under the bridge off the line, over it a lap later.',
+    start: [14, 7],
+    moves: 'L14 U7 R7 D7 D7 R7 U7',
+    heights: [0, 0, 4, 8.5, 3, 1, 0],
+    laps: 3,
+    walls: true,
+    seed: 7301,
+    difficulty: 3,
+    theme: { ...CANYON_THEME, density: 0.42, props: CANYON_PROPS, dress: CANYON_STREET, terrain: { peaks: 22, drifts: 0.5 } },
+  },
+  {
+    id: 'dustbowl',
+    world: 'canyon',
+    name: 'Dust Bowl Rally',
+    blurb: 'Gravel all the way, whoops to fly over and a rock arch. Slide it.',
+    start: [0, 0],
+    moves: 'R6 D3 R4 U3 R6 D8 L3 D4 L6 U4 L3 D3 L4 U11',
+    heights: [0, 1, 2, 1, 0, 2, 3, 3, 2, 1, 1, 0, 0, 0],
+    // Whoops down the long right-hand side, a yump on the bottom straight.
+    crests: [{ at: 0.46, height: 0.45, length: 9 }, { at: 0.495, height: 0.45, length: 9 }, { at: 0.53, height: 0.45, length: 9 }, { at: 0.9, height: 0.5, length: 11 }],
+    jumps: [{ at: 0.685, width: 'full', length: 7, height: 1.1 }],
+    arches: [{ at: 0.155 }],
+    laps: 3,
+    walls: false,
+    seed: 8822,
+    difficulty: 4,
+    theme: {
+      ...CANYON_THEME, road: 'gravel', roadColour: 0x9a7652, kerbColour: 0xb58d62, kerbs: false, dashes: false,
+      density: 0.46, props: RALLY_PROPS, dress: CANYON_RALLY, terrain: { peaks: 16, drifts: 0.8 },
+    },
+  },
+  {
+    id: 'canyonrun',
+    world: 'canyon',
+    name: 'Canyon Run',
+    blurb: 'Switchbacks down off the mesa, a leap over the dry river, and the long climb home.',
+    start: [0, 0],
+    moves: 'R16 D3 L12 D3 R12 D4 L16 U10',
+    heights: [18, 15, 11, 8, 5, 2, 0, 18],
+    crests: [{ at: 0.47, height: 0.6, length: 13 },
+      // The dry river: the road drops into its bed just past the lip of the
+      // jump, so whoever takes it flat out flies the gap.
+      { at: 0.672, height: -2.6, length: 22 }],
+    jumps: [{ at: 0.66, width: 'full', length: 9, height: 1.8 }],
+    arches: [{ at: 0.77 }],
+    gravel: [[0.668, 0.705]],
+    laps: 3,
+    walls: true,
+    seed: 9417,
+    difficulty: 5,
+    theme: { ...CANYON_THEME, density: 0.5, props: DESCENT_PROPS, dress: CANYON_STREET, terrain: { peaks: 30, drifts: 0.6 } },
+  },
 ];
 
 // Medals, for time trial laps. Gold is the best flying lap a near-flawless
@@ -289,6 +385,7 @@ export const TRACKS = [
 const GOLD = {
   downtown: 22.9, harbour: 22.7, sakura: 27.3, neon: 33.3, pinecrest: 29.4,
   frostvale: 19.5, glacier: 24.9, summit: 26.8,
+  mesa: 21.9, dustbowl: 25.8, canyonrun: 30.2,
 };
 export const MEDALS = [
   { id: 'gold', name: 'Gold', colour: '#fbbf24', factor: 1 },

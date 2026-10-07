@@ -97,7 +97,7 @@ export class ItemField {
 
       for (const car of cars) {
         if (car.finished) continue;
-        if (Math.hypot(car.x - box.x, car.z - box.z) > 2.1) continue;
+        if (Math.hypot(car.x - box.x, car.z - box.z) > 2.1 || Math.abs(car.y + 0.2 - box.mesh.userData.baseY) > 2.5) continue;
         if (car.item) {
           box.blocked = 0.5;
           onBlocked && onBlocked(car);
@@ -126,6 +126,7 @@ export class Projectile {
     this.mesh = instance('cars', 'debris-bolt');
     this.mesh.scale.setScalar(3.2);
     this.y = owner.y;
+    this.lineIndex = owner.lineIndex;
     this.mesh.position.set(this.x + f.x * 2, this.y + 0.5, this.z + f.z * 2);
     scene.add(this.mesh);
     this.x = this.mesh.position.x; this.z = this.mesh.position.z;
@@ -145,14 +146,16 @@ export class Projectile {
     }
     this.x += Math.sin(this.heading) * this.speed * dt;
     this.z += Math.cos(this.heading) * this.speed * dt;
-    const loc = track.line.locate(this.x, this.z, null, 0);
+    // Searched near where it was, so at a crossing it stays on its own deck.
+    const loc = track.line.locate(this.x, this.z, this.lineIndex, 14);
+    this.lineIndex = loc.index;
     this.y = track.line.heightAt(loc.progress);
     this.mesh.position.set(this.x, this.y + 0.5, this.z);
     this.mesh.rotation.y = this.heading;
     this.mesh.rotation.x += dt * 14;
 
     for (const car of cars) {
-      if (car === this.owner || car.finished) continue;
+      if (car === this.owner || car.finished || Math.abs(car.y - this.y) > 2.2) continue;
       if (Math.hypot(car.x - this.x, car.z - this.z) < car.radius + 0.8) {
         car.spinOut(1.25);
         this.dead = true;
@@ -166,7 +169,7 @@ export class Projectile {
   findTarget(cars) {
     let best = null, bestD = 42;
     for (const car of cars) {
-      if (car === this.owner || car.finished) continue;
+      if (car === this.owner || car.finished || Math.abs(car.y - this.y) > 3) continue;
       const dx = car.x - this.x, dz = car.z - this.z;
       const ahead = dx * Math.sin(this.heading) + dz * Math.cos(this.heading);
       if (ahead < 1) continue;
@@ -251,7 +254,7 @@ export class Hazard {
     if (this.life <= 0) { this.dead = true; return; }
     this.mesh.position.y = this.y + 0.02 + Math.sin(this.life * 6) * 0.015;
     for (const car of cars) {
-      if ((this.arm > 0 && car === this.owner) || car.finished) continue;
+      if ((this.arm > 0 && car === this.owner) || car.finished || Math.abs(car.y - this.y) > 2.2) continue;
       if (Math.hypot(car.x - this.x, car.z - this.z) < car.radius + SPILL) {
         car.spinOut(1.0);
         this.dead = true;

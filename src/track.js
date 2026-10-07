@@ -1,7 +1,7 @@
 // Track construction: a grid path of cardinal moves becomes a smoothed
 // centre line, a road ribbon that follows it, scenery and start-grid slots.
 import * as THREE from 'three';
-import { instance, materialsFor } from './assets.js';
+import { instance, materialsFor, isVertexKit } from './assets.js';
 import { mergeGeometries } from 'three/utils/BufferGeometryUtils.js';
 import { Terrain } from './terrain.js';
 
@@ -148,6 +148,8 @@ export class CentreLine {
     this.h = new Float32Array(this.n);        // road height at each sample
     this.slope = new Float32Array(this.n);    // rise per unit run, forwards
     this.ice = new Uint8Array(this.n);
+    this.gravel = new Uint8Array(this.n);
+    this.bridge = new Uint8Array(this.n);    // the road here is a deck over another
   }
 
   setHeights(h) {
@@ -178,6 +180,8 @@ export class CentreLine {
   }
   heightOf(i) { return this.h[((i % this.n) + this.n) % this.n]; }
   iceAt(i) { return this.ice[((i % this.n) + this.n) % this.n] === 1; }
+  gravelAt(i) { return this.gravel[((i % this.n) + this.n) % this.n] === 1; }
+  bridgeAt(i) { return this.bridge[((i % this.n) + this.n) % this.n] === 1; }
 
   computeCurvature() {
     const c = new Array(this.n);
@@ -308,11 +312,14 @@ function bakedGeometry(kit, model) {
   const parts = [];
   obj.traverse((o) => {
     if (!o.isMesh) return;
-    const g = o.geometry.clone();
+    let g = o.geometry.clone();
     g.applyMatrix4(o.matrixWorld);
+    const keep = isVertexKit(kit) ? ['position', 'normal', 'color'] : ['position', 'normal', 'uv'];
     for (const name of Object.keys(g.attributes)) {
-      if (!['position', 'normal', 'uv'].includes(name)) g.deleteAttribute(name);
+      if (!keep.includes(name)) g.deleteAttribute(name);
     }
+    // Every piece of a kit has to agree on indexing to merge.
+    if (isVertexKit(kit) && g.index) g = g.toNonIndexed();
     parts.push(g);
   });
   const g = parts.length ? mergeGeometries(parts, false) : null;
@@ -385,6 +392,29 @@ export class Track {
       this.line.setHeights(h);
     }
     this.crests = (def.crests ?? []).map((c) => ({ start: at(c.at), len: Math.round((c.length ?? 12) / sp) }));
+
+    // Gravel: the whole road on a rally circuit, or stretches of it.
+    const gravel = def.theme?.road === 'gravel' ? [[0, 1]] : def.gravel ?? [];
+    for (const [from, to] of gravel) {
+      for (let k = Math.round(from * n); k < Math.round(to * n); k++) this.line.gravel[(this.startIndex + k) % n] = 1;
+    }
+
+    // Bridges: where the road passes over itself, the higher stretch is a
+    // deck, from a little before the crossing to a little after. Found, not
+    // authored: any sample right above another part of the lap.
+    const L = this.line, far = Math.round(60 / sp), reach = (TILE * 0.8) ** 2;
+    const over = [];
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < n; j++) {
+        const gap = Math.abs(i - j);
+        if (Math.min(gap, n - gap) < far || L.h[i] - L.h[j] < 3) continue;
+        if ((L.pts[i].x - L.pts[j].x) ** 2 + (L.pts[i].z - L.pts[j].z) ** 2 < reach) { over.push(i); break; }
+      }
+    }
+    const span = Math.round(16 / sp);
+    for (const i of over) for (let k = -span; k <= span; k++) L.bridge[(i + k + n) % n] = 1;
+    this.hasBridge = over.length > 0;
+    this.arches = [];
     // Jump ramps: a wedge on the road, across part of it or all of it, that
     // throws a car into the air off its lip. `lane` is where across the road
     // it sits (-1 one edge, 0 the middle, 1 the other), `width` how much of
@@ -566,7 +596,8 @@ export class Track {
     const geoms = [];
     const step = Math.max(4, Math.round(6 / line.spacing));
     const dashLen = Math.max(1, Math.round(2.3 / line.spacing));
-    for (let i = 0; i < n; i += step) geoms.push(this.stripPiece(i, i + dashLen, -0.13, 0.13, 0.125));
+    // A gravel road has no paint.
+    for (let i = 0; i < n && theme.dashes !== false; i += step) geoms.push(this.stripPiece(i, i + dashLen, -0.13, 0.13, 0.125));
     if (geoms.length) {
       const dashes = new THREE.Mesh(
         mergeGeometries(geoms, false),
@@ -576,10 +607,13 @@ export class Track {
       this.group.add(dashes);
     }
 
-    this.buildKerbs();
+    if (theme.kerbs !== false) this.buildKerbs();
     this.buildGridBoxes();
     this.buildIce();
+    this.buildGravel(theme);
     this.buildRamps();
+    this.buildBridges(theme);
+    this.buildArches(theme);
 
     // On walled circuits the armco follows the same line the cars are
     // clamped to, so the rail you see is the limit you hit.
@@ -765,6 +799,133 @@ export class Track {
     poles.forEach((p) => p.dispose());
     flags.castShadow = true;
     this.group.add(flags);
+  }
+
+  /** Gravel stretches on a tarmac circuit: a loose, dusty band over the road. */
+  buildGravel(theme) {
+    const line = this.line, n = line.n;
+    if (theme.road === 'gravel' || !line.gravel.some((v) => v)) return;
+    const rng = mulberry32((this.def.seed ?? 1) + 77);
+    const w = this.roadHalf;
+    const pos = [], idx = [];
+    let row = 0;
+    for (let i = 0; i <= n; i++) {
+      if (!(line.gravelAt(i) || line.gravelAt(i - 1))) { row = 0; continue; }
+      const p = line.point(i), t = line.tangent(i), h = line.heightOf(i) + 0.125;
+      const a = w * (0.92 + rng() * 0.12), b = w * (0.92 + rng() * 0.12);
+      const base = pos.length / 3;
+      pos.push(p.x + t.z * a, h, p.z - t.x * a, p.x - t.z * b, h, p.z + t.x * b);
+      if (row > 0) idx.push(base - 2, base - 1, base, base - 1, base + 1, base);
+      row++;
+    }
+    if (!idx.length) return;
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    const mesh = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: theme.gravelColour ?? 0x9c7a55, side: THREE.DoubleSide }));
+    mesh.receiveShadow = true;
+    this.group.add(mesh);
+  }
+
+  /** Distance from a point to the nearest road that is not a bridge deck. */
+  groundRoadDist(x, z) {
+    const line = this.line;
+    let best = Infinity;
+    for (let i = 0; i < line.n; i++) {
+      if (line.bridge[i]) continue;
+      const p = line.pts[i];
+      best = Math.min(best, (p.x - x) ** 2 + (p.z - z) ** 2);
+    }
+    return Math.sqrt(best);
+  }
+
+  /**
+   * A bridge where the road crosses over itself: a deck under the road
+   * ribbon out to a parapet either side, and pillars down to the ground —
+   * none of them standing on the road that runs underneath.
+   */
+  buildBridges(theme) {
+    if (!this.hasBridge) return;
+    const line = this.line, n = line.n;
+    const W = this.wallHalf + 0.6, depth = 1.2, wall = 0.9;
+    const pos = [];
+    const quad = (a, b, c, d) => pos.push(...a, ...b, ...c, ...b, ...d, ...c);
+    const at = (i, off, dy) => {
+      const p = line.point(i), t = line.tangent(i);
+      return [p.x + t.z * off, line.heightOf(i) + dy, p.z - t.x * off];
+    };
+    const posts = [];
+    const every = Math.max(4, Math.round(11 / line.spacing));
+    for (let i = 0; i < n; i++) {
+      if (!line.bridgeAt(i) || !line.bridgeAt(i + 1)) continue;
+      const j = i + 1;
+      quad(at(i, -W, -depth), at(i, W, -depth), at(j, -W, -depth), at(j, W, -depth));        // underside
+      for (const s of [-1, 1]) {
+        const o = s * W, inner = s * (W - 0.35);
+        quad(at(i, o, -depth), at(i, o, wall), at(j, o, -depth), at(j, o, wall));           // outer face
+        quad(at(i, inner, 0.05), at(i, inner, wall), at(j, inner, 0.05), at(j, inner, wall)); // inner face
+        quad(at(i, inner, wall), at(i, o, wall), at(j, inner, wall), at(j, o, wall));        // top
+        quad(at(i, s * (this.roadHalf + 0.8), 0.095), at(i, inner, 0.095), at(j, s * (this.roadHalf + 0.8), 0.095), at(j, inner, 0.095)); // deck edge
+      }
+      if (i % every === 0) {
+        for (const s of [-1, 1]) {
+          const [x, y, z] = at(i, s * (W - 1.1), -depth);
+          if (this.groundRoadDist(x, z) < this.wallHalf + 1.6) continue;
+          const foot = Math.min(this.terrain ? this.terrain.sample(x, z) : 0, 0) - 4;
+          const g = new THREE.BoxGeometry(1.3, y - foot, 1.3);
+          g.translate(x, (y + foot) / 2, z);
+          posts.push(g);
+        }
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.computeVertexNormals();
+    const mat = new THREE.MeshLambertMaterial({ color: theme.bridgeColour ?? 0xb8a58e, side: THREE.DoubleSide });
+    const deck = new THREE.Mesh(g, mat);
+    deck.castShadow = true;
+    deck.receiveShadow = true;
+    this.group.add(deck);
+    if (posts.length) {
+      const m = new THREE.Mesh(mergeGeometries(posts, false), mat);
+      posts.forEach((p) => p.dispose());
+      m.castShadow = true;
+      m.receiveShadow = true;
+      this.group.add(m);
+    }
+  }
+
+  /**
+   * Natural rock arches over the road. They would hide the cars beneath, so
+   * each keeps its material to itself and the race fades it while the
+   * player is underneath.
+   */
+  buildArches(theme) {
+    const n = this.line.n;
+    for (const a of this.def.arches ?? []) {
+      const i = (this.startIndex + Math.round(a.at * n)) % n;
+      const p = this.line.point(i), t = this.line.tangent(i), h = this.line.heightOf(i);
+      const R = this.wallHalf + 2.6 + (a.extra ?? 0);
+      const geo = new THREE.TorusGeometry(R, 2.1, 5, 11, Math.PI);
+      // Rough it up: rock, not a doughnut.
+      const rng = mulberry32((this.def.seed ?? 1) + i);
+      const v = geo.attributes.position;
+      for (let k = 0; k < v.count; k++) {
+        v.setXYZ(k, v.getX(k) * (1 + (rng() - 0.5) * 0.08), v.getY(k) * (1 + (rng() - 0.5) * 0.1), v.getZ(k) + (rng() - 0.5) * 0.9);
+      }
+      geo.computeVertexNormals();
+      const mat = new THREE.MeshLambertMaterial({ color: theme.archColour ?? 0xb4532d, flatShading: true, transparent: true, opacity: 1 });
+      const mesh = new THREE.Mesh(geo, mat);
+      // The torus lies in its own XY plane: turn its X axis across the road.
+      const lx = t.z, lz = -t.x;
+      mesh.rotation.y = Math.atan2(-lz, lx);
+      mesh.position.set(p.x, h - 0.6, p.z);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      this.group.add(mesh);
+      this.arches.push({ x: p.x, y: h, z: p.z, mat });
+    }
   }
 
   buildArmco() {

@@ -11,6 +11,17 @@ const pending = new Map();
 
 const BASE = new URL('../assets/', import.meta.url).href;
 
+// Kits coloured by named materials instead of a texture atlas. Their colours
+// are baked into the vertices on load — recoloured where a world wants it —
+// so a whole kit still merges into one mesh with one material.
+const VERTEX_KITS = {
+  // The Nature Kit's grass tops and teal leaves read as a meadow; in the
+  // canyon they are sand, sage and sun-baked red rock.
+  nature: { grass: 0xd9b27c, leafsGreen: 0x7d9c55, dirt: 0xc4643c, woodBark: 0x9a6a44 },
+  racing: {},
+};
+export const isVertexKit = (kit) => kit in VERTEX_KITS;
+
 // Every asset URL the loaders have fetched, so the service worker can be told
 // what to keep for offline play (see pwa.js).
 const fetched = new Set();
@@ -30,6 +41,10 @@ function kitTexture(kit) {
 }
 
 export function materialsFor(kit) {
+  if (!kitMaterial.has(kit) && isVertexKit(kit)) {
+    const m = new THREE.MeshLambertMaterial({ vertexColors: true });
+    kitMaterial.set(kit, { scenery: m, shiny: m });
+  }
   if (!kitMaterial.has(kit)) {
     const map = kitTexture(kit);
     kitMaterial.set(kit, {
@@ -57,6 +72,16 @@ export function loadModel(kit, name) {
         if (!o.isMesh) return;
         o.castShadow = true;
         o.receiveShadow = true;
+        if (isVertexKit(kit)) {
+          // Bake the material's colour (recoloured if the kit says so).
+          const remap = VERTEX_KITS[kit];
+          const c = new THREE.Color(remap[o.material.name] ?? o.material.color ?? 0xffffff);
+          const n = o.geometry.attributes.position.count;
+          const col = new Float32Array(n * 3);
+          for (let i = 0; i < n; i++) { col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b; }
+          o.geometry.setAttribute('color', new THREE.BufferAttribute(col, 3));
+          o.geometry.deleteAttribute('uv');
+        }
         // Kenney kits ship one atlas material; swap it for our shared one.
         o.material = materialsFor(kit).scenery;
       });

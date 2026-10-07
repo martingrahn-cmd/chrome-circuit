@@ -228,6 +228,19 @@ export class Race {
     }
   }
 
+  /** A rock arch the player is passing under thins out, so the car stays
+   *  in sight. */
+  fadeArches(dt) {
+    const p = this.player;
+    if (!p) return;
+    for (const a of this.track.arches ?? []) {
+      const near = Math.hypot(p.x - a.x, p.z - a.z) < 17;
+      const want = near ? 0.25 : 1;
+      a.mat.opacity += (want - a.mat.opacity) * Math.min(1, dt * 6);
+      a.mat.depthWrite = a.mat.opacity > 0.98;
+    }
+  }
+
   /** Overtakes, close calls and the rival marker: the moment-to-moment
    *  feedback on how the race is going. */
   updateDuel(dt) {
@@ -253,7 +266,7 @@ export class Race {
     if (p.touching) this.lastTouch = this.raceTime;
     const f = p.forward;
     for (const other of this.cars) {
-      if (other === p || other.finished || p.finished) continue;
+      if (other === p || other.finished || p.finished || Math.abs(other.y - p.y) > 2.2) continue;
       const rel = (p.vLong - (other.forward.x * f.x + other.forward.z * f.z) * other.vLong);
       if (rel < CLOSE.speed) continue;
       const gap = carGap(p, other);
@@ -506,6 +519,7 @@ export class Race {
     this.updateStandings();
     this.updateDuel(dt);
     this.updateTrial(dt);
+    this.fadeArches(dt);
     this.particles.update(dt);
     this.skids.update(dt);
     if (this.snow) this.snow.update(dt, this.engine.target);
@@ -671,7 +685,7 @@ export class Race {
       const f = car.forward;
       let best = 0;
       for (const other of this.cars) {
-        if (other === car) continue;
+        if (other === car || Math.abs(other.y - car.y) > 2.2) continue;
         const dx = other.x - car.x, dz = other.z - car.z;
         const ahead = dx * f.x + dz * f.z;
         if (ahead < 1.8 || ahead > DRAFT_RANGE) continue;

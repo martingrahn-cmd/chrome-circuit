@@ -13,6 +13,10 @@ export const SURFACE = {
   // Ice on the tarmac: full speed, a third of the grip. The car keeps going
   // the way it was going.
   ice: { grip: 4.2, maxSpeed: 1.0, drag: 0.8 },
+  // A rally road: nearly full speed, loose enough that the tail steps out.
+  gravel: { grip: 9.5, maxSpeed: 0.96, drag: 1.3 },
+  // Desert run-off: soft sand, slow and grabby.
+  sand: { grip: 7.5, maxSpeed: 0.7, drag: 2.6 },
 };
 
 // How hard a slope pulls: speed lost per second per unit of rise over run.
@@ -186,10 +190,11 @@ export class Car {
 
     const offTrack = loc.dist > this.track.roadHalf;
     this.surface = offTrack ? (this.track.walls ? 'kerb' : this.track.offroad)
-      : line.iceAt(loc.index) ? 'ice' : 'road';
+      : line.iceAt(loc.index) ? 'ice' : line.gravelAt(loc.index) ? 'gravel' : 'road';
     const raw = SURFACE[this.surface];
     // The run-off help is for running wide; ice is part of the road.
-    const ease = this.surface === 'road' || this.surface === 'ice' ? 0 : this.runoffEase;
+    const onRoad = this.surface === 'road' || this.surface === 'ice' || this.surface === 'gravel';
+    const ease = onRoad ? 0 : this.runoffEase;
     const surf = ease > 0 ? {
       grip: raw.grip + (SURFACE.road.grip - raw.grip) * ease * 0.4,
       maxSpeed: raw.maxSpeed + (1 - raw.maxSpeed) * ease * 0.45,
@@ -254,7 +259,7 @@ export class Car {
       if (this.drift && !air) {
         steer = this.drift * Math.max(0.1, Math.min(1, 0.55 + 0.45 * this.steer * this.drift));
         // Charge while actually sliding on the road; snow or dirt drains it.
-        if (this.surface === 'road' || this.surface === 'ice') {
+        if (this.surface === 'road' || this.surface === 'ice' || this.surface === 'gravel') {
           this.driftCharge += dt * Math.min(1, 0.35 + Math.abs(this.vLat) / 3);
         } else {
           this.driftCharge = Math.max(0, this.driftCharge - dt * 2);
@@ -447,6 +452,8 @@ export function resolveCollisions(cars, onImpact) {
   for (let i = 0; i < cars.length; i++) {
     for (let j = i + 1; j < cars.length; j++) {
       const a = cars[i], b = cars[j];
+      // One on a bridge, one underneath: they pass.
+      if (Math.abs(a.y - b.y) > 2.2) continue;
       const [a0, a1] = hull(a), [b0, b1] = hull(b);
       const cp = segmentClosest(a0, a1, b0, b1);
       const dx = cp.bx - cp.ax, dz = cp.bz - cp.az;
