@@ -370,6 +370,7 @@ export const TRACKS = [
       // jump, so whoever takes it flat out flies the gap.
       { at: 0.672, height: -2.6, length: 22 }],
     jumps: [{ at: 0.66, width: 'full', length: 9, height: 1.8 }],
+    river: { at: 0.686, width: 10 },          // the bottom of the dip: the ford
     arches: [{ at: 0.77 }],
     gravel: [[0.668, 0.705]],
     laps: 3,

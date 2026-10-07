@@ -347,6 +347,7 @@ straight to `assets/canyon/mesa-bridge.glb`:
 ```
 pip install bpy        # Python 3.11
 python tools/blender/stone_bridge.py assets/canyon/mesa-bridge.glb [preview.png]
+python tools/blender/river_props.py assets/canyon [preview.png]
 ```
 
 The stones run in courses, with a voussoir ring and a keystone round the arch,
@@ -393,6 +394,17 @@ The camera looks down at 1.35 rise per unit of run, so ground between a car and 
 camera may only rise that steeply before it hides the car. The last pass cuts the
 grid down to that wherever a road lies behind it. Camera rays run along the grid's
 diagonal, so one sweep in that order does it.
+
+A track can have a dry river (`river: { at, width }`, on Canyon Run). It crosses the
+road once, at a ford in the bottom of a dip. Upstream it starts as a shallow gully in
+the hills behind the road and deepens towards the ford. Downstream it winds out
+across the plain towards the camera, widening as it goes. Its path steers clear of
+every other stretch of road. Its bed sits level with the road at the ford, lies a
+couple of units below the land elsewhere, and only ever falls downstream. Banks
+steepen into the walls of a wash. The bed is coloured pale washed sand, with a damp
+streak down the middle. The props come from `tools/blender/river_props.py`:
+cobbles, cracked mud, driftwood and boulders in the bed, dead reeds on the banks,
+and a flood-depth post either side of the ford. No other scenery stands in the river.
 
 ### Which way is right
 
@@ -448,4 +460,5 @@ roof pieces. The Nature and Racing kits colour their models by named materials
 rather than a texture atlas. Those colours are baked into the vertices on load, so
 each kit still merges into one mesh. The Nature Kit is recoloured for the desert as
 it loads: grass tops to sand, leaves to sage, rock to sun-baked red. The stone
-bridge in `assets/canyon` is our own, built in Blender from `tools/blender`. Three.js is MIT.
+bridge and the river props in `assets/canyon` are our own, built in Blender from
+`tools/blender`. Three.js is MIT.
