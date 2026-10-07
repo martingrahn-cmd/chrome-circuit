@@ -1184,14 +1184,33 @@ export class Track {
     const line = this.line, n = line.n, sp = line.spacing;
     const fromStart = (i) => Math.abs((((i - this.startIndex) % n) + n + n / 2) % n - n / 2) * sp;
     const farSide = (t) => -Math.sign(t.z - t.x) || 1;
+    // Clear of every stretch of road, measured square to it: where the lap
+    // crosses itself the nearest sample can belong to the wrong road.
+    const roadClear = (x, z, i, own, other) => {
+      for (let k = 0; k < n; k++) {
+        const q = line.pts[k], t = line.tangent(k);
+        const along = (x - q.x) * t.x + (z - q.z) * t.z;
+        if (Math.abs(along) > sp * 0.6) continue;
+        const lat = Math.abs((x - q.x) * t.z - (z - q.z) * t.x);
+        const gap = Math.abs((((k - i) % n) + n + n / 2) % n - n / 2) * sp;
+        if (lat < (gap < 30 ? own : other)) return false;
+      }
+      return true;
+    };
     const place = (spec, i, side, off, yaw) => {
+      if (line.bridgeAt(i)) return;                       // the ground here is a road below
       const p = line.point(i), t = line.tangent(i);
       const sc = TILE * (spec.scale ?? 1);
       const px = p.x + t.z * off * side, pz = p.z - t.x * off * side;
-      if (line.locate(px, pz, null).dist < this.wallHalf + 0.5) return;
+      if (!roadClear(px, pz, i, this.wallHalf + 0.5, this.wallHalf + 3)) return;
       if (reserved.some((r) => Math.hypot(px - r.x, pz - r.z) < r.r)) return;
-      const m = new THREE.Matrix4().makeRotationY(yaw(t, side)).scale(new THREE.Vector3(sc, sc, sc));
-      m.setPosition(px, 0, pz);
+      // `base` is where the model's foot sits, in model units; `turn` swings
+      // a model whose arm or face points the other way from its kin.
+      const [bx, bz] = spec.base ?? [0, 0];
+      const m = new THREE.Matrix4().makeTranslation(px, 0, pz)
+        .multiply(new THREE.Matrix4().makeRotationY(yaw(t, side) + (spec.turn ?? 0)))
+        .scale(new THREE.Vector3(sc, sc, sc))
+        .multiply(new THREE.Matrix4().makeTranslation(-bx, 0, -bz));
       push(spec.kit, spec.model, m, { x: px, z: pz, foot: 0 });
     };
     const beyond = this.walls ? 1.3 : 0.9;              // outside the armco where there is one
