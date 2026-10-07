@@ -228,6 +228,25 @@ export class Race {
     }
   }
 
+  /** Driving under a bridge, the deck goes see-through — everything on it,
+   *  road, rails and pillars together — so the cars below stay in sight. */
+  fadeBridge(dt) {
+    const p = this.player, meshes = this.track.bridgeMeshes;
+    if (!p || !meshes?.length) return;
+    let under = false;
+    // Under it means the deck is overhead, not that the player is on the
+    // ramp up to it.
+    for (const q of this.track.bridgePts) {
+      if (q.h - p.y > 2.5 && (q.x - p.x) ** 2 + (q.z - p.z) ** 2 < 13 * 13) { under = true; break; }
+    }
+    const want = under ? 0.25 : 1;
+    this.bridgeFade = (this.bridgeFade ?? 1) + (want - (this.bridgeFade ?? 1)) * Math.min(1, dt * 6);
+    for (const m of meshes) {
+      m.material.opacity = this.bridgeFade;
+      m.material.depthWrite = this.bridgeFade > 0.98;
+    }
+  }
+
   /** A rock arch the player is passing under thins out, so the car stays
    *  in sight. */
   fadeArches(dt) {
@@ -520,6 +539,7 @@ export class Race {
     this.updateDuel(dt);
     this.updateTrial(dt);
     this.fadeArches(dt);
+    this.fadeBridge(dt);
     this.particles.update(dt);
     this.skids.update(dt);
     if (this.snow) this.snow.update(dt, this.engine.target);

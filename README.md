@@ -329,7 +329,9 @@ that never stand on the road underneath. The terrain ignores the deck, so the la
 under it belongs to the road below. Cars, rockets, oil drums, item boxes, slipstream
 and the AI all compare heights, so a car on the bridge and one underneath pass
 without touching. A rocket searches near where it was on the line, so at a crossing
-it stays on its own deck.
+it stays on its own deck. Driving under the bridge turns the whole deck see-through, with its
+road, rails, parapets and pillars, so the cars below stay in sight. It only does
+this when the deck is overhead, not on the ramp up to it.
 
 Gravel is a surface. `theme.road: 'gravel'` makes the whole road gravel, and
 `gravel: [[from, to]]` makes stretches of it. Gravel keeps nearly full speed with
