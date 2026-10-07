@@ -330,7 +330,7 @@ export class Race {
     while (dh < -Math.PI) dh += Math.PI * 2;
     g.mesh.position.set(s[a + 1] + (s[b + 1] - s[a + 1]) * u, s[a + 2] + (s[b + 2] - s[a + 2]) * u + 0.17, s[a + 3] + (s[b + 3] - s[a + 3]) * u);
     g.mesh.rotation.set(0, s[a + 4] + dh * u, 0);
-    g.mesh.visible = true;
+    g.mesh.visible = this.showGhost !== false;
     // The delta: when did the ghost pass the distance the player is at now?
     const d = this.lapDistance(p);
     let lo = 0, hi = count - 1;

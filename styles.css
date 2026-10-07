@@ -615,6 +615,45 @@ html, body {
 
 /* ----------------------------------------------------------- Championship */
 .nowrap { white-space: nowrap; }
+/* Settings: a label and a row of choices per line; on a short screen the
+   lines flow into two columns. */
+.settings { display: grid; gap: 10px; }
+.setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 8px 10px 8px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--panel-edge);
+}
+.setting-name { font-weight: 700; font-size: 14px; }
+.setting-name small { display: block; font-weight: 400; font-size: 11px; color: var(--muted); margin-top: 2px; max-width: 32ch; }
+.choices { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.choice {
+  appearance: none;
+  min-width: 46px;
+  padding: 7px 9px;
+  border-radius: 9px;
+  border: 1px solid var(--panel-edge);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.choice:hover { background: rgba(255, 255, 255, 0.1); color: var(--text); }
+.choice[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: rgba(255, 204, 50, 0.16);
+  color: var(--accent);
+}
+.choice:focus, .choice:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--ink), 0 0 0 4px var(--accent); }
+.btn--danger { border-color: rgba(255, 77, 109, 0.55); color: #ff8fa3; font-size: 13px; padding: 9px 16px; }
+.btn--danger:hover { background: rgba(255, 77, 109, 0.14); }
+
 /* Worlds: a segmented switch in the circuit screen's header, and a row of
    its own on the championship setup. */
 .worlds { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -913,6 +952,11 @@ body.racing .update-chip { display: none; }
   .levels { gap: 6px; margin-bottom: 8px; }
   .level { padding: 5px 10px 6px; }
   .world { padding: 5px 12px 6px; }
+  .settings { grid-template-columns: 1fr 1fr; gap: 6px; }
+  .setting { padding: 5px 8px; gap: 8px; }
+  .setting-name { font-size: 12px; }
+  .setting-name small { display: none; }
+  .choice { min-width: 0; padding: 5px 6px; font-size: 11px; }
   .world-sub { display: none; }
   .worlds--wide { margin-bottom: 6px; }
   .level-name { font-size: 14px; }
@@ -979,6 +1023,11 @@ body.racing .update-chip { display: none; }
   .levels { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
   .panel-head { flex-wrap: wrap; }
   .panel-head .worlds { order: 3; width: 100%; margin-right: 0; }
+  /* Each setting's choices take their own full-width line. */
+  .setting { flex-wrap: wrap; gap: 6px; }
+  .setting .choices { width: 100%; flex-wrap: nowrap; }
+  .setting .choice { flex: 1 1 0; min-width: 0; }
+  .setting--reset .btn { width: 100%; }
   .panel-head .world { flex: 1 1 0; }
   .level { padding: 7px 10px 8px; }
   .level-name { font-size: 14px; }

@@ -10,6 +10,7 @@ import { Hud, formatTime } from './hud.js';
 import { Input } from './input.js';
 import * as audio from './audio.js';
 import * as progress from './progress.js';
+import * as settings from './settings.js';
 import * as champ from './champ.js';
 import { carThumbnails, trackThumbnail } from './thumbs.js';
 import { watchVersion } from './version.js';
@@ -40,6 +41,8 @@ const state = {
   attract: false,
   paused: false,
   progress: progress.load(),
+  settings: settings.load(),
+  settingsFrom: 'menu',
 };
 
 const isTouch = matchMedia('(hover: none) and (pointer: coarse)').matches;
@@ -104,6 +107,7 @@ const screens = {
   results: document.getElementById('screen-results'),
   howto: document.getElementById('screen-howto'),
   paused: document.getElementById('screen-paused'),
+  settings: document.getElementById('screen-settings'),
 };
 
 function show(name) {
@@ -401,6 +405,7 @@ function buildRace(def, { attract = false } = {}) {
   state.attract = attract;
   race.onRumble = attract ? null : (strong, weak, ms) => input.rumble(strong, weak, ms);
   race.onTick = attract ? null : () => input.tick();
+  race.showGhost = state.settings.ghost;
   // A new best trial lap is saved the moment it is set, and a better medal
   // is called out on the spot.
   race.onBestLap = (ghost) => {
@@ -779,6 +784,45 @@ document.addEventListener('click', (e) => {
       break;
     case 'garage': audio.sfx.select(); state.carsFrom = 'menu'; renderCars(); show('cars'); break;
     case 'howto': audio.sfx.select(); show('howto'); break;
+    case 'settings':
+      audio.sfx.select();
+      state.settingsFrom = state.screen === 'paused' ? 'paused' : 'menu';
+      renderSettings();
+      show('settings');
+      break;
+    case 'back-settings': audio.sfx.back(); show(state.settingsFrom); break;
+    case 'setting': {
+      const { key } = btn.dataset;
+      state.settings[key] = JSON.parse(btn.dataset.value);
+      settings.save(state.settings);
+      applySettings();
+      // After the change, so the click is heard at the new level.
+      audio.sfx.select();
+      renderSettings();
+      document.querySelector(`#settings-list .choice[data-key="${key}"][aria-pressed="true"]`)?.focus();
+      break;
+    }
+    case 'reset-progress':
+      // Hours of progress deserve a second press.
+      if (btn.dataset.armed) {
+        audio.sfx.back();
+        state.progress = progress.reset();
+        state.trackId = TRACKS[0].id;
+        state.world = TRACKS[0].world;
+        state.racerId = RACERS[0].id;
+        state.difficulty = state.progress.difficulty;
+        showLevel(document.getElementById('difficulty'), state.difficulty);
+        renderTracks();
+        renderCars();
+        renderSettings();
+        toast('Progress reset — back to the first circuit');
+      } else {
+        audio.sfx.select();
+        btn.dataset.armed = '1';
+        btn.textContent = 'Sure? Press again';
+        setTimeout(() => { if (btn.isConnected) { delete btn.dataset.armed; btn.textContent = 'Reset all progress'; } }, 3000);
+      }
+      break;
     case 'install': audio.sfx.select(); promptInstall(); break;
     case 'difficulty': audio.sfx.select(); pickLevel(btn); break;
     case 'back-menu':
@@ -837,6 +881,47 @@ function pickLevel(btn) {
   }
   showLevel(group, value);
 }
+
+/* -------------------------------------------------------------- settings */
+
+const SETTING_ROWS = [
+  { key: 'sfx', label: 'Sound effects', options: settings.VOLUMES.map((v) => [v, v ? `${v * 100}%` : 'Off']) },
+  { key: 'engine', label: 'Engine', options: settings.VOLUMES.map((v) => [v, v ? `${v * 100}%` : 'Off']) },
+  { key: 'units', label: 'Speed', options: [['kmh', 'km/h'], ['mph', 'mph']] },
+  { key: 'ghost', label: 'Time trial ghost', options: [[true, 'On'], [false, 'Off']] },
+  { key: 'vibration', label: 'Vibration', options: [[true, 'On'], [false, 'Off']] },
+  { key: 'shake', label: 'Camera shake', options: [[true, 'On'], [false, 'Off']] },
+];
+
+/** Put the settings into effect everywhere they reach. */
+function applySettings() {
+  const s = state.settings;
+  audio.setBusVolume('sfx', s.sfx);
+  audio.setBusVolume('engine', s.engine);
+  hud.setUnits(s.units);
+  input.vibration = s.vibration;
+  engine.shakeScale = s.shake ? 1 : 0;
+  if (state.race) state.race.showGhost = s.ghost;
+}
+
+function renderSettings() {
+  const list = document.getElementById('settings-list');
+  const rows = SETTING_ROWS.map(({ key, label, options }) => `
+    <div class="setting">
+      <span class="setting-name">${label}</span>
+      <div class="choices" role="group" aria-label="${label}">
+        ${options.map(([v, text]) => `<button type="button" class="choice" data-action="setting" data-key="${key}"
+          data-value='${JSON.stringify(v)}' aria-pressed="${state.settings[key] === v}">${text}</button>`).join('')}
+      </div>
+    </div>`).join('');
+  list.innerHTML = `${rows}
+    <div class="setting setting--reset">
+      <span class="setting-name">Progress<small>Circuits, cars, times, medals, championships. Settings stay.</small></span>
+      <button type="button" class="btn btn--danger" data-action="reset-progress">Reset all progress</button>
+    </div>`;
+}
+
+applySettings();
 
 const soundBtn = document.getElementById('sound-toggle');
 soundBtn.addEventListener('click', () => {

@@ -21,6 +21,7 @@ export class Engine {
     this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 900);
     this.target = new THREE.Vector3();
     this.camShake = 0;
+    this.shakeScale = 1;     // 0 when the player has switched camera shake off
 
     this.hemi = new THREE.HemisphereLight(0xcfe9ff, 0x4a5a48, 1.35);
     this.scene.add(this.hemi);
@@ -97,7 +98,7 @@ export class Engine {
     s.updateProjectionMatrix();
   }
 
-  shake(amount) { this.camShake = Math.min(2.2, this.camShake + amount); }
+  shake(amount) { this.camShake = Math.min(2.2, this.camShake + amount * this.shakeScale); }
 
   decayShake(dt) { this.camShake = Math.max(0, this.camShake - dt * 4); }
 

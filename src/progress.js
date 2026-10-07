@@ -52,6 +52,13 @@ export function load() {
   }
 }
 
+/** Everything back to a first run: circuits, cars, times, championships. */
+export function reset() {
+  const fresh = blank();
+  save(fresh);
+  return fresh;
+}
+
 export function save(state) {
   try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* private mode */ }
 }

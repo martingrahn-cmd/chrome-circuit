@@ -50,6 +50,7 @@ const SHELL_FILES = [
   './src/pwa.js',
   './src/race.js',
   './src/roster.js',
+  './src/settings.js',
   './src/terrain.js',
   './src/thumbs.js',
   './src/track.js',
