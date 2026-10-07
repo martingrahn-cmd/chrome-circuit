@@ -171,11 +171,12 @@ const CANYON_THEME = {
   light: { hemiSky: 0xffe0b5, hemiGround: 0x8a5a3a, hemi: 1.0, sun: 0xffdcae, sunPower: 2.05 },
 };
 const CANYON_STREET = {
-  lamp: { kit: 'racing', model: 'lightPostModern', scale: 0.55 },
+  // This post's foot sits off the model origin and its arm reaches along +Z.
+  lamp: { kit: 'racing', model: 'lightPostModern', scale: 0.55, base: [-0.35, -0.65], turn: Math.PI },
   cornerSign: { kit: 'roads', model: 'road-sign-warning', scale: 1 },
 };
 const CANYON_RALLY = {
-  cornerBarrier: { kit: 'racing', model: 'barrierWall', scale: 0.4, alongX: true, every: 4.6 },
+  cornerBarrier: { kit: 'racing', model: 'barrierWall', scale: 0.4, alongX: true, every: 4.6, base: [0.15, -0.71] },
   cornerSign: { kit: 'roads', model: 'road-sign-warning', scale: 1 },
 };
 
