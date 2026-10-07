@@ -39,6 +39,23 @@ how-to and results spread into two columns, and the HUD loses its best-lap reado
 so the minimap and the speedo do not meet. Held upright the pickers run in two
 columns and the touch buttons shrink to fit.
 
+### Settings
+
+Reached from the main menu or the pause screen:
+
+- **Sound effects** and **Engine** volume, each in five steps from off to full,
+  under the ♪ toggle that mutes everything.
+- **Speed** in km/h or mph.
+- **Time trial ghost** on or off. With it off, the ghost is still recorded and the
+  delta still shown; you just do not see the car.
+- **Vibration** (pad rumble and phone vibration) and **Camera shake** on or off.
+- **Reset all progress:** circuits, cars, times, medals and championships back to a
+  first run, on a second press. The settings themselves are stored apart from
+  progress and are kept.
+
+On a short screen the settings flow into two columns. On an upright phone each
+setting's choices take a full line.
+
 ### Installing it
 
 The game is a progressive web app, so it installs to a home screen or a desktop
@@ -258,7 +275,8 @@ src/
   hud.js              readouts and minimap
   input.js            keyboard, gamepad and touch
   thumbs.js           car and circuit previews for the menus
-  progress.js         unlocks, best laps, the championship in progress
+  progress.js         unlocks, best laps, the championship in progress, trials
+  settings.js         volumes, units and switches, kept apart from progress
   champ.js            championship points, standings and save validation
   pwa.js              service-worker registration, updates, the install button
   version.js          the version badge and the update check

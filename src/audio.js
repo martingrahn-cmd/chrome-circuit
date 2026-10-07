@@ -3,6 +3,9 @@ let ctx = null;
 let master = null;
 let enabled = true;
 let volume = 0.7;
+// Each kind of sound has its own level under the master, set from Settings.
+const busLevel = { sfx: 1, engine: 1 };
+const bus = {};
 
 function ac() {
   if (!ctx) {
@@ -11,8 +14,19 @@ function ac() {
     // Respect a mute toggled before the context existed.
     master.gain.value = enabled ? volume : 0;
     master.connect(ctx.destination);
+    for (const name of Object.keys(busLevel)) {
+      bus[name] = ctx.createGain();
+      bus[name].gain.value = busLevel[name];
+      bus[name].connect(master);
+    }
   }
   return ctx;
+}
+
+/** Level of one kind of sound, 0..1: 'sfx' or 'engine'. */
+export function setBusVolume(name, v) {
+  busLevel[name] = v;
+  if (bus[name]) bus[name].gain.value = v;
 }
 
 export function unlock() {
@@ -51,7 +65,7 @@ function noise() {
 }
 
 export function tone({ freq = 440, type = 'square', dur = 0.15, gain = 0.2, sweep = null, delay = 0 }) {
-  if (!enabled) return;
+  if (!enabled || !busLevel.sfx) return;
   const c = ac();
   const t = c.currentTime + delay;
   const o = c.createOscillator();
@@ -62,12 +76,12 @@ export function tone({ freq = 440, type = 'square', dur = 0.15, gain = 0.2, swee
   g.gain.setValueAtTime(0.0001, t);
   g.gain.exponentialRampToValueAtTime(gain, t + 0.012);
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  o.connect(g); g.connect(master);
+  o.connect(g); g.connect(bus.sfx);
   o.start(t); o.stop(t + dur + 0.05);
 }
 
 export function thump({ dur = 0.32, gain = 0.5, cutoff = 900, delay = 0 }) {
-  if (!enabled) return;
+  if (!enabled || !busLevel.sfx) return;
   const c = ac();
   const t = c.currentTime + delay;
   const src = noise();
@@ -78,7 +92,7 @@ export function thump({ dur = 0.32, gain = 0.5, cutoff = 900, delay = 0 }) {
   const g = c.createGain();
   g.gain.setValueAtTime(gain, t);
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  src.connect(f); f.connect(g); g.connect(master);
+  src.connect(f); f.connect(g); g.connect(bus.sfx);
   src.start(t); src.stop(t + dur + 0.05);
 }
 
@@ -173,7 +187,7 @@ export class EngineSound {
     this.osc.connect(this.filter);
     this.osc2.connect(this.filter);
     this.filter.connect(this.gain);
-    this.gain.connect(master);
+    this.gain.connect(bus.engine);
 
     this.skidFilter.type = 'bandpass';
     this.skidFilter.frequency.value = 2600;
@@ -181,7 +195,7 @@ export class EngineSound {
     this.skidGain.gain.value = 0;
     this.skidSrc.connect(this.skidFilter);
     this.skidFilter.connect(this.skidGain);
-    this.skidGain.connect(master);
+    this.skidGain.connect(bus.engine);
 
     this.osc.start();
     this.osc2.start();

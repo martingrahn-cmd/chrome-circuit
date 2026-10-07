@@ -20,6 +20,8 @@ export class Hud {
     this.posLabel = root.querySelector('#hud-pos-label');
     this.posName = root.querySelector('#hud-pos-name');
     this.trial = null;
+    this.speedScale = 9.4;
+    this.unit = root.querySelector('#hud-unit');
     this.speed = root.querySelector('#hud-speed');
     this.time = root.querySelector('#hud-time');
     this.best = root.querySelector('#hud-best');
@@ -109,6 +111,12 @@ export class Hud {
     }
   }
 
+  /** km/h or mph on the speedo. */
+  setUnits(units) {
+    this.speedScale = units === 'mph' ? 9.4 * 0.6214 : 9.4;
+    if (this.unit) this.unit.textContent = units === 'mph' ? 'mph' : 'km/h';
+  }
+
   /** Time trial: the position box shows the gap to the ghost instead, and
    *  under it the next medal still to win. `medals` is [{ name, time }]. */
   setTrial(medals) {
@@ -138,7 +146,7 @@ export class Hud {
       this.posLabel.innerHTML = posLabel;
       this.shownPosLabel = posLabel;
     }
-    this.speed.textContent = Math.round(Math.abs(p.vLong) * 9.4);
+    this.speed.textContent = Math.round(Math.abs(p.vLong) * this.speedScale);
     this.time.textContent = formatTime(race.raceTime - p.lapStart);
     // In a time trial the best to show is the ghost's: the lap on record.
     const best = Math.min(p.lapTimes.length ? Math.min(...p.lapTimes) : Infinity, race.trial ? race.ghost?.time ?? Infinity : Infinity);

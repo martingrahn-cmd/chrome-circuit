@@ -66,7 +66,7 @@
   <div class="hud-corner hud-br">
     <div class="speedo">
       <span class="speedo-value" id="hud-speed">0</span>
-      <span class="speedo-unit">km/h</span>
+      <span class="speedo-unit" id="hud-unit">km/h</span>
       <div class="boost-track"><div class="boost-fill" id="hud-boost"></div></div>
       <span class="draft" id="hud-draft">Slipstream</span>
     </div>
@@ -118,7 +118,10 @@
           <button class="btn" data-action="trial">Time trial</button>
           <button class="btn" data-action="garage">Garage</button>
         </div>
-        <button class="btn" data-action="howto">How to play</button>
+        <div class="menu-row">
+          <button class="btn" data-action="howto">How to play</button>
+          <button class="btn" data-action="settings">Settings</button>
+        </div>
         <!-- Revealed by pwa.js only when the browser offers to install. -->
         <button class="btn btn--install hidden" id="install-btn" data-action="install">Install</button>
       </div>
@@ -234,11 +237,22 @@
     </div>
   </section>
 
+  <section class="screen" id="screen-settings">
+    <div class="panel panel--narrow">
+      <header class="panel-head">
+        <h2>Settings</h2>
+        <button class="btn btn--ghost" data-action="back-settings">Back</button>
+      </header>
+      <div class="settings" id="settings-list"></div>
+    </div>
+  </section>
+
   <section class="screen" id="screen-paused">
     <div class="panel panel--narrow">
       <header class="panel-head"><h2>Paused</h2></header>
       <footer class="panel-foot">
         <button class="btn" data-action="back-menu">Quit to menu</button>
+        <button class="btn" data-action="settings">Settings</button>
         <button class="btn" data-action="retry">Restart</button>
         <button class="btn btn--primary" data-action="resume">Resume</button>
       </footer>

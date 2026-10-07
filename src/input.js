@@ -20,6 +20,7 @@ export class Input {
   constructor() {
     this.keys = new Set();
     this.touch = { steer: 0, item: false, handbrake: false, auto: false };
+    this.vibration = true;
     this.menuQueue = [];
     this.held = new Map();      // menu direction/button -> seconds held
     this.padId = null;
@@ -141,11 +142,13 @@ export class Input {
   /** A short tick you feel: a pad's rumble, or a phone's vibration where the
    *  browser has one (not Safari). Kept for moments that are worth it. */
   tick(ms = 18) {
+    if (!this.vibration) return;
     if (this.pad()) { this.rumble(0.2, 0.5, ms * 3); return; }
     if (this.touch.auto) navigator.vibrate?.(ms);
   }
 
   rumble(strong = 0.4, weak = 0.2, ms = 140) {
+    if (!this.vibration) return;
     const p = this.pad();
     const actuator = p?.vibrationActuator;
     if (!actuator?.playEffect) return;
