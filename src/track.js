@@ -879,6 +879,7 @@ export class Track {
    */
   buildBridges(theme) {
     if (!this.hasBridge) return;
+    if (this.def.bridgeModel && this.buildBridgeModel(this.def.bridgeModel)) return;
     const line = this.line, n = line.n;
     const W = this.wallHalf + 0.6, depth = 1.2, wall = 0.9;
     const pos = [];
@@ -929,6 +930,51 @@ export class Track {
   }
 
   /**
+   * A modelled bridge, bent onto the line: the model's x runs along the lap
+   * from the crossing (`half` units either way, stretched to the deck's real
+   * ends), y rides the deck's height and z goes out across the road.
+   */
+  buildBridgeModel(spec) {
+    const base = bakedGeometry(spec.kit, spec.model);
+    if (!base) return false;
+    const line = this.line, n = line.n, sp = line.spacing;
+    // The deck over the crossing: its ends, and the sample right above the road below.
+    let c = 0, best = Infinity;
+    for (let i = 0; i < n; i++) {
+      if (!line.bridgeAt(i)) continue;
+      const p = line.pts[i], d = this.groundRoadDist(p.x, p.z);
+      if (d < best) { best = d; c = i; }
+    }
+    let b0 = c, b1 = c;
+    while (line.bridgeAt(b0 - 1) && c - b0 < n) b0--;
+    while (line.bridgeAt(b1 + 1) && b1 - c < n) b1++;
+    const back = (c - b0) / spec.half, ahead = (b1 + 1 - c) / spec.half;
+
+    const g = base.clone();
+    const pos = g.attributes.position;
+    for (let k = 0; k < pos.count; k++) {
+      const x = pos.getX(k), y = pos.getY(k), z = pos.getZ(k);
+      const f = c + x * (x < 0 ? back : ahead);
+      const i = Math.floor(f), u = f - i;
+      const p0 = line.point(i), p1 = line.point(i + 1);
+      const t0 = line.tangent(i), t1 = line.tangent(i + 1);
+      const tx = t0.x + (t1.x - t0.x) * u, tz = t0.z + (t1.z - t0.z) * u;
+      const tl = Math.hypot(tx, tz) || 1;
+      const px = p0.x + (p1.x - p0.x) * u, pz = p0.z + (p1.z - p0.z) * u;
+      // +z is right of travel, -(t.z, -t.x): keeps the frame right-handed,
+      // so the faces still wind outwards.
+      pos.setXYZ(k, px - (tz / tl) * z, line.heightAt(f) + y, pz + (tx / tl) * z);
+    }
+    g.computeVertexNormals();
+    const mesh = new THREE.Mesh(g, materialsFor(spec.kit).scenery);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    this.group.add(this.fadeable(mesh));
+    this.bridgeModelBuilt = true;
+    return true;
+  }
+
+  /**
    * Natural rock arches over the road. They would hide the cars beneath, so
    * each keeps its material to itself and the race fades it while the
    * player is underneath.
@@ -965,11 +1011,18 @@ export class Track {
     const off = this.wallHalf + 0.4;
     const railMat = new THREE.MeshLambertMaterial({ color: 0xc6cdd9, side: THREE.DoubleSide });
     const postGeoms = [], deckPosts = [];
+    // A stone bridge's parapet is the barrier on the deck: no rail there.
+    const stone = this.bridgeModelBuilt;
     for (const side of [-1, 1]) {
-      for (const rail of this.addStrip(off * side, off * side, 0.95, 0xc6cdd9, 0.45, railMat)) rail.castShadow = true;
+      const rails = stone
+        ? [this.lineStrip(off * side, off * side, 0.95, 0xc6cdd9, 0.45, railMat, (i) => !this.onDeck(i))]
+        : this.addStrip(off * side, off * side, 0.95, 0xc6cdd9, 0.45, railMat);
+      if (stone) this.group.add(rails[0]);
+      for (const rail of rails) rail.castShadow = true;
 
       const step = Math.max(3, Math.round(5 / line.spacing));
       for (let i = 0; i < n; i += step) {
+        if (stone && this.onDeck(i)) continue;
         const p = line.point(i), t = line.tangent(i);
         const g = new THREE.BoxGeometry(0.24, 1.0, 0.24);
         g.translate(p.x + t.z * off * side, 0.5 + line.heightOf(i), p.z - t.x * off * side);
@@ -1405,6 +1458,7 @@ export class Track {
     }
     for (const spec of Object.values(this.def.theme?.dress || {})) list.add(`${spec.kit}/${spec.model}`);
     list.add('roads/dumpster');     // beside buildings
+    if (this.def.bridgeModel) list.add(`${this.def.bridgeModel.kit}/${this.def.bridgeModel.model}`);
     return [...list].map((s) => s.split('/'));
   }
 }

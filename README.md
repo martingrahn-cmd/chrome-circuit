@@ -290,7 +290,8 @@ src/
   pwa.js              service-worker registration, updates, the install button
   version.js          the version badge and the update check
 vendor/three/         Three.js r180 (module build) + GLTFLoader
-assets/               the Kenney models actually used, by kit
+assets/               the Kenney models actually used, by kit; canyon/ is our own
+tools/blender/        Blender scripts that build the models in assets/canyon
 ```
 
 ### Circuits are authored as moves
@@ -332,6 +333,26 @@ without touching. A rocket searches near where it was on the line, so at a cross
 it stays on its own deck. Driving under the bridge turns the whole deck see-through, with its
 road, rails, parapets and pillars, so the cars below stay in sight. It only does
 this when the deck is overhead, not on the ramp up to it.
+
+A track can also bring a modelled bridge instead (`bridgeModel` on the track,
+used by Mesa Eight). The model is made with its x running along the lap from the
+crossing, y up from the deck and z across. On build, every vertex is bent onto the
+line: x is stretched to the deck's real ends, y rides the deck as it climbs, and z
+goes out square to the road. The stone parapet takes the place of the armco on the
+deck. Mesa Eight's sandstone arch is built by `tools/blender/stone_bridge.py`. It
+runs in headless Blender, either the `bpy` module from PyPI or `blender -b -P`. The
+script lays every stone in Blender and paints it with vertex colours, and exports
+straight to `assets/canyon/mesa-bridge.glb`:
+
+```
+pip install bpy        # Python 3.11
+python tools/blender/stone_bridge.py assets/canyon/mesa-bridge.glb [preview.png]
+```
+
+The stones run in courses, with a voussoir ring and a keystone round the arch,
+pilasters, a cornice, and a parapet with coping and newels. Stones that would sit
+buried in the embankment are never made, going by a ground profile measured on
+the built track.
 
 Gravel is a surface. `theme.road: 'gravel'` makes the whole road gravel, and
 `gravel: [[from, to]]` makes stretches of it. Gravel keeps nearly full speed with
@@ -401,7 +422,11 @@ On a climbing circuit the budget also counts how much higher or lower that road 
 Every prop has a job. Street circuits get a row of lamps at even spacing along the
 camera-far side and a warning sign on the outside before each corner that asks you
 to brake; rally roads get a fence along the straights and barriers round the outside
-of the corners. The traffic lights live on the start gantry, where five of them fill
+of the corners. A dressing spec can say where its model's foot sits (`base`) and
+turn it round (`turn`), since the Racing Kit's lamp post and barrier stand well
+off their origin. Nothing is placed within reach of any stretch of road, measured
+square to it, so where the lap crosses itself nothing lands on the road below. The
+traffic lights live on the start gantry, where five of them fill
 red through the countdown and go green at the start. Buildings stand on paved plots,
 sometimes with a dumpster round the side, and only things that make sense on their
 own — trees, and planters in town — stand in the open. Every corner has red-and-white
@@ -422,4 +447,5 @@ Racing Kit. The log cabins in the Alps are assembled from the Holiday Kit's wall
 roof pieces. The Nature and Racing kits colour their models by named materials
 rather than a texture atlas. Those colours are baked into the vertices on load, so
 each kit still merges into one mesh. The Nature Kit is recoloured for the desert as
-it loads: grass tops to sand, leaves to sage, rock to sun-baked red. Three.js is MIT.
+it loads: grass tops to sand, leaves to sage, rock to sun-baked red. The stone
+bridge in `assets/canyon` is our own, built in Blender from `tools/blender`. Three.js is MIT.

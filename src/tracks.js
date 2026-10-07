@@ -331,6 +331,8 @@ export const TRACKS = [
     laps: 3,
     walls: true,
     seed: 7301,
+    // Stone arch from tools/blender/stone_bridge.py, 24 units either side of the crossing.
+    bridgeModel: { kit: 'canyon', model: 'mesa-bridge', half: 24 },
     difficulty: 3,
     theme: { ...CANYON_THEME, density: 0.42, props: CANYON_PROPS, dress: CANYON_STREET, terrain: { peaks: 22, drifts: 0.5 } },
   },
