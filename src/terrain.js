@@ -76,6 +76,8 @@ export class Terrain {
     this.dist = new Float32Array(N);     // to the centre line
     this.roadH = new Float32Array(N);    // height of the nearest road
     this.base();
+    this.riverPath = [];
+    if (track.def.river) this.carveRiver(track.def.river);
   }
 
   idx(i, j) { return j * this.nx + i; }
@@ -150,6 +152,126 @@ export class Terrain {
         this.roadH[id] = hn;
       }
     }
+  }
+
+  /**
+   * A dry river that crosses the road at one ford. It rises as a gully in
+   * the hills behind the road, runs through the ford — where the road dips
+   * into its bed — and winds out across the plain towards the camera,
+   * widening as it goes. It never comes near any other stretch of road, and
+   * its bed only ever falls downstream.
+   */
+  carveRiver(spec) {
+    const track = this.track, line = track.line, n = line.n, sp = line.spacing;
+    const ic = (track.startIndex + Math.round(spec.at * n)) % n;
+    const P = line.pts[ic], t = line.tangent(ic);
+    // Downstream is the side towards the camera, (+1, +1).
+    let nx = t.z, nz = -t.x;
+    if (nx + nz < 0) { nx = -nx; nz = -nz; }
+    const half = (spec.width ?? 9) / 2;
+    const clear = track.wallHalf + 5;
+    const lapGap = (k) => Math.abs((((k - ic) % n) + n + n / 2) % n - n / 2) * sp;
+    const roadDist = (x, z) => {
+      let best = Infinity, bx = 0, bz = 0;
+      for (let k = 0; k < n; k += 2) {
+        if (lapGap(k) < 30) continue;
+        const q = line.pts[k], d = Math.hypot(q.x - x, q.z - z);
+        if (d < best) { best = d; bx = q.x; bz = q.z; }
+      }
+      return { d: best, bx, bz };
+    };
+    const rng = mulberry32((track.def.seed ?? 1) * 13 + 5);
+    const walk = (sign, length) => {
+      const out = [];
+      const bx = nx * sign, bz = nz * sign;
+      const ph1 = rng() * 6.3, ph2 = rng() * 6.3;
+      let x = P.x, z = P.z, dx = bx, dz = bz;
+      for (let s = 2; s <= length; s += 2) {
+        // Straight through the ford, then meandering.
+        const wig = smoothstep(8, 26, s) * (0.55 * Math.sin(s / 17 + ph1) + 0.25 * Math.sin(s / 6.5 + ph2));
+        let tx = bx * Math.cos(wig) - bz * Math.sin(wig), tz = bx * Math.sin(wig) + bz * Math.cos(wig);
+        const r = roadDist(x, z);
+        if (r.d < clear + half + 8) {
+          const push = 1.6 * (1 - (r.d - clear - half) / 8);
+          tx += (x - r.bx) / r.d * push; tz += (z - r.bz) / r.d * push;
+        }
+        const tl = Math.hypot(tx, tz);
+        dx += (tx / tl - dx) * 0.35; dz += (tz / tl - dz) * 0.35;
+        const dl = Math.hypot(dx, dz); dx /= dl; dz /= dl;
+        x += dx * 2; z += dz * 2;
+        if (roadDist(x, z).d < clear + half * 0.5) break;     // a gully head, or it would reach a road
+        if (x < this.x0 || z < this.z0 || x > this.x0 + (this.nx - 1) * CELL || z > this.z0 + (this.nz - 1) * CELL) break;
+        out.push({ x, z, s: s * sign });
+      }
+      return out;
+    };
+    const up = walk(-1, spec.up ?? 30).reverse();
+    const down = walk(1, spec.down ?? 140);
+    const path = [...up, { x: P.x, z: P.z, s: 0 }, ...down];
+    const lenUp = up.length ? -up[0].s : 1;
+
+    // The ground along the way, smoothed, decides how deep the bed lies.
+    const surf = path.map((p) => this.sample(p.x, p.z));
+    const smooth = surf.map((_, k) => {
+      let a = 0, c = 0;
+      for (let j = Math.max(0, k - 3); j <= Math.min(surf.length - 1, k + 3); j++) { a += surf[j]; c++; }
+      return a / c;
+    });
+    const ford = line.h[ic];
+    for (let k = 0; k < path.length; k++) {
+      const p = path[k], s = p.s;
+      // Level with the road where it crosses, cutting in once clear of it.
+      const cut = smoothstep(this.flat + 1, this.flat + 12, Math.abs(s));
+      if (s < 0) {
+        // Deep where it meets the ford, petering out to a shallow gully.
+        const f = smoothstep(0, lenUp, -s);
+        p.half = half * (1 - 0.65 * f);
+        p.bed = Math.min(ford + (smooth[k] - 0.5 - ford) * f, smooth[k] - (2.2 + (0.5 - 2.2) * f) * cut);
+      } else {
+        p.half = half * (1 + 0.35 * smoothstep(0, 90, s));
+        p.bed = Math.min(ford - 0.03 * s, smooth[k] - 2.4 * cut);
+      }
+    }
+    // Water runs downhill: from the head down, the bed never climbs.
+    for (let k = 1; k < path.length; k++) path[k].bed = Math.min(path[k].bed, path[k - 1].bed);
+    this.riverPath = path;
+
+    this.river = new Float32Array(this.h.length).fill(Infinity);   // distance across, in half widths
+    const noise = makeNoise((track.def.seed ?? 1) * 7 + 11);
+    for (let j = 0; j < this.nz; j++) {
+      for (let i = 0; i < this.nx; i++) {
+        const id = this.idx(i, j);
+        if (this.dist[id] <= this.flat + 0.5) continue;      // the road is its own ford
+        const x = this.x0 + i * CELL, z = this.z0 + j * CELL;
+        let best = Infinity, bed = 0, hw = half;
+        for (let k = 0; k < path.length - 1; k++) {
+          const a = path[k], b = path[k + 1];
+          const ex = b.x - a.x, ez = b.z - a.z, L2 = ex * ex + ez * ez;
+          const u = Math.max(0, Math.min(1, ((x - a.x) * ex + (z - a.z) * ez) / L2));
+          const d = Math.hypot(x - a.x - ex * u, z - a.z - ez * u);
+          if (d < best) { best = d; bed = a.bed + (b.bed - a.bed) * u; hw = a.half + (b.half - a.half) * u; }
+        }
+        if (best > hw + 14) continue;
+        // A flat sandy bed, then banks that steepen into the walls of a wash.
+        const out = Math.max(0, best - hw);
+        const target = bed + 0.12 * (noise(x / 5, z / 5, 2) - 0.5) + out * 0.9 + out * out * 0.08;
+        if (target < this.h[id]) this.h[id] = target;
+        this.river[id] = best / hw;
+      }
+    }
+  }
+
+  /** How far a point is from the river, in units; Infinity with none. */
+  riverDist(x, z) {
+    const path = this.riverPath;
+    let best = Infinity;
+    for (let k = 0; k < path.length - 1; k++) {
+      const a = path[k], b = path[k + 1];
+      const ex = b.x - a.x, ez = b.z - a.z, L2 = ex * ex + ez * ez;
+      const u = Math.max(0, Math.min(1, ((x - a.x) * ex + (z - a.z) * ez) / L2));
+      best = Math.min(best, Math.hypot(x - a.x - ex * u, z - a.z - ez * u) - (a.half + (b.half - a.half) * u));
+    }
+    return best;
   }
 
   /** Flatten the ground under things that need level footing. */
@@ -245,6 +367,8 @@ export class Terrain {
     const low = new THREE.Color(theme.valley ?? theme.ground ?? 0xeef3f8);
     const high = new THREE.Color(theme.peak ?? theme.ground ?? 0xeef3f8);
     const noise = makeNoise((this.track.def.seed ?? 1) * 17 + 3);
+    const sand = new THREE.Color(theme.riverBed ?? 0xdcc29c);
+    const wet = new THREE.Color(theme.riverDamp ?? 0xb59a7a);
     const c = new THREE.Color();
     for (let id = 0; id < nx * nz; id++) {
       const up = nrm[id * 3 + 1];
@@ -261,6 +385,15 @@ export class Terrain {
         const band = Math.floor((pos[id * 3 + 1] + noise(x / 9, z / 9, 2) * 1.2) / 1.7) % 3;
         const f = [1, 0.82, 1.12][(band + 3) % 3];
         c.multiplyScalar(1 + (f - 1) * Math.max(steep, 0.35));
+      }
+      // The river's bed: pale washed sand, darker where the last flood
+      // lingered down the middle.
+      const r = this.river ? this.river[id] : Infinity;
+      if (r < 1.6) {
+        const bedMix = 1 - smoothstep(0.85, 1.5, r);
+        c.lerp(sand, bedMix * (1 - steep * 0.6));
+        const damp = (1 - smoothstep(0.1, 0.45, r)) * smoothstep(0.35, 0.65, noise(x / 13 + 9, z / 13, 2));
+        c.lerp(wet, damp * 0.7);
       }
       const shade = 0.95 + 0.07 * noise(x / 23, z / 23, 2);
       col[id * 3] = c.r * shade; col[id * 3 + 1] = c.g * shade; col[id * 3 + 2] = c.b * shade;

@@ -1310,6 +1310,64 @@ export class Track {
   }
 
   /**
+   * What the last flood left in the dry river (terrain.js, carveRiver):
+   * cobbles, mud cracked by the sun, the odd log and boulder in the bed,
+   * dead reeds along the banks, and a depth post either side of the ford.
+   */
+  buildRiver(push, rng) {
+    const path = this.terrain?.riverPath;
+    if (!path?.length) return;
+    const kit = 'canyon';
+    const line = this.line, n = line.n;
+    const clearOfRoad = (x, z, r) => line.locate(x, z, null).dist > this.wallHalf + 1.5 + r;
+    const put = (model, x, z, scale, foot, yaw = rng() * Math.PI * 2) => {
+      if (!clearOfRoad(x, z, foot)) return;
+      const m = new THREE.Matrix4().makeRotationY(yaw).scale(new THREE.Vector3(scale, scale, scale));
+      m.setPosition(x, 0, z);
+      push(kit, model, m, { x, z, foot });
+    };
+    const bed = [['river-stones-a', 0.36], ['river-stones-b', 0.3], ['mud-plates', 0.16], ['driftwood', 0.1], ['river-boulder', 0.08]];
+    const pick = () => {
+      let r = rng();
+      for (const [m, w] of bed) { if ((r -= w) < 0) return m; }
+      return bed[0][0];
+    };
+    for (let k = 0; k < path.length - 1; k++) {
+      const a = path[k], b = path[k + 1];
+      const dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz) || 1;
+      const nx = -dz / L, nz = dx / L;
+      // Two things in the bed every few metres, reeds on the banks.
+      for (let j = 0; j < 2; j++) {
+        if (rng() < 0.45) continue;
+        const u = rng(), off = (rng() * 2 - 1) * a.half * 0.7;
+        const x = a.x + dx * u + nx * off, z = a.z + dz * u + nz * off;
+        const model = pick();
+        const scale = model === 'river-boulder' ? 0.8 + rng() * 0.5 : model.startsWith('river-stones') ? 1.3 + rng() * 0.6 : 1;
+        put(model, x, z, scale, model === 'mud-plates' ? 1.2 : 0.4);
+      }
+      for (const side of [-1, 1]) {
+        if (rng() < 0.55) continue;
+        const off = side * (a.half + 0.6 + rng() * 1.6);
+        put('dry-reeds', a.x + nx * off, a.z + nz * off, 1 + rng() * 0.5, 0.3);
+      }
+    }
+    // Depth posts where the road drops into the ford, on the camera-far side
+    // so they never stand between a car and the camera.
+    const ic = (this.startIndex + Math.round(this.def.river.at * n)) % n;
+    const reach = Math.round(((this.def.river.width ?? 9) / 2 + 9) / line.spacing);
+    for (const i of [ic - reach, ic + reach]) {
+      const p = line.point(i), t = line.tangent(i);
+      const side = -Math.sign(t.z - t.x) || 1;
+      const off = (this.wallHalf + 1.1) * side;
+      const x = p.x + t.z * off, z = p.z - t.x * off;
+      // The board (model +Z) faces the traffic coming down into the ford.
+      const m = new THREE.Matrix4().makeRotationY(Math.atan2(-t.x, -t.z)).scale(new THREE.Vector3(1.2, 1.2, 1.2));
+      m.setPosition(x, 0, z);
+      push(kit, 'flood-gauge', m, { x, z, foot: 0 });
+    }
+  }
+
+  /**
    * Scatter kit props on cells outside the racing loop.
    *
    * The camera looks down the (-1, 0, -1) ground direction, so a prop at cell
@@ -1375,6 +1433,7 @@ export class Track {
           const dist = this.line.locate(wx, wz, null).dist;
           if (dist < clearance) continue;
           if (reserved.some((r) => Math.hypot(wx - r.x, wz - r.z) < r.r + foot)) continue;
+          if (this.terrain?.riverPath.length && this.terrain.riverDist(wx, wz) < foot + 2) continue;   // nothing stands in the river
 
           const angle = Math.floor(rng() * 4) * Math.PI / 2;
           const m = new THREE.Matrix4()
@@ -1418,6 +1477,7 @@ export class Track {
     }
 
     this.buildDressing(theme.dress, push, reserved);
+    this.buildRiver(push, rng);
 
     if (this.terrain) {
       this.terrain.addPads(pads);
@@ -1459,6 +1519,9 @@ export class Track {
     for (const spec of Object.values(this.def.theme?.dress || {})) list.add(`${spec.kit}/${spec.model}`);
     list.add('roads/dumpster');     // beside buildings
     if (this.def.bridgeModel) list.add(`${this.def.bridgeModel.kit}/${this.def.bridgeModel.model}`);
+    if (this.def.river) {
+      for (const m of ['river-stones-a', 'river-stones-b', 'river-boulder', 'driftwood', 'dry-reeds', 'mud-plates', 'flood-gauge']) list.add(`canyon/${m}`);
+    }
     return [...list].map((s) => s.split('/'));
   }
 }
