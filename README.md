@@ -67,7 +67,7 @@ dock and runs full-screen with no browser furniture, landscape, offline.
 - **iOS / iPadOS** — Safari has no install prompt: *Share* → *Add to Home Screen*.
 
 Installed or not, a service worker (`sw.js`) caches the game the first time you
-play, so afterwards it starts with no network at all — the whole field, all eleven
+play, so afterwards it starts with no network at all — the whole field, all twelve
 circuits, everything. It keeps two caches on purpose: the code goes in one keyed
 on the deployed build, and the Kenney models — 7 MB that never change — in
 another that survives deploys, so an update re-downloads a few hundred KB rather
@@ -114,8 +114,15 @@ menu, is browse-only.
 
 The circuits come in worlds, picked from a switch at the top of the circuit screen:
 
-- **Grand Tour** — the first five: city streets, the harbour, Sakura Hills, Neon
-  Speedway and the Pinecrest forest rally.
+- **City Lights** — Downtown Loop, Harbour Sprint and Neon Speedway: city streets,
+  the harbour front and towers after dark.
+- **Country Roads** — Sakura Hills, Greenhill Valley and the Pinecrest forest rally.
+  Greenhill climbs through orchards and farms on rolling green hills, crests the ridge,
+  and jumps on the way down.
+
+Every world has three circuits, so every championship is three rounds. The first two
+worlds were once one, the five-round Grand Tour. A save from then keeps its title in both
+halves, and a podium it won still opens what comes next (`progress.js`).
 - **Alpine Winter** — Frostvale Village, Glacier Pass and Summit Run. Roads that
   climb, deep snow off the tarmac, ice on the high stretches and snow falling the
   whole time.
@@ -178,7 +185,7 @@ heading and distance round the lap, about 11 KB a lap.
 
 Thirty-one trophies, to the GameVolt standard (`src/achievements.js`):
 
-- **15 bronze** that come with ordinary play: a first finish, podium and win, a rocket start, a drift boost (and an orange one), big air, a rocket hit, a spin with your oil drum, a close call, 25 overtakes, a time trial lap, a medal, and a race in each of the other two worlds.
+- **15 bronze** that come with ordinary play: a first finish, podium and win, a rocket start, a drift boost (and an orange one), big air, a rocket hit, a spin with your oil drum, a close call, 25 overtakes, a time trial lap, a medal, and a race in Alpine Winter and one in Red Rock Canyon.
 - **10 silver** for skill and dedication: 10 wins, three in a row, winning by five seconds, a win on Ace, a championship, a gold medal, a medal on every circuit, every car, every circuit, and 100 drift boosts.
 - **5 gold** for the hardcore: Grand Champion (the ending), a clean sweep of a championship on Pro or harder, a Legend title, gold on every circuit, and a Legend win on every circuit.
 - **1 platinum**, Chrome Circuit Master, for all thirty others.

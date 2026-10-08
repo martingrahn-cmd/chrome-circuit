@@ -33,11 +33,7 @@ export function load() {
       places: isObj(p.places) ? p.places : d.places,
       difficulty: [0, 1, 2, 3].includes(p.difficulty) ? p.difficulty : d.difficulty,
       champ: validateChamp(p.champ, RACERS.map((r) => r.id), TRACKS.map((t) => t.id)),
-      // Bests used to be keyed by difficulty alone, from before there was
-      // more than one world; those were all Grand Tour.
-      champBest: isObj(p.champBest)
-        ? Object.fromEntries(Object.entries(p.champBest).map(([k, v]) => [/^\d$/.test(k) ? `grand:${k}` : k, v]))
-        : d.champBest,
+      champBest: isObj(p.champBest) ? migrateChampBest(p.champBest) : d.champBest,
       trials: validTrials(p.trials),
       endingSeen: p.endingSeen === true,
     };
@@ -52,6 +48,21 @@ export function load() {
   } catch {
     return blank();
   }
+}
+
+/** Championship bests have been keyed three ways. By difficulty alone, from
+ *  before there was more than one world: those were the Grand Tour. Then
+ *  `grand:level`, for the five-round Grand Tour, which has since split into
+ *  City Lights and Country Roads: a Grand Tour title raced every circuit of
+ *  both, so it stands for both. */
+function migrateChampBest(raw) {
+  const out = {};
+  const keep = (k, v) => { if (Number.isInteger(v) && v >= 1 && (out[k] == null || v < out[k])) out[k] = v; };
+  for (const [k, v] of Object.entries(raw)) {
+    const level = /^\d$/.test(k) ? k : /^grand:(\d)$/.exec(k)?.[1];
+    if (level != null) { keep(`city:${level}`, v); keep(`country:${level}`, v); } else keep(k, v);
+  }
+  return out;
 }
 
 /** Everything back to a first run: circuits, cars, times, championships. */

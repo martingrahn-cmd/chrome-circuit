@@ -67,6 +67,19 @@ const WILD_PROPS = [
   // No planters: city street furniture has no business in a forest.
 ];
 
+// Orchards and farmhouses on rolling hills: the suburb kit's houses, and its
+// trees and the items kit's pines. (The Nature Kit is recoloured for the
+// desert, so it stays in the canyon.)
+const COUNTRY_PROPS = [
+  { kit: 'suburb', model: 'tree-large', scale: 1.1, h: 0.77, r: 0.12 },
+  { kit: 'suburb', model: 'tree-large', scale: 0.9, h: 0.77, r: 0.12 },
+  { kit: 'suburb', model: 'tree-small', scale: 1.0, h: 0.57, r: 0.12 },
+  { kit: 'items', model: 'tree', scale: 1.0, h: 0.83, r: 0.25 },
+  { kit: 'items', model: 'tree-pine', scale: 1.0, h: 0.83, r: 0.28 },
+  { kit: 'suburb', model: 'building-type-a', scale: 1.0, h: 0.83, r: 0.65, pad: true },
+  { kit: 'suburb', model: 'building-type-m', scale: 1.0, h: 0.74, r: 0.71, pad: true },
+];
+
 // Trackside furniture, by role rather than by lottery. Street circuits get a
 // row of lamps at even spacing and a warning sign before each real corner;
 // rally roads get a fence along the straights, barriers round the outside of
@@ -207,7 +220,8 @@ const CANYON_RALLY = {
 };
 
 export const WORLDS = [
-  { id: 'grand', name: 'Grand Tour', blurb: 'City streets, harbour fronts and forest roads.' },
+  { id: 'city', name: 'City Lights', blurb: 'Downtown streets, the harbour front and neon after dark.' },
+  { id: 'country', name: 'Country Roads', blurb: 'Blossom, rolling green hills and the forest rally.' },
   { id: 'alps', name: 'Alpine Winter', blurb: 'Snow, ice and mountain passes that climb.' },
   { id: 'canyon', name: 'Red Rock Canyon', blurb: 'A bridge over yourself, a gravel rally and a canyon to jump.' },
 ];
@@ -215,7 +229,7 @@ export const WORLDS = [
 export const TRACKS = [
   {
     id: 'downtown',
-    world: 'grand',
+    world: 'city',
     name: 'Downtown Loop',
     blurb: 'Wide city streets and two quick esses. A friendly first outing.',
     start: [0, 0],
@@ -231,7 +245,7 @@ export const TRACKS = [
   },
   {
     id: 'harbour',
-    world: 'grand',
+    world: 'city',
     name: 'Harbour Sprint',
     blurb: 'Armco all the way round. Kiss the barrier, lose the lap.',
     start: [0, 0],
@@ -246,25 +260,8 @@ export const TRACKS = [
     },
   },
   {
-    id: 'sakura',
-    world: 'grand',
-    name: 'Sakura Hills',
-    blurb: 'Long, flowing and no barriers. Cut the grass if you dare.',
-    start: [0, 0],
-    moves: 'R8 D3 R5 D5 L3 D4 R6 D3 L16 U3 L4 U8 R4 U4',
-    laps: 3,
-    walls: false,
-    seed: 501,
-    difficulty: 3,
-    theme: {
-      sky: 0xf3c9d8, ground: 0x86ad63, density: 0.52,
-      light: { hemiSky: 0xffe3ef, hemiGround: 0x6a8a4e, hemi: 1.5, sun: 0xfff0e0, sunPower: 1.7 },
-      props: SUBURB_PROPS, dress: RALLY, plot: 0xd9cfbd,
-    },
-  },
-  {
     id: 'neon',
-    world: 'grand',
+    world: 'city',
     name: 'Neon Speedway',
     blurb: 'The long one. Big straights, big towers, big speed.',
     start: [0, 0],
@@ -280,8 +277,47 @@ export const TRACKS = [
     },
   },
   {
+    id: 'sakura',
+    world: 'country',
+    name: 'Sakura Hills',
+    blurb: 'Long, flowing and no barriers. Cut the grass if you dare.',
+    start: [0, 0],
+    moves: 'R8 D3 R5 D5 L3 D4 R6 D3 L16 U3 L4 U8 R4 U4',
+    laps: 3,
+    walls: false,
+    seed: 501,
+    difficulty: 3,
+    theme: {
+      sky: 0xf3c9d8, ground: 0x86ad63, density: 0.52,
+      light: { hemiSky: 0xffe3ef, hemiGround: 0x6a8a4e, hemi: 1.5, sun: 0xfff0e0, sunPower: 1.7 },
+      props: SUBURB_PROPS, dress: RALLY, plot: 0xd9cfbd,
+    },
+  },
+  {
+    id: 'greenhill',
+    world: 'country',
+    name: 'Greenhill Valley',
+    blurb: 'Up through the orchards, over the ridge and a leap on the way down.',
+    start: [0, 0],
+    moves: 'R9 D3 R4 D6 L6 U3 L4 D6 L3 U12',
+    heights: [0, 2, 4, 8, 9, 7, 5, 3, 1, 0],
+    // A hump along the ridge, a jump halfway down, a roller on the way home.
+    crests: [{ at: 0.42, height: 0.6, length: 13 }, { at: 0.87, height: 0.45, length: 11 }],
+    jumps: [{ at: 0.66, lane: 0.5, width: 0.5, length: 7, height: 1.4 }],
+    laps: 3,
+    walls: false,
+    seed: 6060,
+    difficulty: 4,
+    theme: {
+      sky: 0xa8dcef, ground: 0x7aa95a, valley: 0x5f8c45, peak: 0x9cc276, rock: 0x7d7262, verge: 0x86b064,
+      density: 0.56, spread: 6,
+      light: { hemiSky: 0xdff3ff, hemiGround: 0x55703f, hemi: 1.3, sun: 0xfff1d6, sunPower: 1.9 },
+      props: COUNTRY_PROPS, dress: RALLY, terrain: { peaks: 16, drifts: 0.7 },
+    },
+  },
+  {
     id: 'pinecrest',
-    world: 'grand',
+    world: 'country',
     name: 'Pinecrest Rally',
     blurb: 'Forest roads with a hairpin that bites. Dirt is faster than pride.',
     start: [0, 0],
@@ -414,7 +450,7 @@ export const TRACKS = [
 // a medal easier and a slower one harder, which is fair.
 const GOLD = {
   downtown: 22.9, harbour: 22.7, sakura: 27.3, neon: 33.3, pinecrest: 29.4,
-  frostvale: 19.5, glacier: 24.9, summit: 26.8,
+  greenhill: 20.8, frostvale: 19.5, glacier: 24.9, summit: 26.8,
   mesa: 21.9, dustbowl: 25.8, canyonrun: 30.2,
 };
 export const MEDALS = [

@@ -28,6 +28,7 @@ await page.evaluate((id) => {
 await page.waitForFunction(() => document.body.classList.contains('racing'));
 const info = await page.evaluate(async ([mode, zoom, tSkip]) => {
   const cc = window.__cc, r = cc.state.race, p = r.player, L = r.track.line;
+  r.onEvent = null;                    // no trophies, and no toast, for a picture
   const { AIDriver } = await import('./src/ai.js');
   const hands = new AIDriver(p, r.track, { skill: 0.9, seed: 4, drift: true });
   hands.launchDelay = 0;
@@ -53,6 +54,7 @@ const info = await page.evaluate(async ([mode, zoom, tSkip]) => {
   r.update = () => {};
   document.getElementById('hud').style.visibility = 'hidden';
   document.getElementById('sound-toggle').style.visibility = 'hidden';
+  document.getElementById('trophy-toast').style.visibility = 'hidden';
   cc.engine.setZoom(+zoom);
   // Put the action right of centre, clear of the title card on the left.
   const f = window.__spot ?? p, k = +zoom * 0.3;
@@ -62,7 +64,7 @@ const info = await page.evaluate(async ([mode, zoom, tSkip]) => {
   // The title card, in the menu's own type.
   const card = document.createElement('div');
   card.innerHTML = `<p class="eyebrow">Isometric arcade racing</p><h1 class="title">Chrome<span>Circuit</span></h1>
-    <p class="share-line">11 circuits · 3 worlds</p><p class="share-line share-line--sub">Drift, boost, rockets, ghosts</p><p class="share-line share-line--dim">Free in your browser</p>`;
+    <p class="share-line">12 circuits · 4 worlds</p><p class="share-line share-line--sub">Drift, boost, rockets, ghosts</p><p class="share-line share-line--dim">Free in your browser</p>`;
   Object.assign(card.style, { position: 'fixed', left: '0', top: '0', bottom: '0', width: '520px', padding: '120px 0 0 56px', zIndex: 50, textAlign: 'left',
     background: 'linear-gradient(90deg, rgba(10,12,18,0.88) 0%, rgba(10,12,18,0.72) 55%, rgba(10,12,18,0) 100%)' });
   const style = document.createElement('style');
