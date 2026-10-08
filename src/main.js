@@ -134,15 +134,19 @@ function show(name) {
 
 function focusables(screen) {
   if (!screen) return [];
-  return [...screen.querySelectorAll('button:not([disabled])')]
+  // Buttons, and the odd panel marked [data-nav] that a pad must be able to
+  // reach to scroll it into view (the records on the trophy screen).
+  return [...screen.querySelectorAll('button:not([disabled]), [data-nav]')]
     .filter((el) => el.offsetParent !== null);
 }
 
 function focusFirst(screen) {
   const items = focusables(screen);
   if (!items.length) { document.activeElement?.blur?.(); return; }
-  const preferred = screen.querySelector('.card[aria-pressed="true"]:not([disabled])')
-    || screen.querySelector('.btn--primary:not([disabled])')
+  // From what can actually take focus: a hidden primary button (the credits,
+  // before they are earned) would swallow the focus and leave it nowhere.
+  const preferred = items.find((el) => el.matches('.card[aria-pressed="true"], .trophy-card'))
+    || items.find((el) => el.matches('.btn--primary'))
     || items[0];
   preferred.focus({ preventScroll: true });
 }
@@ -167,6 +171,10 @@ function navigate(dir) {
     if (forward <= 4) continue;
     const lateral = dir === 'left' || dir === 'right' ? Math.abs(dy) : Math.abs(dx);
     const score = forward + lateral * 2.4;
+    // Sideways, only what lies that way: off the end of a row of trophies,
+    // right should stay put, not leap to the Back button up in the corner.
+    const across = dir === 'left' || dir === 'right';
+    if (across && lateral > forward * 1.5 + 24) continue;
     if (score < bestScore) { bestScore = score; best = el; }
   }
   if (best) { best.focus(); audio.sfx.select(); }
@@ -767,16 +775,25 @@ function renderTrophies() {
   document.getElementById('trophy-tally').innerHTML = [
     tile('bronze', 'Bronze'), tile('silver', 'Silver'), tile('gold', 'Gold'), tile('platinum', 'Platinum'),
   ].join('');
-  // Every trophy, earned ones lit; the platinum last, as the reward.
-  document.getElementById('trophy-list').innerHTML = trophies.TROPHIES.map((x) => `
-    <div class="trophy trophy--${x.tier}${held.has(x.id) ? ' is-held' : ''}" title="${x.tier}">
-      <span class="trophy-icon" aria-hidden="true">${x.icon}</span>
-      <span class="trophy-text"><b>${x.name}</b><small>${x.desc}</small></span>
-    </div>`).join('');
+  // A grid per tier, as on GameVolt's other games. Every card is a button so
+  // a pad or the arrow keys walk the grid; a locked trophy shows its object
+  // in dark metal, the shape of what is still to win.
+  document.getElementById('trophy-list').innerHTML = trophies.TIERS.map((tier) => {
+    const items = count(tier);
+    const n = items.filter((x) => held.has(x.id)).length;
+    return `<h3 class="tier-head tier-head--${tier}">${tier}<span>${n}/${items.length}</span></h3>
+      <div class="trophy-grid">${items.map((x) => `
+        <button type="button" class="trophy-card trophy-card--${x.tier}${held.has(x.id) ? ' is-held' : ''}"
+          aria-label="${x.name}: ${x.desc}${held.has(x.id) ? '' : ' (locked)'}">
+          <img src="${trophies.trophyArt(x)}" alt="" width="112" height="112" loading="lazy" decoding="async">
+          <b>${x.name}</b><small>${x.desc}</small>
+        </button>`).join('')}
+      </div>`;
+  }).join('');
   document.getElementById('trophy-worlds').innerHTML = `
     <p class="trophy-records">${t.medals}/${t.max.medals} medals · ${t.gold}/${t.max.gold} gold · ${t.titles}/${t.max.titles} titles · ${t.garage}/${t.max.garage} cars</p>`
     + t.worlds.map((w) => `
-    <section class="trophy-world${w.won ? ' is-won' : ''}">
+    <section class="trophy-world${w.won ? ' is-won' : ''}" data-nav tabindex="0">
       <header><h3>${w.name}</h3><div class="cups">${w.cups.map((p, d) => cupTag(p, d)).join('')}</div></header>
       <ul>${w.tracks.map((r) => `
         <li>
@@ -809,7 +826,12 @@ function nextTrophyToast() {
   const trophy = toastQueue.shift();
   if (!trophy) { toastBusy = false; return; }
   toastBusy = true;
-  document.getElementById('trophy-toast-icon').textContent = trophy.icon;
+  const icon = document.getElementById('trophy-toast-icon');
+  icon.replaceChildren();
+  const img = new Image(56, 56);
+  img.alt = '';
+  img.src = trophies.trophyArt(trophy);
+  icon.appendChild(img);
   document.getElementById('trophy-toast-name').textContent = trophy.name;
   const tier = document.getElementById('trophy-toast-tier');
   tier.textContent = trophy.tier.toUpperCase();

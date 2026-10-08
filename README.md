@@ -204,8 +204,13 @@ Registering the game on GameVolt needs the trophies on that side too.
 Supabase and GameVolt's `schema.sql`. It also produces `tools/gamevolt/trophy_catalog.js`,
 the `TROPHY_CATALOG` entry for GameVolt's profile page.
 
-Trophies, on the main menu, has two tabs. **Trophies** lists all 31, earned ones lit,
-with counts by tier. **Records** has the medals, the titles and the cars: per world, a cup
+Trophies, on the main menu, has two tabs. **Trophies** is a grid of all 31 under a heading
+per tier, like GameVolt's other games. Each card shows the trophy itself, rendered in
+Blender. One not yet won shows the same object in dark metal, so you see the shape of the
+goal. Every card is a button, so a pad, the arrow keys or a finger walks the grid. The focused card
+scrolls into view while the tabs and Back stay put. Sideways moves only go to what lies
+that way, so off the end of a row the focus stays where it is. The toast for a new trophy
+shows its picture too. **Records** has the medals, the titles and the cars: per world, a cup
 for each level in the colour of your best championship finish, and per circuit your
 medal, best trial lap and best career place.
 
@@ -402,7 +407,16 @@ python tools/blender/stone_bridge.py assets/canyon/mesa-bridge.glb [preview.png]
 python tools/blender/river_props.py assets/canyon [preview.png]
 python tools/blender/canyon_landmarks.py assets/canyon [preview.png]
 python tools/blender/chairlift.py assets/alpine [preview.png]
+python tools/blender/trophies.py assets/trophies [size] [forms...]
 ```
+
+The trophies are real objects too. `trophies.py` models twelve racing forms with smooth,
+bevelled surfaces: a cup, crossed chequered flags, a steering wheel, a star, a medal on its
+ribbon, a flame, a rocket, a tyre, a lightning bolt, a helmet, a crown and a cut diamond. Each
+stands on a black lacquer plinth and is rendered in Cycles, in a studio lit for metal,
+once per tier: bronze, silver, gold and platinum. That makes 48 transparent pictures
+(`assets/trophies/{form}-{tier}.webp`, about 11 KB each). Each trophy names its form in
+`src/achievements.js`.
 
 `tools/blender/kit.py` holds what the scripts share: boxes, beams, cylinders,
 wheels and lumps of rock. It does the vertex colours and the export. Models stand on
