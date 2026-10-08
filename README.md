@@ -166,6 +166,26 @@ cards in every mode. A better one is called out on the spot and gets the card on
 results screen. A ghost is stored as fifteen samples a second of time, position,
 heading and distance round the lap, about 11 KB a lap.
 
+### Trophies and the ending
+
+Trophies, on the main menu, is the trophy cabinet. At the top are the totals:
+
+- **Medals**, out of 33: three per circuit. A gold counts all three, since it beat silver's and bronze's times too.
+- **Golds**, out of 11.
+- **Championship titles**, out of 12: three worlds times four levels.
+- **Cars** in the garage.
+
+Each world then shows a cup per level, in gold, silver or bronze for your best final
+place in that championship, hollow if you have not been on the podium. Under the cups
+are its circuits, with your medal, your best time trial lap and your best career place.
+The percentage weighs a title as three medals and an unlocked car as two (`trophies.js`).
+
+The game is beaten when you have won every world's championship on Pro or harder. The
+title that completes it puts **You won it all** on the champion's screen. That rolls the
+credits over the race running behind: the circuits, the cars, the models, the engine
+and who made it. After that the menu reads Grand Champion, and the credits can be watched
+again from Trophies. That they have rolled is saved with the progress (`endingSeen`).
+
 ### Career and single race
 
 **Career** is the way through the game: podium on a circuit to unlock the next one,
@@ -286,6 +306,7 @@ src/
   thumbs.js           car and circuit previews for the menus
   progress.js         unlocks, best laps, the championship in progress, trials
   settings.js         volumes, units and switches, kept apart from progress
+  trophies.js         medals, titles and cars won, and whether the game is beaten
   champ.js            championship points, standings and save validation
   pwa.js              service-worker registration, updates, the install button
   version.js          the version badge and the update check
