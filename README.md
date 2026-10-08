@@ -198,6 +198,12 @@ earned on another device come back down without re-toasting. The game also posts
 `game_start`, `game_over` and `achievement` to the GameVolt player page when it runs in its
 iframe. Anywhere else, no SDK is fetched and everything stays in the browser.
 
+Registering the game on GameVolt needs the trophies on that side too.
+`node tools/gamevolt/export.mjs` writes them from the same list the game uses. It produces
+`tools/gamevolt/achievement_defs.sql`, the game row and 31 `achievement_defs` rows for
+Supabase and GameVolt's `schema.sql`. It also produces `tools/gamevolt/trophy_catalog.js`,
+the `TROPHY_CATALOG` entry for GameVolt's profile page.
+
 Trophies, on the main menu, has two tabs. **Trophies** lists all 31, earned ones lit,
 with counts by tier. **Records** has the medals, the titles and the cars: per world, a cup
 for each level in the colour of your best championship finish, and per circuit your
@@ -337,6 +343,7 @@ vendor/three/         Three.js r180 (module build) + GLTFLoader
 assets/               the Kenney models actually used, by kit; canyon/ is our own
 tools/blender/        Blender scripts that build the models in assets/canyon and assets/alpine
 tools/share_image.mjs renders icons/share.jpg, the picture a shared link shows
+tools/gamevolt/       the trophies as GameVolt's database and profile page want them
 ```
 
 ### Circuits are authored as moves
