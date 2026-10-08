@@ -13,7 +13,8 @@ import * as progress from './progress.js';
 import * as settings from './settings.js';
 import * as champ from './champ.js';
 import { carThumbnails, trackThumbnail } from './thumbs.js';
-import { summary as trophySummary, LEVEL_NAMES, ENDING_LEVEL } from './trophies.js';
+import { summary as trophySummary, facts as trophyFacts, LEVEL_NAMES, ENDING_LEVEL } from './trophies.js';
+import * as trophies from './achievements.js';
 import { watchVersion } from './version.js';
 import { registerServiceWorker, cacheAssets, watchInstall, promptInstall } from './pwa.js';
 
@@ -408,12 +409,15 @@ function buildRace(def, { attract = false } = {}) {
   state.attract = attract;
   race.onRumble = attract ? null : (strong, weak, ms) => input.rumble(strong, weak, ms);
   race.onTick = attract ? null : () => input.tick();
+  race.onEvent = attract ? null : (name, data) => trophies.event(name, data, trophyFacts(state.progress));
   race.showGhost = state.settings.ghost;
   // A new best trial lap is saved the moment it is set, and a better medal
   // is called out on the spot.
   race.onBestLap = (ghost) => {
     const before = medalFor(def, state.progress.trials[def.id]?.time);
-    if (!progress.recordTrial(state.progress, def.id, ghost)) return;
+    const better = progress.recordTrial(state.progress, def.id, ghost);
+    trophies.event('trial', {}, trophyFacts(state.progress));
+    if (!better) return;
     const now = medalFor(def, ghost.time);
     if (now >= 0 && (before < 0 || now < before)) race.message(`${MEDALS[now].name.toUpperCase()} MEDAL!`, 'finish', 2.4);
   };
@@ -439,6 +443,7 @@ function startAttract() {
 function startRace() {
   const def = trackById(state.trackId);
   const race = buildRace(def);
+  trophies.gvPost('game_start', { mode: race.trial ? 'trial' : def.id });
   hud.reset();
   hud.setLevel(race.trial ? '' : levelTag(race.difficulty));
   hud.setTrial(race.trial ? MEDALS.map((m, i) => ({ name: m.name, time: medalTimes(def)[i] })) : null);
@@ -447,6 +452,21 @@ function startRace() {
   state.paused = false;
   show('race');
   audio.unlock();
+}
+
+/** A finished race, for the trophies and the GameVolt page: once per race,
+ *  after progress has taken it, so its unlocks count too. */
+function bookTrophies(race, results) {
+  if (race.trophiesBooked) return;
+  race.trophiesBooked = true;
+  const mine = results.find((r) => r.isPlayer);
+  const def = trackById(state.trackId);
+  const second = results.find((r) => r.place === 2);
+  trophies.event('finish', {
+    place: mine.place, trackId: def.id, world: def.world, difficulty: race.difficulty,
+    margin: mine.place === 1 && second?.time != null && mine.time != null ? second.time - mine.time : 0,
+  }, trophyFacts(state.progress));
+  trophies.gvPost('game_over', { score: 7 - mine.place, mode: def.id, stats: { place: mine.place, best: mine.best } });
 }
 
 /** A race quit between the flag and the results screen still counts. */
@@ -466,6 +486,7 @@ function recordFinishedRace() {
     cars: RACERS,
     single: state.single && !state.inChamp,
   });
+  bookTrophies(race, all);
 }
 
 /** Results of a time trial: every lap, the best one marked, and the medal
@@ -528,6 +549,7 @@ function finishRace() {
     cars: RACERS,
     single: state.single && !state.inChamp,
   });
+  bookTrophies(race, results);
 
   document.getElementById('results-sub').innerHTML =
     `${levelTag(race.difficulty)} · ${trackById(state.trackId).name}${gained ? ` · round ${state.progress.champ.round} of ${state.progress.champ.rounds.length}` : ''}`;
@@ -632,6 +654,10 @@ function scoreChampRace(race, results) {
     const key = `${trackById(c.rounds[0]).world}:${c.difficulty}`;
     const prev = state.progress.champBest[key];
     if (!prev || place < prev) state.progress.champBest[key] = place;
+    progress.save(state.progress);
+    trophies.event('champ', {
+      place, difficulty: c.difficulty, sweep: c.places[c.racerId].every((p) => p === 1),
+    }, trophyFacts(state.progress));
   }
   progress.save(state.progress);
   return gained;
@@ -729,17 +755,27 @@ function cupTag(place, level) {
 
 function renderTrophies() {
   const t = trophySummary(state.progress);
-  document.getElementById('trophy-sub').textContent = t.complete
-    ? `Grand Champion — ${t.percent}% complete.`
-    : `${t.percent}% complete. Win every world's championship on ${LEVEL_NAMES[ENDING_LEVEL]} or harder to finish the game.`;
-  const tile = (value, max, label) => `<div class="tally"><b>${value}<small>/${max}</small></b><span>${label}</span></div>`;
+  const held = new Set(trophies.getUnlocked());
+  const count = (tier) => trophies.TROPHIES.filter((x) => x.tier === tier);
+  const got = trophies.TROPHIES.filter((x) => held.has(x.id)).length;
+  document.getElementById('trophy-sub').textContent = `${got} of ${trophies.TROPHIES.length} trophies`
+    + (t.complete ? ' · Grand Champion.' : ` · win every world's championship on ${LEVEL_NAMES[ENDING_LEVEL]} or harder to finish the game.`);
+  const tile = (tier, label) => {
+    const all = count(tier);
+    return `<div class="tally tally--${tier}"><b>${all.filter((x) => held.has(x.id)).length}<small>/${all.length}</small></b><span>${label}</span></div>`;
+  };
   document.getElementById('trophy-tally').innerHTML = [
-    tile(t.medals, t.max.medals, 'Medals'),
-    tile(t.gold, t.max.gold, 'Gold'),
-    tile(t.titles, t.max.titles, 'Titles'),
-    tile(t.garage, t.max.garage, 'Cars'),
+    tile('bronze', 'Bronze'), tile('silver', 'Silver'), tile('gold', 'Gold'), tile('platinum', 'Platinum'),
   ].join('');
-  document.getElementById('trophy-worlds').innerHTML = t.worlds.map((w) => `
+  // Every trophy, earned ones lit; the platinum last, as the reward.
+  document.getElementById('trophy-list').innerHTML = trophies.TROPHIES.map((x) => `
+    <div class="trophy trophy--${x.tier}${held.has(x.id) ? ' is-held' : ''}" title="${x.tier}">
+      <span class="trophy-icon" aria-hidden="true">${x.icon}</span>
+      <span class="trophy-text"><b>${x.name}</b><small>${x.desc}</small></span>
+    </div>`).join('');
+  document.getElementById('trophy-worlds').innerHTML = `
+    <p class="trophy-records">${t.medals}/${t.max.medals} medals · ${t.gold}/${t.max.gold} gold · ${t.titles}/${t.max.titles} titles · ${t.garage}/${t.max.garage} cars</p>`
+    + t.worlds.map((w) => `
     <section class="trophy-world${w.won ? ' is-won' : ''}">
       <header><h3>${w.name}</h3><div class="cups">${w.cups.map((p, d) => cupTag(p, d)).join('')}</div></header>
       <ul>${w.tracks.map((r) => `
@@ -750,7 +786,40 @@ function renderTrophies() {
         </li>`).join('')}
       </ul>
     </section>`).join('');
+  showTrophyTab(state.trophyTab ?? 'list');
   document.getElementById('trophy-foot').classList.toggle('hidden', !t.complete);
+}
+
+function showTrophyTab(tab) {
+  state.trophyTab = tab;
+  document.getElementById('trophy-list').classList.toggle('hidden', tab !== 'list');
+  document.getElementById('trophy-worlds').classList.toggle('hidden', tab !== 'records');
+  for (const b of document.querySelectorAll('.trophy-tabs [data-tab]')) b.setAttribute('aria-pressed', String(b.dataset.tab === tab));
+}
+
+/* A trophy unlocked: one toast at a time, a chime by tier (GameVolt's toast
+   takes over when its SDK is loaded; see achievements.js). */
+const toastQueue = [];
+let toastBusy = false;
+function showTrophyToast(trophy) {
+  toastQueue.push(trophy);
+  if (!toastBusy) nextTrophyToast();
+}
+function nextTrophyToast() {
+  const trophy = toastQueue.shift();
+  if (!trophy) { toastBusy = false; return; }
+  toastBusy = true;
+  document.getElementById('trophy-toast-icon').textContent = trophy.icon;
+  document.getElementById('trophy-toast-name').textContent = trophy.name;
+  const tier = document.getElementById('trophy-toast-tier');
+  tier.textContent = trophy.tier.toUpperCase();
+  tier.className = trophy.tier;
+  const el = document.getElementById('trophy-toast');
+  el.classList.add('show');
+  setTimeout(() => {
+    el.classList.remove('show');
+    setTimeout(nextTrophyToast, 400);
+  }, 2800);
 }
 
 /** The credits, over the attract race still running behind. */
@@ -761,13 +830,13 @@ function renderEnding() {
     <div class="ending-cup"><svg aria-hidden="true"><use href="#ico-cup"></use></svg></div>
     <h1 class="title">Chrome<span>Circuit</span></h1>
     <p class="ending-lead">Grand Champion</p>
-    <p>Every world's title is yours. ${t.medals} of ${t.max.medals} medals, ${t.titles} of ${t.max.titles} titles.</p>
+    <p>Every world's title is yours. ${trophies.getUnlocked().length} of ${trophies.TROPHIES.length} trophies, ${t.medals} of ${t.max.medals} medals.</p>
     ${WORLDS.map((w) => section(w.name, TRACKS.filter((d) => d.world === w.id).map((d) => d.name))).join('')}
     ${section('On the grid', RACERS.map((r) => r.name))}
     ${section('Models', ['Kenney — Car Kit, City Kit Roads, City Kit, Suburban, Toy Car Kit, Holiday Kit, Nature Kit, Racing Kit (CC0)',
     'Stone bridge, dry river, mine, water stop and chairlift built in Blender'])}
     ${section('Engine', ['Three.js'])}
-    ${section('Made by', ['Martin Grahn', 'with Claude'])}
+    ${section('Made by', ['GameVolt', 'with Claude'])}
     <p class="ending-thanks">Thanks for playing.</p>`;
   const roll = document.getElementById('ending-roll');
   roll.style.animation = 'none';
@@ -855,6 +924,7 @@ document.addEventListener('click', (e) => {
     case 'garage': audio.sfx.select(); state.carsFrom = 'menu'; renderCars(); show('cars'); break;
     case 'howto': audio.sfx.select(); show('howto'); break;
     case 'trophies': audio.sfx.select(); renderTrophies(); show('trophies'); break;
+    case 'trophy-tab': audio.sfx.select(); showTrophyTab(btn.dataset.tab); break;
     case 'ending':
       audio.sfx.select();
       if (!state.progress.endingSeen) { state.progress.endingSeen = true; progress.save(state.progress); }
@@ -1104,7 +1174,12 @@ function frame(now) {
   // Registered before the models start downloading so the worker is installing
   // while the loading bar fills, not after it.
   registerServiceWorker();
+  // GameVolt, when the game is served from it: trophies to the cloud.
+  trophies.setToast(showTrophyToast, (tier) => audio.sfx.trophy(tier));
+  trophies.loadSDK().then((ok) => { if (ok) trophies.initSDK(); });
   await preload();
+  // A save from before the trophies earns its due, quietly.
+  trophies.check(trophyFacts(state.progress), true);
   cacheAssets(assetUrls());
   await new Promise((r) => setTimeout(r, 180));
   // The difficulty is remembered between visits; Rookie until changed.

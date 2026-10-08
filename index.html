@@ -276,7 +276,12 @@
         <button class="btn btn--ghost" data-action="back-menu">Back</button>
       </header>
       <div class="trophy-tally" id="trophy-tally"></div>
-      <div class="trophy-worlds" id="trophy-worlds"></div>
+      <div class="trophy-tabs" role="tablist">
+        <button type="button" class="choice" role="tab" data-action="trophy-tab" data-tab="list" aria-pressed="true">Trophies</button>
+        <button type="button" class="choice" role="tab" data-action="trophy-tab" data-tab="records" aria-pressed="false">Records</button>
+      </div>
+      <div class="trophy-list" id="trophy-list"></div>
+      <div class="trophy-worlds hidden" id="trophy-worlds"></div>
       <footer class="panel-foot hidden" id="trophy-foot">
         <button class="btn btn--primary" data-action="ending">Roll the credits</button>
       </footer>
@@ -308,6 +313,16 @@
 </svg>
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<!-- Trophy unlocked: GameVolt's own toast when the SDK is there, this one when not. -->
+<div id="trophy-toast" role="status" aria-live="polite">
+  <div id="trophy-toast-icon"></div>
+  <div>
+    <div id="trophy-toast-label">Trophy unlocked</div>
+    <div id="trophy-toast-tier" class="bronze"></div>
+    <div id="trophy-toast-name"></div>
+  </div>
+</div>
 
 <button id="update-chip" class="update-chip hidden">New version available — tap to update</button>
 

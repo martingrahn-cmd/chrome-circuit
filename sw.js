@@ -53,6 +53,7 @@ const SHELL_FILES = [
   './src/settings.js',
   './src/terrain.js',
   './src/trophies.js',
+  './src/achievements.js',
   './src/thumbs.js',
   './src/track.js',
   './src/tracks.js',
