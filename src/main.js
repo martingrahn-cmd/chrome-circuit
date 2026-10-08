@@ -13,6 +13,7 @@ import * as progress from './progress.js';
 import * as settings from './settings.js';
 import * as champ from './champ.js';
 import { carThumbnails, trackThumbnail } from './thumbs.js';
+import { summary as trophySummary, LEVEL_NAMES, ENDING_LEVEL } from './trophies.js';
 import { watchVersion } from './version.js';
 import { registerServiceWorker, cacheAssets, watchInstall, promptInstall } from './pwa.js';
 
@@ -108,6 +109,8 @@ const screens = {
   howto: document.getElementById('screen-howto'),
   paused: document.getElementById('screen-paused'),
   settings: document.getElementById('screen-settings'),
+  trophies: document.getElementById('screen-trophies'),
+  ending: document.getElementById('screen-ending'),
 };
 
 function show(name) {
@@ -277,7 +280,7 @@ function swatch(def) {
 /* -------------------------------------------------------------- car list */
 
 const STAT_MAX = { engine: 20, topSpeed: 31, handling: 3.2, mass: 1.7 };
-const DIFFICULTY = ['Rookie', 'Pro', 'Ace', 'Legend'];
+const DIFFICULTY = LEVEL_NAMES;
 // How each level is shown wherever it is picked or reported.
 const LEVELS = [
   { blurb: 'First time? Start here.', colour: '#4ade80' },
@@ -581,6 +584,9 @@ function ordinal(n) {
 /* ---------------------------------------------------------- championship */
 
 function updateMenu() {
+  // Beat the game and the menu says so.
+  document.querySelector('#screen-menu .eyebrow').textContent = trophySummary(state.progress).complete
+    ? '★ Grand Champion ★' : 'Isometric arcade racing';
   const c = state.progress.champ;
   document.getElementById('menu-champ').textContent = c && !champ.isOver(c)
     ? `Continue championship · round ${c.round + 1}/${c.rounds.length}`
@@ -665,6 +671,10 @@ function renderChamp() {
     next.textContent = 'New championship';
   }
   screens.champ.classList.toggle('is-champion', !!c && !active && myPlace === 1);
+  // The title that wins it all rolls the credits, the first time.
+  const ending = !!c && !active && myPlace === 1 && !state.progress.endingSeen && trophySummary(state.progress).complete;
+  document.getElementById('champ-ending').classList.toggle('hidden', !ending);
+  next.classList.toggle('btn--primary', !ending);
   document.getElementById('champ-difficulty').classList.toggle('hidden', !!c);
   const worlds = document.getElementById('champ-worlds');
   worlds.classList.toggle('hidden', !!c);
@@ -703,6 +713,66 @@ function renderChamp() {
       + `${cells}<td class="pts">${row.points}</td></tr>`;
   }).join('');
   table.innerHTML = `${head}<tbody>${body}</tbody>`;
+}
+
+/* --------------------------------------------------------------- trophies */
+
+const PLACE_COLOURS = ['', MEDALS[0].colour, MEDALS[1].colour, MEDALS[2].colour];
+
+/** A championship cup: gold, silver or bronze for the place, hollow if not won. */
+function cupTag(place, level) {
+  const colour = PLACE_COLOURS[place] ?? '';
+  const label = `${LEVEL_NAMES[level]}: ${place ? ordinal(place) : 'not yet'}`;
+  return `<span class="cup${colour ? '' : ' cup--none'}" style="--c:${colour || 'transparent'}" title="${label}">
+    <svg aria-hidden="true"><use href="#ico-cup"></use></svg><span class="cup-level">${LEVEL_NAMES[level]}</span></span>`;
+}
+
+function renderTrophies() {
+  const t = trophySummary(state.progress);
+  document.getElementById('trophy-sub').textContent = t.complete
+    ? `Grand Champion — ${t.percent}% complete.`
+    : `${t.percent}% complete. Win every world's championship on ${LEVEL_NAMES[ENDING_LEVEL]} or harder to finish the game.`;
+  const tile = (value, max, label) => `<div class="tally"><b>${value}<small>/${max}</small></b><span>${label}</span></div>`;
+  document.getElementById('trophy-tally').innerHTML = [
+    tile(t.medals, t.max.medals, 'Medals'),
+    tile(t.gold, t.max.gold, 'Gold'),
+    tile(t.titles, t.max.titles, 'Titles'),
+    tile(t.garage, t.max.garage, 'Cars'),
+  ].join('');
+  document.getElementById('trophy-worlds').innerHTML = t.worlds.map((w) => `
+    <section class="trophy-world${w.won ? ' is-won' : ''}">
+      <header><h3>${w.name}</h3><div class="cups">${w.cups.map((p, d) => cupTag(p, d)).join('')}</div></header>
+      <ul>${w.tracks.map((r) => `
+        <li>
+          <span class="tw-name">${r.def.name}</span>
+          <span class="tw-medal">${medalTag(r.medal)}${r.trial ? formatTime(r.trial) : '<i class="dim">no trial</i>'}</span>
+          <span class="tw-place">${r.place ? `P${r.place}` : '<i class="dim">—</i>'}</span>
+        </li>`).join('')}
+      </ul>
+    </section>`).join('');
+  document.getElementById('trophy-foot').classList.toggle('hidden', !t.complete);
+}
+
+/** The credits, over the attract race still running behind. */
+function renderEnding() {
+  const t = trophySummary(state.progress);
+  const section = (title, lines) => `<h3>${title}</h3>${lines.map((l) => `<p>${l}</p>`).join('')}`;
+  document.getElementById('ending-roll').innerHTML = `
+    <div class="ending-cup"><svg aria-hidden="true"><use href="#ico-cup"></use></svg></div>
+    <h1 class="title">Chrome<span>Circuit</span></h1>
+    <p class="ending-lead">Grand Champion</p>
+    <p>Every world's title is yours. ${t.medals} of ${t.max.medals} medals, ${t.titles} of ${t.max.titles} titles.</p>
+    ${WORLDS.map((w) => section(w.name, TRACKS.filter((d) => d.world === w.id).map((d) => d.name))).join('')}
+    ${section('On the grid', RACERS.map((r) => r.name))}
+    ${section('Models', ['Kenney — Car Kit, City Kit Roads, City Kit, Suburban, Toy Car Kit, Holiday Kit, Nature Kit, Racing Kit (CC0)',
+    'Stone bridge, dry river, mine, water stop and chairlift built in Blender'])}
+    ${section('Engine', ['Three.js'])}
+    ${section('Made by', ['Martin Grahn', 'with Claude'])}
+    <p class="ending-thanks">Thanks for playing.</p>`;
+  const roll = document.getElementById('ending-roll');
+  roll.style.animation = 'none';
+  void roll.offsetHeight;                  // restart the roll from the bottom
+  roll.style.animation = '';
 }
 
 /* ------------------------------------------------------------ navigation */
@@ -784,6 +854,13 @@ document.addEventListener('click', (e) => {
       break;
     case 'garage': audio.sfx.select(); state.carsFrom = 'menu'; renderCars(); show('cars'); break;
     case 'howto': audio.sfx.select(); show('howto'); break;
+    case 'trophies': audio.sfx.select(); renderTrophies(); show('trophies'); break;
+    case 'ending':
+      audio.sfx.select();
+      if (!state.progress.endingSeen) { state.progress.endingSeen = true; progress.save(state.progress); }
+      renderEnding();
+      show('ending');
+      break;
     case 'settings':
       audio.sfx.select();
       state.settingsFrom = state.screen === 'paused' ? 'paused' : 'menu';

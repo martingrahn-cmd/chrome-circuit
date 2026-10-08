@@ -785,6 +785,61 @@ html, body {
 .standings tbody tr:first-child td.pos { color: #ffd84a; }
 
 /* The title, won: the heading shines. */
+/* -------------------------------------------------------------- trophies */
+.menu-row--3 { grid-template-columns: 1fr 1fr 1fr; }
+.menu-buttons .menu-row--3 .btn { padding-left: 4px; padding-right: 4px; white-space: nowrap; }
+
+.trophy-tally { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+.tally {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 10px 6px; border: 1px solid var(--panel-edge); border-radius: 12px; background: rgba(255, 255, 255, 0.03);
+}
+.tally b { font-family: var(--display); font-size: 24px; color: var(--accent); line-height: 1.1; }
+.tally b small { font-size: 13px; color: var(--muted); font-family: var(--body); font-weight: 600; }
+.tally span { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+
+.trophy-worlds { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; max-height: 52vh; overflow-y: auto; touch-action: pan-y; }
+.trophy-world { border: 1px solid var(--panel-edge); border-radius: 14px; padding: 12px; background: rgba(255, 255, 255, 0.025); }
+.trophy-world.is-won { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.trophy-world h3 { margin: 0 0 8px; font-family: var(--display); font-size: 15px; letter-spacing: 0.02em; }
+.trophy-world ul { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; }
+.trophy-world li { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; font-size: 13px; }
+.tw-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tw-medal { font-family: var(--mono); font-size: 12px; display: inline-flex; gap: 5px; align-items: center; }
+.tw-place { font-family: var(--display); font-size: 12px; color: var(--muted); min-width: 2em; text-align: right; }
+.trophy-world .dim { color: #5d667a; font-style: normal; font-family: var(--body); }
+.cups { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.cup { display: flex; flex-direction: column; align-items: center; gap: 2px; color: var(--c); }
+.cup svg { width: 30px; height: 30px; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45)); }
+.cup--none { color: #3a4152; }
+.cup-level { font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+
+/* ---------------------------------------------------------------- ending */
+/* The credits roll over the live race: no veil, no blur, only the shade
+   behind the text that .ending gives. */
+#screen-ending { padding: 0; background: none; backdrop-filter: none; }
+.ending-roll { text-shadow: 0 2px 12px rgba(0, 0, 0, 0.85); }
+.ending {
+  position: relative; width: 100%; height: 100%; overflow: hidden;
+  background: linear-gradient(180deg, rgba(14, 16, 23, 0.8), rgba(14, 16, 23, 0.4) 30%, rgba(14, 16, 23, 0.4) 70%, rgba(14, 16, 23, 0.85));
+}
+.ending-roll {
+  position: absolute; left: 50%; top: 100%; width: min(560px, 92vw); transform: translateX(-50%);
+  text-align: center; animation: roll 46s linear forwards;
+}
+@keyframes roll { to { transform: translate(-50%, calc(-100% - 100vh)); } }
+.ending-roll h3 {
+  margin: 44px 0 10px; font-size: 12px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--accent);
+}
+.ending-roll p { margin: 6px 0; font-size: 17px; color: var(--text); line-height: 1.5; }
+.ending-roll .title { font-size: clamp(40px, 9vw, 76px); }
+.ending-roll .ending-lead { font-family: var(--display); font-size: 26px; color: var(--accent); letter-spacing: 0.06em; margin-top: 18px; }
+.ending-roll .ending-thanks { margin: 70vh 0 40vh; font-family: var(--display); font-size: 28px; }
+.ending-cup { color: var(--accent); }
+.ending-cup svg { width: 96px; height: 96px; filter: drop-shadow(0 0 30px rgba(255, 204, 50, 0.6)); }
+/* Bottom left: the sound toggle has the other corner. */
+.ending-back { position: absolute; left: max(18px, env(safe-area-inset-left)); bottom: max(18px, env(safe-area-inset-bottom)); }
+
 #screen-champ.is-champion #champ-title {
   color: var(--accent);
   text-shadow: 0 0 24px rgba(255, 204, 50, 0.55);
@@ -918,6 +973,11 @@ body.racing .update-chip { display: none; }
   .credits { margin-top: 12px; font-size: 10px; }
 
   .panel { display: flex; flex-direction: column; max-height: 100%; padding: 14px 16px; }
+  .trophy-tally { margin-bottom: 8px; }
+  .tally { padding: 5px 4px; flex-direction: row; justify-content: center; gap: 8px; }
+  .tally b { font-size: 17px; }
+  .trophy-worlds { max-height: none; flex: 1; min-height: 0; }
+  .cup svg { width: 22px; height: 22px; }
   .panel--narrow { width: min(760px, 100%); }
   .panel-head { margin-bottom: 10px; }
   .panel-head h2 { font-size: 19px; }
@@ -1006,6 +1066,8 @@ body.racing .update-chip { display: none; }
 }
 
 @media (max-width: 720px) {
+  .trophy-worlds { grid-template-columns: 1fr; }
+  .trophy-tally { gap: 6px; }
   #hud-map { width: 108px; height: 108px; }
   .stat-value { font-size: 21px; }
   .speedo-value { font-size: 34px; }

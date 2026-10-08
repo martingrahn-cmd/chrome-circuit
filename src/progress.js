@@ -11,6 +11,7 @@ const blank = () => ({
   champ: null,      // the championship in progress (or just finished)
   champBest: {},    // best final championship place, by `world:difficulty`
   trials: {},       // time trial best lap per circuit, with its ghost
+  endingSeen: false, // the credits have rolled for winning it all
 });
 
 const isObj = (v) => v != null && typeof v === 'object' && !Array.isArray(v);
@@ -38,6 +39,7 @@ export function load() {
         ? Object.fromEntries(Object.entries(p.champBest).map(([k, v]) => [/^\d$/.test(k) ? `grand:${k}` : k, v]))
         : d.champBest,
       trials: validTrials(p.trials),
+      endingSeen: p.endingSeen === true,
     };
     // A podium opens the next circuit. Re-derive that from the places on
     // record, so a circuit added after the podium was won is open too — a
