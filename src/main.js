@@ -34,10 +34,10 @@ const state = {
   racerId: 'comet',
   difficulty: 0,
   champDifficulty: 0,   // picked on the championship screen before round 1
-  world: 'grand',       // the world whose circuits the circuit screen shows
+  world: 'city',        // the world whose circuits the circuit screen shows
   single: false,        // single race: every circuit open, nothing to unlock
   trial: false,         // time trial: alone, against the ghost of your best lap
-  champWorld: 'grand',  // and the one a new championship would tour
+  champWorld: 'city',   // and the one a new championship would tour
   inChamp: false,       // the race on screen is a championship round
   race: null,
   attract: false,

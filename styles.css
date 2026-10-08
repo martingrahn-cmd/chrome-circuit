@@ -799,7 +799,7 @@ html, body {
 .tally b small { font-size: 13px; color: var(--muted); font-family: var(--body); font-weight: 600; }
 .tally span { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
 
-.trophy-worlds { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; max-height: 52vh; overflow-y: auto; touch-action: pan-y; }
+.trophy-worlds { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; max-height: 52vh; overflow-y: auto; touch-action: pan-y; }
 .trophy-world { border: 1px solid var(--panel-edge); border-radius: 14px; padding: 12px; background: rgba(255, 255, 255, 0.025); }
 .trophy-world.is-won { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
 .trophy-world h3 { margin: 0 0 8px; font-family: var(--display); font-size: 15px; letter-spacing: 0.02em; }
@@ -1164,6 +1164,9 @@ body.racing .update-chip { display: none; }
 /* Held upright, the pickers ran to one tall column — ten cars was 2,600px of
    scrolling. */
 @media (max-width: 480px) {
+  /* Four worlds: two by two, not three and one left over. */
+  .worlds { display: grid; grid-template-columns: 1fr 1fr; }
+  .trophy-worlds { grid-template-columns: 1fr; }
   .trophy-grid { grid-template-columns: repeat(2, 1fr); gap: 6px; }
   .trophy-card img { width: 84px; height: 84px; }
   .card-grid, .card-grid--cars { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
