@@ -67,7 +67,7 @@ dock and runs full-screen with no browser furniture, landscape, offline.
 - **iOS / iPadOS** — Safari has no install prompt: *Share* → *Add to Home Screen*.
 
 Installed or not, a service worker (`sw.js`) caches the game the first time you
-play, so afterwards it starts with no network at all — the whole field, all five
+play, so afterwards it starts with no network at all — the whole field, all eleven
 circuits, everything. It keeps two caches on purpose: the code goes in one keyed
 on the deployed build, and the Kenney models — 7 MB that never change — in
 another that survives deploys, so an update re-downloads a few hundred KB rather
@@ -81,6 +81,14 @@ server has — that gap is what the chip is offering to close.
 
 A checkout has no stamped build (the Pages workflow does the stamping), and then
 the worker serves the code network-first: edit a file, reload, see the edit.
+
+### Sharing a link
+
+A shared link shows a card: a pack racing under Mesa Eight's stone bridge, with the
+title (`icons/share.jpg`, 1200×630). `index.html` carries the Open Graph tags that
+Messenger, Slack, Discord and the rest read, and the card tags X reads. Their URLs
+are absolute and point at the Pages site. `tools/share_image.mjs` renders the
+picture from a real race, so it can be made again when the game changes.
 
 ### Controllers
 
@@ -312,7 +320,8 @@ src/
   version.js          the version badge and the update check
 vendor/three/         Three.js r180 (module build) + GLTFLoader
 assets/               the Kenney models actually used, by kit; canyon/ is our own
-tools/blender/        Blender scripts that build the models in assets/canyon
+tools/blender/        Blender scripts that build the models in assets/canyon and assets/alpine
+tools/share_image.mjs renders icons/share.jpg, the picture a shared link shows
 ```
 
 ### Circuits are authored as moves
