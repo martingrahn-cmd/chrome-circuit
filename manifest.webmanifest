@@ -1,7 +1,7 @@
 {
   "name": "Chrome Circuit",
   "short_name": "Chrome Circuit",
-  "description": "An isometric arcade racer. Six cars, three laps, rockets optional.",
+  "description": "An isometric arcade racer: 11 circuits across three worlds, drift boosts, rockets and time trials against your own ghost.",
   "categories": ["games"],
   "lang": "en",
   "start_url": "./",
