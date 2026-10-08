@@ -348,7 +348,26 @@ straight to `assets/canyon/mesa-bridge.glb`:
 pip install bpy        # Python 3.11
 python tools/blender/stone_bridge.py assets/canyon/mesa-bridge.glb [preview.png]
 python tools/blender/river_props.py assets/canyon [preview.png]
+python tools/blender/canyon_landmarks.py assets/canyon [preview.png]
+python tools/blender/chairlift.py assets/alpine [preview.png]
 ```
+
+`tools/blender/kit.py` holds what the scripts share: boxes, beams, cylinders,
+wheels and lumps of rock. It does the vertex colours and the export. Models stand on
+Blender's ground plane, and their front faces the game's +Z (Blender's -Y).
+
+Each world also has its own landmarks. A theme's `landmarks` are set pieces placed once per
+circuit (`buildLandmarks`). The canyon has a mine, with its timber headframe and hoist
+house, rails, ore carts and a heap of ore, and a water stop, with a wooden water tower,
+a windpump and its trough. A site is picked where the set can be seen from the road but
+never hides it, and never stands in it or in the river. The flattest ground going wins,
+and the set is turned to face the road. Alpine themes get a chairlift (`lift: true`):
+a straight line up the hill, away from the camera, as long as there is room for. It
+is clear of every road and hides none. Its stations and towers go in with the
+scenery. The haul rope is strung between them once the ground is final, sagging a
+little between supports. The chairs ride the loop round both bull wheels. They and
+the windpump's rotor move in `track.animate`, called each frame of the race.
+
 
 The stones run in courses, with a voussoir ring and a keystone round the arch,
 pilasters, a cornice, and a parapet with coping and newels. Stones that would sit
@@ -460,5 +479,5 @@ roof pieces. The Nature and Racing kits colour their models by named materials
 rather than a texture atlas. Those colours are baked into the vertices on load, so
 each kit still merges into one mesh. The Nature Kit is recoloured for the desert as
 it loads: grass tops to sand, leaves to sage, rock to sun-baked red. The stone
-bridge and the river props in `assets/canyon` are our own, built in Blender from
-`tools/blender`. Three.js is MIT.
+bridge, the river props and the landmarks in `assets/canyon`, and the chairlift in
+`assets/alpine`, are our own, built in Blender from `tools/blender`. Three.js is MIT.

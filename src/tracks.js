@@ -138,6 +138,8 @@ const ALPINE_THEME = {
   kerbColour: 0xb4bcc8, offroad: 'snow', snowfall: true, spread: 7, card: [0x7fa3c6, 0x4f6b86],
   light: { hemiSky: 0xdce8f8, hemiGround: 0x6f7c8f, hemi: 0.95, sun: 0xfff1e0, sunPower: 1.85 },
   dress: ALPINE,
+  // A chairlift up the slope behind, where there is room (track.js, planLift).
+  lift: true,
 };
 
 // --- Red Rock Canyon -------------------------------------------------------
@@ -164,6 +166,30 @@ const CAMP = [
 const CANYON_PROPS = [...HOODOOS, ...DESERT_LOW, ...DESERT_LOW, ...MESAS];
 const RALLY_PROPS = [...DESERT_LOW, ...DESERT_LOW, ...HOODOOS, ...CAMP];
 const DESCENT_PROPS = [...HOODOOS, ...HOODOOS, ...MESAS, ...DESERT_LOW];
+
+// Set pieces modelled in Blender (tools/blender/canyon_landmarks.py), placed
+// once per circuit where they show without hiding the road (track.js,
+// buildLandmarks). Parts in game units, +Z towards the road.
+const MINE_CAMP = {
+  kit: 'canyon', r: 10, h: 10.2,
+  parts: [
+    { m: 'mine-headframe', x: 0, z: -0.6 },
+    { m: 'rail-straight', x: 0, z: 3.2 }, { m: 'rail-straight', x: 0, z: 7.2 },
+    { m: 'mine-cart', x: 0, z: 4.0 }, { m: 'mine-cart', x: 0, z: 6.4 },
+    { m: 'ore-pile', x: 3.8, z: 4.9 },
+    { m: 'mine-cart-tipped', x: -3.2, z: 7.6, yaw: 35 },
+  ],
+};
+const WATER_STOP = {
+  kit: 'canyon', r: 8, h: 9.3,
+  parts: [
+    { m: 'water-tower', x: -2.5, z: 0 },
+    { m: 'windpump', x: 3.5, z: -1.5, yaw: 20 },
+    // The rotor sits on the windpump's shaft and turns in the breeze.
+    { m: 'windpump-rotor', x: 3.5 + 0.52 * Math.sin(Math.PI / 9), z: -1.5 + 0.52 * Math.cos(Math.PI / 9), y: 7.2, yaw: 20, spin: 1.7 },
+    { m: 'water-trough', x: 3.5, z: 2.0 },
+  ],
+};
 
 const CANYON_THEME = {
   sky: 0xf0c08a, ground: 0xd8a66c, valley: 0xc0844e, peak: 0xe9bd85, rock: 0xa84a2a, verge: 0xcf9a60,
@@ -334,7 +360,7 @@ export const TRACKS = [
     // Stone arch from tools/blender/stone_bridge.py, 24 units either side of the crossing.
     bridgeModel: { kit: 'canyon', model: 'mesa-bridge', half: 24 },
     difficulty: 3,
-    theme: { ...CANYON_THEME, density: 0.42, props: CANYON_PROPS, dress: CANYON_STREET, terrain: { peaks: 22, drifts: 0.5 } },
+    theme: { ...CANYON_THEME, density: 0.42, props: CANYON_PROPS, dress: CANYON_STREET, landmarks: [WATER_STOP], terrain: { peaks: 22, drifts: 0.5 } },
   },
   {
     id: 'dustbowl',
@@ -354,7 +380,7 @@ export const TRACKS = [
     difficulty: 4,
     theme: {
       ...CANYON_THEME, road: 'gravel', roadColour: 0x9a7652, kerbColour: 0xb58d62, kerbs: false, dashes: false,
-      density: 0.46, props: RALLY_PROPS, dress: CANYON_RALLY, terrain: { peaks: 16, drifts: 0.8 },
+      density: 0.46, props: RALLY_PROPS, dress: CANYON_RALLY, landmarks: [MINE_CAMP], terrain: { peaks: 16, drifts: 0.8 },
     },
   },
   {
@@ -377,7 +403,7 @@ export const TRACKS = [
     walls: true,
     seed: 9417,
     difficulty: 5,
-    theme: { ...CANYON_THEME, density: 0.5, props: DESCENT_PROPS, dress: CANYON_STREET, terrain: { peaks: 30, drifts: 0.6 } },
+    theme: { ...CANYON_THEME, density: 0.5, props: DESCENT_PROPS, dress: CANYON_STREET, landmarks: [MINE_CAMP, WATER_STOP], terrain: { peaks: 30, drifts: 0.6 } },
   },
 ];
 

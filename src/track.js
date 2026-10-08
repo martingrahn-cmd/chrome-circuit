@@ -515,6 +515,9 @@ export class Track {
 
   build(scene) {
     const theme = this.def.theme || {};
+    this.spinners = [];      // windpump rotors and the like, turned by animate()
+    this.lift = null;        // a chairlift, if the hills have room for one
+    this.landmarkSites = [];
     if (theme.terrain) {
       // Ground with height in it; its mesh goes in once the scenery has
       // flattened what it stands on (see buildScenery).
@@ -1310,6 +1313,256 @@ export class Track {
   }
 
   /**
+   * Whether something `h` tall and `r` round, standing on the ground at
+   * (x, z), keeps clear of every road and hides none of them from the
+   * camera, which looks down 1.35 per unit along (-1, -1).
+   */
+  siteClear(x, z, r, h, gap = 2) {
+    const line = this.line, n = line.n;
+    const g = this.terrain ? this.terrain.sample(x, z) : 0;
+    for (let k = 0; k < n; k += 2) {
+      const q = line.pts[k], dx = q.x - x, dz = q.z - z;
+      if (Math.hypot(dx, dz) < this.wallHalf + r + gap) return false;
+      const behind = -(dx + dz) * Math.SQRT1_2, across = (dx - dz) * Math.SQRT1_2;
+      if (behind > -r && Math.abs(across) < r + this.wallHalf + 1
+        && h > CAMERA_SLOPE * Math.max(0, behind - r) + line.h[k] - g) return false;
+    }
+    return true;
+  }
+
+  /**
+   * Set pieces, one of each per circuit: a mine with its carts, a water
+   * stop with its windpump. Each goes where it can be seen from the road
+   * without hiding it, on the flattest ground going, facing the road.
+   * Spec: { kit, r, h, parts: [{ m, x, z, yaw (degrees), y, spin }] }.
+   */
+  buildLandmarks(list, push, reserved, pads) {
+    if (!list?.length) return;
+    const line = this.line, n = line.n;
+    const ground = (x, z) => (this.terrain ? this.terrain.sample(x, z) : 0);
+    const rng = mulberry32((this.def.seed ?? 1) * 3 + 17);
+    const farSide = (t) => -Math.sign(t.z - t.x) || 1;
+    for (const spec of list) {
+      let best = null;
+      for (let i = 0; i < n; i += 5) {
+        const p = line.pts[i], t = line.tangent(i);
+        for (const side of [-1, 1]) {
+          for (const extra of [3, 7, 12]) {
+            const off = this.wallHalf + spec.r + extra;
+            const x = p.x + t.z * off * side, z = p.z - t.x * off * side;
+            if (this.terrain && !this.terrain.inside(x, z, spec.r + 4)) continue;
+            if (reserved.some((q) => Math.hypot(x - q.x, z - q.z) < q.r + spec.r)) continue;
+            if (this.terrain?.riverPath.length && this.terrain.riverDist(x, z) < spec.r + 3) continue;
+            let lo = Infinity, hi = -Infinity;
+            for (let a = 0; a < 8; a++) {
+              const gq = ground(x + Math.cos(a * Math.PI / 4) * spec.r, z + Math.sin(a * Math.PI / 4) * spec.r);
+              lo = Math.min(lo, gq); hi = Math.max(hi, gq);
+            }
+            const score = extra + (hi - lo) * 2 + (side === farSide(t) ? 0 : 3) + rng() * 4;
+            if (best && score >= best.score) continue;
+            if (!this.siteClear(x, z, spec.r, spec.h)) continue;
+            best = { x, z, p, score };
+          }
+        }
+      }
+      if (!best) continue;
+      const { x, z, p } = best;
+      const turn = Math.atan2(p.x - x, p.z - z);              // the set's +Z faces the road
+      const anchor = { x, z, foot: 0 };
+      for (const part of spec.parts) {
+        const yaw = turn + (part.yaw ?? 0) * Math.PI / 180;
+        const px = x + Math.cos(turn) * part.x + Math.sin(turn) * part.z;
+        const pz = z - Math.sin(turn) * part.x + Math.cos(turn) * part.z;
+        const m = new THREE.Matrix4().makeRotationY(yaw).setPosition(px, part.y ?? 0, pz);
+        if (part.spin) {
+          const geo = bakedGeometry(spec.kit, part.m);
+          if (!geo) continue;
+          const mesh = new THREE.Mesh(geo, materialsFor(spec.kit).scenery);
+          mesh.matrixAutoUpdate = false;
+          mesh.castShadow = true;
+          this.group.add(mesh);
+          this.spinners.push({ mesh, base: m, anchor, speed: part.spin, angle: rng() * 6 });
+        } else {
+          push(spec.kit, part.m, m, anchor);
+        }
+      }
+      reserved.push({ x, z, r: spec.r });
+      this.landmarkSites.push({ x, z });
+      if (this.terrain) pads.push({ x, z, r: spec.r * 0.85, h: ground(x, z) });
+    }
+  }
+
+  /**
+   * Find a slope for a chairlift: a straight line up the hill away from the
+   * camera, clear of every road, hiding none, as long as there is room for.
+   * The stations and towers go in now; the rope and chairs once the ground
+   * is final (buildLift).
+   */
+  planLift(push, reserved, pads) {
+    if (!this.terrain) return;
+    const line = this.line, n = line.n, T = this.terrain;
+    const rng = mulberry32((this.def.seed ?? 1) * 5 + 3);
+    const g = (x, z) => T.sample(x, z);
+    let best = null;
+    for (let i = 0; i < n; i += 9) {
+      const p = line.pts[i], t = line.tangent(i);
+      for (const side of [-1, 1]) {
+        for (const extra of [8, 13, 18]) {
+          const off = this.wallHalf + extra;
+          const bx = p.x + t.z * off * side, bz = p.z - t.x * off * side;
+          if (!T.inside(bx, bz, 8) || T.roadDist(bx, bz) < this.wallHalf + 6) continue;
+          if (reserved.some((q) => Math.hypot(bx - q.x, bz - q.z) < q.r + 5)) continue;
+          for (let a = -40; a <= 40; a += 10) {
+            const ang = Math.PI * 1.25 + a * Math.PI / 180;           // up the hill: away from the camera
+            const ux = Math.cos(ang), uz = Math.sin(ang);
+            for (const L of [96, 84, 72, 60, 50]) {
+              const tx = bx + ux * L, tz = bz + uz * L;
+              const rise = g(tx, tz) - g(bx, bz);
+              if (rise < 5) continue;
+              const score = L + rise * 0.6 - extra * 0.8 + rng() * 6;
+              if (best && score <= best.score) continue;
+              if (!T.inside(tx, tz, 8)) continue;
+              let ok = true;
+              for (let d = 0; d <= L && ok; d += 3) {
+                const x = bx + ux * d, z = bz + uz * d;
+                if (T.roadDist(x, z) < this.wallHalf + 5) ok = false;
+                else if (reserved.some((q) => Math.hypot(x - q.x, z - q.z) < q.r + 3)) ok = false;
+              }
+              if (!ok) continue;
+              for (let d = 0; d <= L && ok; d += 4) {
+                const end = d < 5 || d > L - 5;
+                if (!this.siteClear(bx + ux * d, bz + uz * d, end ? 3.5 : 2, end ? 6.4 : 8.2, 3)) ok = false;
+              }
+              if (ok) best = { bx, bz, ux, uz, L, score };
+              break;                                           // shorter lines on this heading score lower
+            }
+          }
+        }
+      }
+    }
+    if (!best) return;
+    const { bx, bz, ux, uz, L } = best;
+    const kit = 'alpine';
+    const yaw = Math.atan2(ux, uz);
+    const supports = [];
+    const station = (x, z, facing) => {
+      const anchor = { x, z, foot: 2.5 };
+      push(kit, 'lift-station', new THREE.Matrix4().makeRotationY(facing).setPosition(x, 0, z), anchor);
+      pads.push({ x, z, r: 3.6, h: g(x, z) });
+      return anchor;
+    };
+    const a0 = station(bx, bz, yaw);
+    const a1 = station(bx + ux * L, bz + uz * L, yaw + Math.PI);
+    // The rope turns round each station's bull wheel, 3 units out in front.
+    supports.push({ x: bx + ux * 3, z: bz + uz * 3, anchor: a0, h: 4.8 });
+    const span = L - 6, towers = Math.max(1, Math.round(span / 15) - 1);
+    for (let k = 1; k <= towers; k++) {
+      const d = 3 + span * k / (towers + 1);
+      const x = bx + ux * d, z = bz + uz * d;
+      const anchor = { x, z, foot: 0.6 };
+      push(kit, 'lift-tower', new THREE.Matrix4().makeRotationY(yaw).setPosition(x, 0, z), anchor);
+      supports.push({ x, z, anchor, h: 6.9 });
+    }
+    supports.push({ x: bx + ux * (L - 3), z: bz + uz * (L - 3), anchor: a1, h: 4.8 });
+    for (let d = 0; d <= L; d += 4) reserved.push({ x: bx + ux * d, z: bz + uz * d, r: 3.2 });
+    this.lift = { supports, ux, uz };
+  }
+
+  /** The haul rope, both ways, and the chairs that ride it (see animate). */
+  buildLift() {
+    const lift = this.lift;
+    if (!lift) return;
+    const { supports, ux, uz } = lift;
+    const nx = uz, nz = -ux;                 // across the line
+    const SPAN = 1.3, SAG = 0.35;
+    const rope = (side) => {
+      const pts = [];
+      for (let k = 0; k < supports.length; k++) {
+        const s = supports[k];
+        const p = new THREE.Vector3(s.x + nx * SPAN * side, (s.anchor.y ?? 0) + s.h, s.z + nz * SPAN * side);
+        if (k) {
+          // Each span sags a little between its supports.
+          const a = pts[pts.length - 1];
+          for (let j = 1; j < 6; j++) {
+            const u = j / 6;
+            pts.push(new THREE.Vector3().lerpVectors(a, p, u).add(new THREE.Vector3(0, -SAG * 4 * u * (1 - u), 0)));
+          }
+        }
+        pts.push(p);
+      }
+      return pts;
+    };
+    const up = rope(1), down = rope(-1).reverse();
+    // Round the bull wheels: at the top past its far side, from the up rope
+    // (+across) to the down; at the bottom back again.
+    const wheel = (s, dir, y) => {
+      const out = [];
+      for (let j = 1; j < 6; j++) {
+        const a = Math.PI * j / 6, c = Math.cos(a) * dir, f = Math.sin(a) * dir;
+        out.push(new THREE.Vector3(s.x + (nx * c + ux * f) * SPAN, y, s.z + (nz * c + uz * f) * SPAN));
+      }
+      return out;
+    };
+    const top = supports[supports.length - 1], bottom = supports[0];
+    const loop = [...up, ...wheel(top, 1, up[up.length - 1].y), ...down, ...wheel(bottom, -1, down[down.length - 1].y)];
+
+    // The rope itself: thin dark struts along both lines.
+    const geoms = [];
+    for (const line of [up, down]) {
+      for (let k = 0; k < line.length - 1; k++) {
+        const a = line[k], b = line[k + 1], len = a.distanceTo(b);
+        const gm = new THREE.BoxGeometry(0.09, 0.09, len);
+        gm.lookAt(new THREE.Vector3().subVectors(b, a));
+        gm.translate((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2);
+        geoms.push(gm);
+      }
+    }
+    const ropeMesh = new THREE.Mesh(mergeGeometries(geoms, false), new THREE.MeshLambertMaterial({ color: 0x2a2d33 }));
+    geoms.forEach((gm) => gm.dispose());
+    this.group.add(ropeMesh);
+
+    const cum = [0];
+    for (let k = 1; k <= loop.length; k++) cum.push(cum[k - 1] + loop[k - 1].distanceTo(loop[k % loop.length]));
+    const total = cum[loop.length];
+    const geo = bakedGeometry('alpine', 'lift-chair');
+    if (!geo) return;
+    const count = Math.floor(total / 8);
+    const chairs = new THREE.InstancedMesh(geo, materialsFor('alpine').scenery, count);
+    chairs.castShadow = true;
+    chairs.frustumCulled = false;
+    this.group.add(chairs);
+    Object.assign(lift, { loop, cum, total, chairs, count, offset: 0 });
+    this.animate(0);
+  }
+
+  /** Things that move on their own: windpumps in the breeze, the chairlift. */
+  animate(dt) {
+    for (const sp of this.spinners ?? []) {
+      sp.angle += sp.speed * dt;
+      sp.mesh.matrix.copy(sp.base).multiply(new THREE.Matrix4().makeRotationZ(sp.angle));
+      sp.mesh.matrixWorldNeedsUpdate = true;
+    }
+    const lift = this.lift;
+    if (!lift?.chairs) return;
+    lift.offset = (lift.offset + dt * 2.4) % lift.total;
+    const { loop, cum, total, chairs, count } = lift;
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), pos = new THREE.Vector3(), one = new THREE.Vector3(1, 1, 1);
+    const yAxis = new THREE.Vector3(0, 1, 0);
+    let k = 0;
+    for (let c = 0; c < count; c++) {
+      const s = (lift.offset + c * total / count) % total;
+      if (s < cum[k]) k = 0;
+      while (cum[k + 1] < s) k++;
+      const a = loop[k], b = loop[(k + 1) % loop.length];
+      const u = (s - cum[k]) / ((cum[k + 1] - cum[k]) || 1);
+      pos.lerpVectors(a, b, u);
+      q.setFromAxisAngle(yAxis, Math.atan2(b.x - a.x, b.z - a.z));
+      chairs.setMatrixAt(c, m.compose(pos, q, one));
+    }
+    chairs.instanceMatrix.needsUpdate = true;
+  }
+
+  /**
    * What the last flood left in the dry river (terrain.js, carveRiver):
    * cobbles, mud cracked by the sun, the odd log and boulder in the bed,
    * dead reeds along the banks, and a depth post either side of the ford.
@@ -1399,6 +1652,9 @@ export class Track {
     };
     const ground = (x, z) => (this.terrain ? this.terrain.sample(x, z) : 0);
     const spread = theme.spread ?? 4;
+    // Set pieces first, so the scatter leaves them room.
+    this.buildLandmarks(theme.landmarks, push, reserved, pads);
+    if (theme.lift) this.planLift(push, reserved, pads);
 
     const props = theme.props || [];
     if (props.length) {
@@ -1485,6 +1741,8 @@ export class Track {
       for (const a of anchors) a.y = this.terrain.footing(a.x, a.z, a.foot);
       this.group.add(this.terrain.mesh(theme));
     }
+    for (const sp of this.spinners) sp.base.elements[13] += sp.anchor.y ?? 0;
+    this.buildLift();
 
     if (plots.length) {
       const geoms = plots.map(({ g, anchor }) => g.translate(0, anchor.y ?? 0, 0));
@@ -1519,6 +1777,8 @@ export class Track {
     for (const spec of Object.values(this.def.theme?.dress || {})) list.add(`${spec.kit}/${spec.model}`);
     list.add('roads/dumpster');     // beside buildings
     if (this.def.bridgeModel) list.add(`${this.def.bridgeModel.kit}/${this.def.bridgeModel.model}`);
+    for (const spec of this.def.theme?.landmarks ?? []) for (const part of spec.parts) list.add(`${spec.kit}/${part.m}`);
+    if (this.def.theme?.lift) for (const m of ['lift-tower', 'lift-station', 'lift-chair']) list.add(`alpine/${m}`);
     if (this.def.river) {
       for (const m of ['river-stones-a', 'river-stones-b', 'river-boulder', 'driftwood', 'dry-reeds', 'mud-plates', 'flood-gauge']) list.add(`canyon/${m}`);
     }

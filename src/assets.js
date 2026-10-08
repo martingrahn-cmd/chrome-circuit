@@ -21,6 +21,7 @@ const VERTEX_KITS = {
   racing: {},
   // Our own Blender models (tools/blender): they carry their colours already.
   canyon: null,
+  alpine: null,
 };
 export const isVertexKit = (kit) => kit in VERTEX_KITS;
 

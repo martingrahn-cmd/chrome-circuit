@@ -274,6 +274,19 @@ export class Terrain {
     return best;
   }
 
+  /** Whether a point lies on the grid with `margin` to spare. */
+  inside(x, z, margin = 0) {
+    return x > this.x0 + margin && z > this.z0 + margin
+      && x < this.x0 + (this.nx - 1) * CELL - margin && z < this.z0 + (this.nz - 1) * CELL - margin;
+  }
+
+  /** Distance to the nearest road's centre line, from the nearest cell. */
+  roadDist(x, z) {
+    const i = Math.max(0, Math.min(this.nx - 1, Math.round((x - this.x0) / CELL)));
+    const j = Math.max(0, Math.min(this.nz - 1, Math.round((z - this.z0) / CELL)));
+    return this.dist[this.idx(i, j)];
+  }
+
   /** Flatten the ground under things that need level footing. */
   addPads(pads) {
     if (!pads.length) return;

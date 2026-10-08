@@ -540,6 +540,7 @@ export class Race {
     this.updateTrial(dt);
     this.fadeArches(dt);
     this.fadeBridge(dt);
+    this.track.animate(dt);
     this.particles.update(dt);
     this.skids.update(dt);
     if (this.snow) this.snow.update(dt, this.engine.target);
