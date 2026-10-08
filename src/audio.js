@@ -155,6 +155,14 @@ export const sfx = {
   land: (hard = 0.5) => thump({ dur: 0.2, gain: 0.2 + hard * 0.4, cutoff: 900 }),
   wheelspin: () => tone({ freq: 160, sweep: 120, type: 'sawtooth', dur: 0.5, gain: 0.14 }),
   back: () => tone({ freq: 320, type: 'square', dur: 0.09, gain: 0.13 }),
+  // A trophy: GameVolt's chime, two notes, three for gold and platinum.
+  trophy: (tier = 'bronze') => {
+    const notes = tier === 'gold' || tier === 'platinum' ? [784, 988, 1318] : [784, 1047];
+    notes.forEach((f, i) => {
+      tone({ freq: f, type: 'sine', dur: 0.4, gain: 0.2, delay: i * 0.08 });
+      tone({ freq: f, type: 'triangle', dur: 0.15, gain: 0.08, delay: i * 0.08 + 0.02 });
+    });
+  },
 };
 
 /** Continuous engine note driven by speed, load and surface. */

@@ -48,3 +48,19 @@ export function summary(progress) {
     complete: gameComplete(progress),
   };
 }
+
+/** What the trophies (achievements.js) need to know from the saved progress. */
+export function facts(progress) {
+  const t = summary(progress);
+  const all = t.worlds.flatMap((w) => w.tracks);
+  return {
+    tracks: all.length,
+    medalTracks: all.filter((r) => r.medal >= 0).length,
+    goldTracks: t.gold,
+    titles: t.titles,
+    legendTitle: t.worlds.some((w) => w.cups[3] === 1),
+    allCars: t.cars >= t.max.cars,
+    allTracks: TRACKS.every((d) => progress.unlockedTracks.includes(d.id)),
+    complete: t.complete,
+  };
+}

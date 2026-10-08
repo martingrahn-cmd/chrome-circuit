@@ -122,6 +122,7 @@ export class Race {
         if (!this.autopilot) this.onTick?.();
       };
       this.player.onKick = (level) => {
+        this.emit('boost', { level });
         this.playSfx(() => sfx.kick(level));
         this.buzz(0.15, 0.45, level === 2 ? 220 : 140);
       };
@@ -223,6 +224,7 @@ export class Race {
     this.engine.shake(Math.min(1.4, impact * 0.12));
     this.buzz(Math.min(1, impact / 8), 0.3, 120);
     if (time >= BIG_AIR) {
+      this.emit('air', { time });
       this.message('BIG AIR!', 'good', 1.3);
       this.playSfx(() => sfx.kick(1));
     }
@@ -276,6 +278,7 @@ export class Race {
     if (this.posSince > 0.35 && this.pendingPos !== this.heldPos) {
       if (this.pendingPos < this.heldPos && !p.finished && this.raceTime > 2.5) {
         this.message(`OVERTAKE! P${this.pendingPos}`, 'good', 1.2);
+        this.emit('overtake');
         this.playSfx(sfx.overtake);
       }
       this.heldPos = this.pendingPos;
@@ -295,6 +298,7 @@ export class Race {
       other.closeCallAt = this.raceTime;
       if (p.kick < CLOSE.kick) { p.kick = CLOSE.kick; p.kickLevel = 1; }
       this.message('CLOSE CALL!', 'good', 1.0);
+      this.emit('close');
       this.playSfx(sfx.closeCall);
       this.onTick?.();
     }
@@ -374,6 +378,11 @@ export class Race {
     const d0 = s[lo * GS + 5], d1 = s[hi * GS + 5];
     const tg = s[lo * GS] + (d1 > d0 ? (d - d0) / (d1 - d0) : 0) * (s[hi * GS] - s[lo * GS]);
     this.delta = t - tg;
+  }
+
+  /** A moment for the trophies (achievements.js) — the player's own, at the wheel. */
+  emit(name, data) {
+    if (!this.autopilot) this.onEvent?.(name, data);
   }
 
   message(text, kind = 'info', ttl = 2.2) {
@@ -527,7 +536,10 @@ export class Race {
             colour: [1, 0.6, 0.2], size: 0.55, life: 0.7, spread: 8, up: 6, glow: true, opacity: 1,
           });
           if (proj.hitCar === this.player) { this.engine.shake(1.8); this.buzz(1, 0.8, 420); }
-          if (proj.owner === this.player) this.message('DIRECT HIT', 'good', 1.6);
+          if (proj.owner === this.player && proj.hitCar !== this.player) {
+            this.emit(proj instanceof Hazard ? 'oil' : 'hit');
+            this.message('DIRECT HIT', 'good', 1.6);
+          }
           if (proj.hitCar === this.player) this.message('SPUN OUT!', 'bad', 1.6);
         }
         proj.dispose(this.engine.world);
@@ -667,6 +679,7 @@ export class Race {
       this.launchJudged = true;
       p.giveBoost(LAUNCH.boost);
       this.message('ROCKET START!', 'good', 1.6);
+      this.emit('launch');
       this.playSfx(sfx.boost);
       this.buzz(0.6, 0.8, 300);
       this.onTick?.();

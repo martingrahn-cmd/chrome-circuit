@@ -795,6 +795,7 @@ html, body {
   padding: 10px 6px; border: 1px solid var(--panel-edge); border-radius: 12px; background: rgba(255, 255, 255, 0.03);
 }
 .tally b { font-family: var(--display); font-size: 24px; color: var(--accent); line-height: 1.1; }
+.trophy-worlds { align-content: start; }
 .tally b small { font-size: 13px; color: var(--muted); font-family: var(--body); font-weight: 600; }
 .tally span { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
 
@@ -813,6 +814,57 @@ html, body {
 .cup svg { width: 30px; height: 30px; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45)); }
 .cup--none { color: #3a4152; }
 .cup-level { font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+
+/* GameVolt's tier colours. */
+.tally--bronze b { color: #cd7f32; }
+.tally--silver b { color: #c0c0c0; }
+.tally--gold b { color: #ffd700; }
+.tally--platinum b { color: #b4ffff; }
+
+.trophy-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+.trophy-tabs .choice { flex: 0 0 auto; }
+.trophy-records { margin: 0 0 4px; grid-column: 1 / -1; color: var(--muted); font-size: 13px; }
+
+.trophy-list {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 8px;
+  max-height: 52vh; overflow-y: auto; touch-action: pan-y; padding-right: 2px;
+}
+.trophy {
+  --t: #cd7f32;
+  display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+  border: 1px solid var(--panel-edge); border-radius: 10px; background: rgba(255, 255, 255, 0.02);
+  opacity: 0.5;
+}
+.trophy--silver { --t: #c0c0c0; }
+.trophy--gold { --t: #ffd700; }
+.trophy--platinum { --t: #b4ffff; }
+.trophy.is-held { opacity: 1; border-color: color-mix(in srgb, var(--t) 55%, transparent); background: color-mix(in srgb, var(--t) 8%, transparent); }
+.trophy-icon {
+  flex: 0 0 auto; width: 34px; height: 34px; display: grid; place-items: center; font-size: 19px;
+  border-radius: 50%; box-shadow: 0 0 0 2px var(--t) inset; filter: grayscale(1);
+}
+.trophy.is-held .trophy-icon { filter: none; box-shadow: 0 0 0 2px var(--t) inset, 0 0 14px -2px var(--t); }
+.trophy-text { display: flex; flex-direction: column; min-width: 0; }
+.trophy-text b { font-size: 13px; }
+.trophy-text small { font-size: 11px; color: var(--muted); line-height: 1.3; }
+
+/* Trophy unlocked, as GameVolt's games show it. */
+#trophy-toast {
+  position: fixed; bottom: -90px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 12px;
+  background: #0a0a18ee; border: 1px solid #ffd70066; border-radius: 10px; padding: 10px 20px;
+  z-index: 60; transition: bottom 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 0 30px #ffd70033; pointer-events: none;
+}
+#trophy-toast.show { bottom: max(24px, env(safe-area-inset-bottom)); }
+#trophy-toast-icon { font-size: 28px; }
+#trophy-toast-label { font-size: 9px; color: #ffd700; letter-spacing: 3px; font-weight: 700; text-transform: uppercase; }
+#trophy-toast-tier { font-size: 9px; font-weight: 700; letter-spacing: 2px; }
+#trophy-toast-tier.bronze { color: #cd7f32; }
+#trophy-toast-tier.silver { color: #c0c0c0; }
+#trophy-toast-tier.gold { color: #ffd700; }
+#trophy-toast-tier.platinum { color: #b4ffff; }
+#trophy-toast-name { font-size: 14px; color: #fff; font-weight: 700; letter-spacing: 1px; }
 
 /* ---------------------------------------------------------------- ending */
 /* The credits roll over the live race: no veil, no blur, only the shade
@@ -976,7 +1028,9 @@ body.racing .update-chip { display: none; }
   .trophy-tally { margin-bottom: 8px; }
   .tally { padding: 5px 4px; flex-direction: row; justify-content: center; gap: 8px; }
   .tally b { font-size: 17px; }
-  .trophy-worlds { max-height: none; flex: 1; min-height: 0; }
+  .trophy-worlds, .trophy-list { max-height: none; flex: 1; min-height: 0; }
+  .trophy-tabs { margin-bottom: 6px; }
+  .trophy-tabs .choice { padding: 5px 12px; }
   .cup svg { width: 22px; height: 22px; }
   .panel--narrow { width: min(760px, 100%); }
   .panel-head { margin-bottom: 10px; }

@@ -176,23 +176,37 @@ heading and distance round the lap, about 11 KB a lap.
 
 ### Trophies and the ending
 
-Trophies, on the main menu, is the trophy cabinet. At the top are the totals:
+Thirty-one trophies, to the GameVolt standard (`src/achievements.js`):
 
-- **Medals**, out of 33: three per circuit. A gold counts all three, since it beat silver's and bronze's times too.
-- **Golds**, out of 11.
-- **Championship titles**, out of 12: three worlds times four levels.
-- **Cars** in the garage.
+- **15 bronze** that come with ordinary play: a first finish, podium and win, a rocket start, a drift boost (and an orange one), big air, a rocket hit, a spin with your oil drum, a close call, 25 overtakes, a time trial lap, a medal, and a race in each of the other two worlds.
+- **10 silver** for skill and dedication: 10 wins, three in a row, winning by five seconds, a win on Ace, a championship, a gold medal, a medal on every circuit, every car, every circuit, and 100 drift boosts.
+- **5 gold** for the hardcore: Grand Champion (the ending), a clean sweep of a championship on Pro or harder, a Legend title, gold on every circuit, and a Legend win on every circuit.
+- **1 platinum**, Chrome Circuit Master, for all thirty others.
 
-Each world then shows a cup per level, in gold, silver or bronze for your best final
-place in that championship, hollow if you have not been on the podium. Under the cups
-are its circuits, with your medal, your best time trial lap and your best career place.
-The percentage weighs a title as three medals and an unlocked car as two (`trophies.js`).
+The race reports moments as they happen (`race.emit`, the player's own and only while at
+the wheel). The finish and a championship's last round are booked once, after the progress
+has taken them. The trophy core is pure: events fold into a bag of counts, and `evaluate`
+reads those, plus a few facts from the saved progress (medals, titles, what is unlocked), and
+returns what is newly earned. On boot it runs once, silently, so a save from before the
+trophies gets what it has earned without a parade of toasts. Resetting progress keeps the
+trophies.
 
-The game is beaten when you have won every world's championship on Pro or harder. The
-title that completes it puts **You won it all** on the champion's screen. That rolls the
-credits over the race running behind: the circuits, the cars, the models, the engine
-and who made it. After that the menu reads Grand Champion, and the credits can be watched
-again from Trophies. That they have rolled is saved with the progress (`endingSeen`).
+On GameVolt (the game served from gamevolt.io) the SDK is loaded and each unlock also goes
+to `GameVolt.achievements.unlock`, under the game id `chrome-circuit`. The SDK's own toast
+takes over from the game's, guest trophies follow a player who signs in, and trophies
+earned on another device come back down without re-toasting. The game also posts
+`game_start`, `game_over` and `achievement` to the GameVolt player page when it runs in its
+iframe. Anywhere else, no SDK is fetched and everything stays in the browser.
+
+Trophies, on the main menu, has two tabs. **Trophies** lists all 31, earned ones lit,
+with counts by tier. **Records** has the medals, the titles and the cars: per world, a cup
+for each level in the colour of your best championship finish, and per circuit your
+medal, best trial lap and best career place.
+
+The game is beaten when every world's championship is won on Pro or harder. The title that
+completes it puts **You won it all** on the champion's screen, and that rolls the credits
+over the race running behind. After that the menu reads Grand Champion, and the credits
+can be watched again from Trophies (`endingSeen` in the progress).
 
 ### Career and single race
 
@@ -315,6 +329,7 @@ src/
   progress.js         unlocks, best laps, the championship in progress, trials
   settings.js         volumes, units and switches, kept apart from progress
   trophies.js         medals, titles and cars won, and whether the game is beaten
+  achievements.js     the 31 trophies, and GameVolt's SDK when it is there
   champ.js            championship points, standings and save validation
   pwa.js              service-worker registration, updates, the install button
   version.js          the version badge and the update check
