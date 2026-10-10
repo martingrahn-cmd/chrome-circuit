@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { Car, resolveCollisions, carGap, DRIFT } from './car.js';
 import { AIDriver } from './ai.js';
 import { ItemField, Projectile, Hazard, ITEMS } from './items.js';
+import { fillDistance } from './ghostlink.js';
 import { Particles, SkidMarks, Snowfall, DUST } from './fx.js';
 import { mulberry32 } from './track.js';
 import { EngineSound, sfx } from './audio.js';
@@ -57,7 +58,7 @@ function ghostMesh(model) {
 }
 
 export class Race {
-  constructor({ engine, track, playerSpec, roster, difficulty = 1, trial = false, ghost = null }) {
+  constructor({ engine, track, playerSpec, roster, difficulty = 1, trial = false, ghost = null, challenge = false }) {
     this.engine = engine;
     this.track = track;
     this.difficulty = difficulty;
@@ -130,6 +131,9 @@ export class Race {
 
     // The ghost to beat, and the lap being recorded to become the next one.
     this.ghost = null;
+    // A friend's ghost from a link (ghostlink.js) stays the one to beat:
+    // your own better lap does not take its place.
+    this.challenge = trial && challenge;
     if (trial && ghost?.s?.length) this.setGhost(ghost);
     this.recording = [];
     this.delta = null;
@@ -326,6 +330,8 @@ export class Race {
   /** Race this lap from now on: `{ time, car, s }` as recorded below. */
   setGhost(ghost) {
     if (this.ghost?.mesh) this.engine.world.remove(this.ghost.mesh);
+    // A ghost from a link comes without its lap distance.
+    if (ghost.s.some((v, k) => k % GS === 5 && !Number.isFinite(v))) fillDistance(ghost, this.track);
     const mesh = ghostMesh(ghost.car);
     this.engine.world.add(mesh);
     this.ghost = { ...ghost, mesh, cursor: 0 };
@@ -639,6 +645,7 @@ export class Race {
   bookTrialLap(lapTime) {
     const rec = this.recording;
     this.recording = [];
+    if (this.challenge) { this.bookChallengeLap(lapTime, rec); return; }
     const best = this.ghost?.time ?? Infinity;
     // A lap needs most of its samples to be a ghost worth keeping.
     if (lapTime >= best || rec.length / GS < lapTime * GHOST_RATE * 0.8) return;
@@ -648,6 +655,23 @@ export class Race {
     this.message(first ? 'LAP SET — NOW BEAT IT' : 'NEW BEST LAP!', 'good', 1.8);
     this.playSfx(sfx.lap);
     this.onBestLap?.(ghost);
+  }
+
+  /** A lap against a friend's ghost: say how it went; your own best still
+   *  goes on the record, but the ghost on the road stays theirs. */
+  bookChallengeLap(lapTime, rec) {
+    const margin = lapTime - this.ghost.time;
+    if (margin < 0) {
+      this.challengeBeaten = true;
+      this.message(`GHOST BEATEN BY ${(-margin).toFixed(2)}s!`, 'finish', 2.4);
+      this.playSfx(sfx.lap);
+    } else {
+      this.message(`+${margin.toFixed(2)}s ON THE GHOST`, 'bad', 1.8);
+    }
+    this.bestChallengeLap = Math.min(this.bestChallengeLap ?? Infinity, lapTime);
+    if (rec.length / GS >= lapTime * GHOST_RATE * 0.8) {
+      this.onBestLap?.({ time: +lapTime.toFixed(3), car: this.player.spec.model, s: rec });
+    }
   }
 
   /** Note when the player's launch input goes down round the green light. */

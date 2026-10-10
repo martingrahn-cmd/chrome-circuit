@@ -212,6 +212,7 @@
       <footer class="panel-foot">
         <button class="btn" data-action="back-menu">Menu</button>
         <button class="btn" data-action="retry" id="results-retry">Rematch</button>
+        <button class="btn hidden" data-action="share-ghost" id="results-share">Challenge a friend</button>
         <button class="btn btn--primary" data-action="next-track" id="results-next">Next circuit</button>
         <button class="btn btn--primary hidden" data-action="champ-standings" id="results-standings">Standings</button>
       </footer>
@@ -294,6 +295,19 @@
     </div>
   </section>
 
+  <section class="screen" id="screen-challenge">
+    <div class="panel panel--narrow">
+      <header class="panel-head">
+        <h2>Ghost challenge</h2>
+        <button class="btn btn--ghost" data-action="back-menu">Not now</button>
+      </header>
+      <div id="challenge-body"></div>
+      <footer class="panel-foot">
+        <button class="btn btn--primary" data-action="challenge-go">Race the ghost</button>
+      </footer>
+    </div>
+  </section>
+
   <section class="screen" id="screen-ending">
     <div class="ending">
       <div class="ending-roll" id="ending-roll"></div>
@@ -333,6 +347,9 @@
 <button id="update-chip" class="update-chip hidden">New version available — tap to update</button>
 
 <button id="sound-toggle" class="sound-toggle" aria-label="Toggle sound">♪</button>
+<button id="fullscreen-toggle" class="sound-toggle fullscreen-toggle" aria-label="Full screen">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path class="fs-in" d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/><path class="fs-out" d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5"/></svg>
+</button>
 
 <script type="module" src="src/main.js"></script>
 </body>
