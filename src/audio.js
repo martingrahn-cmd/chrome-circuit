@@ -1,10 +1,12 @@
-// Synthesised engine note and sound effects via Web Audio. No asset files.
+// Synthesised engine note and sound effects via Web Audio, and the bus the
+// soundtrack (music.js) plays into.
 let ctx = null;
 let master = null;
 let enabled = true;
+let unlocked = false;
 let volume = 0.7;
 // Each kind of sound has its own level under the master, set from Settings.
-const busLevel = { sfx: 1, engine: 1 };
+const busLevel = { sfx: 1, engine: 1, music: 1 };
 const bus = {};
 
 function ac() {
@@ -23,16 +25,33 @@ function ac() {
   return ctx;
 }
 
-/** Level of one kind of sound, 0..1: 'sfx' or 'engine'. */
+/** Level of one kind of sound, 0..1: 'sfx', 'engine' or 'music'. */
 export function setBusVolume(name, v) {
   busLevel[name] = v;
   if (bus[name]) bus[name].gain.value = v;
 }
 
+/** The audio context and the music bus, for music.js to play into. */
+export function context() { return ac(); }
+export function musicBus() { ac(); return bus.music; }
+
 export function unlock() {
   const c = ac();
-  if (c.state === 'suspended') c.resume();
+  unlocked = true;
+  if (c.state === 'suspended' && !document.hidden) c.resume();
 }
+
+// Browsers hold sound back until the player does something, so the first tap
+// or key lets it out — the title song included.
+for (const type of ['pointerdown', 'keydown']) addEventListener(type, unlock, { capture: true });
+
+// A tab in the background goes quiet, engine and music both, and picks up
+// where it was on return.
+document.addEventListener('visibilitychange', () => {
+  if (!ctx) return;
+  if (document.hidden) ctx.suspend();
+  else if (unlocked) ctx.resume();
+});
 
 export function setVolume(v) {
   volume = v;

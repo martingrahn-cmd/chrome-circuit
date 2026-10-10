@@ -9,6 +9,7 @@ import { Race } from './race.js';
 import { Hud, formatTime } from './hud.js';
 import { Input } from './input.js';
 import * as audio from './audio.js';
+import * as music from './music.js';
 import * as progress from './progress.js';
 import * as settings from './settings.js';
 import * as champ from './champ.js';
@@ -46,6 +47,7 @@ const state = {
   progress: progress.load(),
   settings: settings.load(),
   settingsFrom: 'menu',
+  resultsSong: 'race-results',   // what the results screen plays, by how it went
 };
 
 const isTouch = matchMedia('(hover: none) and (pointer: coarse)').matches;
@@ -119,7 +121,11 @@ const screens = {
 };
 
 function show(name) {
+  const from = state.screen;
   state.screen = name;
+  const song = songFor(name, from);
+  if (song !== undefined) music.play(song);
+  music.setDucked(name === 'paused' || (name === 'settings' && state.settingsFrom === 'paused'));
   if (name === 'menu') updateMenu();
   for (const [key, el] of Object.entries(screens)) el.classList.toggle('show', key === name);
   document.getElementById('hud').classList.toggle('hidden', name !== 'race');
@@ -131,6 +137,29 @@ function show(name) {
   const strip = chosen?.parentElement;
   if (strip && strip.scrollWidth > strip.clientWidth) {
     chosen.scrollIntoView({ inline: 'center', block: 'nearest' });
+  }
+}
+
+/** The song a screen plays, coming from another; undefined keeps the one on. */
+function songFor(name, from) {
+  const racing = name === 'race' || name === 'paused' || (name === 'settings' && state.settingsFrom === 'paused');
+  if (racing) {
+    if (!state.race || state.attract) return undefined;
+    return state.race.trial ? 'ghost-trials' : music.circuitSong(state.trackId);
+  }
+  switch (name) {
+    case 'loading': return null;
+    case 'results': return state.resultsSong;
+    case 'champ': {
+      const c = state.progress.champ;
+      if (c && champ.isOver(c) && champ.standings(c)[0]?.isPlayer) return 'you-won';
+      // The standings between rounds carry on with the results' song.
+      return from === 'results' ? undefined : 'choose-your-racer';
+    }
+    case 'tracks': case 'cars': return 'choose-your-racer';
+    case 'challenge': return 'ghost-trials';
+    case 'ending': return 'you-won';
+    default: return 'karts';
   }
 }
 
@@ -452,6 +481,7 @@ function buildRace(def, { attract = false } = {}) {
   race.onRumble = attract ? null : (strong, weak, ms) => input.rumble(strong, weak, ms);
   race.onTick = attract ? null : () => input.tick();
   race.onEvent = attract ? null : (name, data) => trophies.event(name, data, trophyFacts(state.progress));
+  race.onFinalLap = attract ? null : () => music.finalLap();
   race.showGhost = state.settings.ghost;
   // A new best trial lap is saved the moment it is set, and a better medal
   // is called out on the spot.
@@ -535,10 +565,12 @@ function finishTrial(race) {
   const before = state.trialBefore;
   const record = state.progress.trials[def.id]?.time ?? runBest;
   const improved = before == null || record < before;
+  state.resultsSong = improved ? 'you-won' : 'race-results';
   document.getElementById('results-title').textContent = improved ? 'New best lap!' : 'Time trial';
   document.getElementById('results-sub').innerHTML = `${def.name} · best ${formatTime(record)} ${medalTag(medalFor(def, record))}`;
   if (race.challenge) {
     const theirs = race.ghost.time, gap = runBest - theirs;
+    state.resultsSong = gap < 0 ? 'you-won' : 'you-lost';
     document.getElementById('results-title').textContent = gap < 0 ? 'Ghost beaten!' : 'The ghost holds on';
     document.getElementById('results-sub').innerHTML = `${def.name} · the ghost ${formatTime(theirs)} · you ${formatTime(runBest)}`
       + ` (${gap < 0 ? '−' : '+'}${Math.abs(gap).toFixed(2)}s)`;
@@ -597,6 +629,7 @@ function finishRace() {
   // What the cup's last round opened: the next world, a car.
   const unlocked = race.cupUnlocks ?? [];
   bookTrophies(race, results);
+  state.resultsSong = mine.place === 1 ? 'you-won' : mine.place <= 3 ? 'race-results' : 'you-lost';
 
   document.getElementById('results-sub').innerHTML =
     `${levelTag(race.difficulty)} · ${trackById(state.trackId).name}${gained ? ` · round ${state.progress.champ.round} of ${state.progress.champ.rounds.length}` : ''}`;
@@ -901,6 +934,7 @@ function renderEnding() {
     ${section('On the grid', RACERS.map((r) => r.name))}
     ${section('Models', ['Kenney — Car Kit, City Kit Roads, City Kit, Suburban, Toy Car Kit, Holiday Kit, Nature Kit, Racing Kit (CC0)',
     'Stone bridge, dry river, mine, water stop and chairlift built in Blender'])}
+    ${section('Music', [Object.values(music.SONGS).join(' · ')])}
     ${section('Engine', ['Three.js'])}
     ${section('Made by', ['GameVolt', 'with Claude'])}
     <p class="ending-thanks">Thanks for playing.</p>`;
@@ -1112,6 +1146,7 @@ function pickLevel(btn) {
 /* -------------------------------------------------------------- settings */
 
 const SETTING_ROWS = [
+  { key: 'music', label: 'Music', options: settings.VOLUMES.map((v) => [v, v ? `${v * 100}%` : 'Off']) },
   { key: 'sfx', label: 'Sound effects', options: settings.VOLUMES.map((v) => [v, v ? `${v * 100}%` : 'Off']) },
   { key: 'engine', label: 'Engine', options: settings.VOLUMES.map((v) => [v, v ? `${v * 100}%` : 'Off']) },
   { key: 'units', label: 'Speed', options: [['kmh', 'km/h'], ['mph', 'mph']] },
@@ -1123,6 +1158,7 @@ const SETTING_ROWS = [
 /** Put the settings into effect everywhere they reach. */
 function applySettings() {
   const s = state.settings;
+  audio.setBusVolume('music', s.music);
   audio.setBusVolume('sfx', s.sfx);
   audio.setBusVolume('engine', s.engine);
   hud.setUnits(s.units);
@@ -1356,4 +1392,4 @@ function sim(seconds, control = {}) {
   return { phase: race.phase, lap: race.player.lap, pos: race.player.racePosition };
 }
 
-window.__cc = { state, engine, TRACKS, sim, input, navigate };
+window.__cc = { state, engine, TRACKS, sim, input, navigate, music };

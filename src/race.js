@@ -153,6 +153,7 @@ export class Race {
     this.itemBump = 0;       // last time a box was passed with a full slot
     this.autopilot = null;
     this.onRumble = null;
+    this.onFinalLap = null;  // the soundtrack picks up the pace
   }
 
   /** Haptics for whatever just happened to the player's car. */
@@ -883,6 +884,7 @@ export class Race {
     } else if (car === this.player && car.lap === this.track.laps && !this.finalLapAnnounced) {
       this.finalLapAnnounced = true;
       this.message('FINAL LAP', 'go', 2.0);
+      this.onFinalLap?.();
     }
   }
 

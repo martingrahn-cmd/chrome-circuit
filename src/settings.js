@@ -1,4 +1,4 @@
-// Player settings: volumes, units and the things some people would rather
+// Player settings: volumes (music, effects, engine), units and the things some people would rather
 // switch off. Kept apart from progress, so wiping progress keeps them.
 
 const KEY = 'chrome-circuit-settings-v1';
@@ -6,6 +6,7 @@ const KEY = 'chrome-circuit-settings-v1';
 export const VOLUMES = [0, 0.25, 0.5, 0.75, 1];
 
 const defaults = () => ({
+  music: 0.75,     // the soundtrack, share of full
   sfx: 1,          // sound effects, share of full
   engine: 1,       // the engine note and tyre squeal
   units: 'kmh',    // or 'mph'
@@ -20,6 +21,7 @@ export function load() {
     const raw = JSON.parse(localStorage.getItem(KEY) || 'null');
     if (!raw || typeof raw !== 'object') return d;
     return {
+      music: VOLUMES.includes(raw.music) ? raw.music : d.music,
       sfx: VOLUMES.includes(raw.sfx) ? raw.sfx : d.sfx,
       engine: VOLUMES.includes(raw.engine) ? raw.engine : d.engine,
       units: raw.units === 'mph' ? 'mph' : 'kmh',

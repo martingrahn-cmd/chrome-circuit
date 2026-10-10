@@ -43,8 +43,8 @@ columns and the touch buttons shrink to fit.
 
 Reached from the main menu or the pause screen:
 
-- **Sound effects** and **Engine** volume, each in five steps from off to full,
-  under the ♪ toggle that mutes everything.
+- **Music**, **Sound effects** and **Engine** volume, each in five steps from off to
+  full, under the ♪ toggle that mutes everything.
 - **Speed** in km/h or mph.
 - **Time trial ghost** on or off. With it off, the ghost is still recorded and the
   delta still shown; you just do not see the car.
@@ -213,6 +213,23 @@ worked out again from the track. A 25-second lap comes to about 700 characters o
 short enough for any chat. A link that does not decode, or names a circuit or car the game
 does not have, is refused with a toast.
 
+### Music
+
+Thirteen songs, each screen with its own. The menus play *KARTS!*; picking a circuit or a
+car, *Choose Your Racer*. Every circuit has a song (`CIRCUIT_SONGS` in `src/music.js`),
+time trials and ghost challenges race to *Ghost Trials*, and the results play how it
+went: *You Won!* for a win or a new best lap, *Race Results* for a podium, *You Lost*
+(and then *Race Results*) further back. A cup won keeps *You Won!* through the final
+standings, and the credits roll to it too.
+
+Songs cross-fade as the screens change, drop under the pause menu, and run 6% faster
+(and a little higher) on the final lap. They are decoded whole and looped as Web Audio
+buffers, since an `<audio>` element leaves a gap at each loop and these are written to
+go round without one. The tab going to the background silences everything until it is
+back. The masters are WAV; `tools/encode_music.py` brings them to the same loudness
+(−16 LUFS) and writes `assets/music/*.mp3`, about 15 MB in all. Only the song on and the
+two before it stay decoded in memory.
+
 ### Full screen
 
 A button beside the sound toggle, or **F**, puts the game full screen. On a phone it also
@@ -376,7 +393,8 @@ src/
   race.js             grid, countdown, laps, standings, effects
   items.js            pickups, rockets, dropped hazards
   fx.js               pooled particles and skid marks
-  audio.js            synthesised engine note and sound effects
+  audio.js            synthesised engine note and sound effects, the volume buses
+  music.js            the soundtrack: which song plays where, cross-fades, loops
   hud.js              readouts and minimap
   input.js            keyboard, gamepad and touch
   thumbs.js           car and circuit previews for the menus
@@ -392,6 +410,7 @@ vendor/three/         Three.js r180 (module build) + GLTFLoader
 assets/               the Kenney models actually used, by kit; canyon/ is our own
 tools/blender/        Blender scripts that build the models in assets/canyon and assets/alpine
 tools/share_image.mjs renders icons/share.jpg, the picture a shared link shows
+tools/encode_music.py the soundtrack's WAV masters to assets/music, at one loudness
 tools/gamevolt/       the trophies as GameVolt's database and profile page want them
 ```
 
