@@ -33,8 +33,13 @@ const UP = new THREE.Vector3(0, 1, 0);
 // to look over what stands beside the road instead.
 const EDGE = 0.35;
 const CLEAR = 4;
-// Closer to a car than this and the camera would be inside it.
+// A car's path closer to the lens than NEAR (NEAR_SUBJECT for the car being
+// filmed) lifts the camera, to ROOF above the car by the time the path is
+// within BODY, about the car's half-width with room to spare.
 const NEAR = 1.8;
+const NEAR_SUBJECT = 1.2;
+const BODY = 0.9;
+const ROOF = 2.0;
 
 const smooth = (u) => u * u * u * (u * (u * 6 - 15) + 10);
 const clamp01 = (u) => Math.max(0, Math.min(1, u));
@@ -204,14 +209,18 @@ export class Intro {
     let want = 0;
     for (const c of this.race.cars) {
       if (pos.y - c.y > CLEAR) continue;
-      // The nearest the car comes to the lens over the next quarter second.
+      // The nearest the car comes to the lens in the next few frames. The car
+      // being filmed is framed close on purpose, so only its body counts.
       const f = c.forward, dx = pos.x - c.x, dz = pos.z - c.z;
-      const s = Math.max(0, Math.min(Math.max(0, c.vLong * 0.25), dx * f.x + dz * f.z));
+      const s = Math.max(0, Math.min(Math.max(0, c.vLong * 0.18), dx * f.x + dz * f.z));
       const d = Math.hypot(dx - f.x * s, dz - f.z * s);
-      want = Math.max(want, (NEAR - d) * 1.8);
+      const near = c === this.subject ? NEAR_SUBJECT : NEAR;
+      // All the way over the roof by the time it would touch the body.
+      const k = clamp01((near - d) / (near - BODY));
+      want = Math.max(want, k * (c.y + ROOF - pos.y));
     }
     // Up at once, down gently.
-    this.lift = want > this.lift ? want : this.lift + (want - this.lift) * Math.min(1, dt * 3);
+    this.lift = want > this.lift ? want : this.lift + (want - this.lift) * Math.min(1, dt * 5);
     pos.y += this.lift;
   }
 
