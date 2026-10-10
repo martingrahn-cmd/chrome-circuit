@@ -33,6 +33,13 @@ const UP = new THREE.Vector3(0, 1, 0);
 // to look over what stands beside the road instead.
 const EDGE = 0.35;
 const CLEAR = 4;
+// A car's path closer to the lens than NEAR (NEAR_SUBJECT for the car being
+// filmed) lifts the camera, to ROOF above the car by the time the path is
+// within BODY, about the car's half-width with room to spare.
+const NEAR = 1.8;
+const NEAR_SUBJECT = 1.2;
+const BODY = 0.9;
+const ROOF = 2.0;
 
 const smooth = (u) => u * u * u * (u * (u * 6 - 15) + 10);
 const clamp01 = (u) => Math.max(0, Math.min(1, u));
@@ -49,6 +56,7 @@ export class Intro {
     this.shot = -1;
     this.card = null;
     this.heading = 0;
+    this.lift = 0;
     this.pos = new THREE.Vector3();
     this.at = new THREE.Vector3();
     this.anchor = new THREE.Vector3();
@@ -175,6 +183,7 @@ export class Intro {
     }
     if (shot < 7) { cam.near = 0.1; cam.far = 600; }
     this.keepOnRoad(pos, car);
+    this.dodge(pos, dt);
     cam.fov = fov;
     cam.aspect = this.engine.aspect;
     cam.position.copy(pos);
@@ -192,6 +201,27 @@ export class Intro {
     const pull = loc.lateral - Math.sign(loc.lateral) * room;
     pos.x -= loc.tangent.z * pull;
     pos.z += loc.tangent.x * pull;
+  }
+
+  /** A car about to drive through the lens: the camera lifts clear of it,
+   *  like a jib swinging up, and settles back once it has gone by. */
+  dodge(pos, dt) {
+    let want = 0;
+    for (const c of this.race.cars) {
+      if (pos.y - c.y > CLEAR) continue;
+      // The nearest the car comes to the lens in the next few frames. The car
+      // being filmed is framed close on purpose, so only its body counts.
+      const f = c.forward, dx = pos.x - c.x, dz = pos.z - c.z;
+      const s = Math.max(0, Math.min(Math.max(0, c.vLong * 0.18), dx * f.x + dz * f.z));
+      const d = Math.hypot(dx - f.x * s, dz - f.z * s);
+      const near = c === this.subject ? NEAR_SUBJECT : NEAR;
+      // All the way over the roof by the time it would touch the body.
+      const k = clamp01((near - d) / (near - BODY));
+      want = Math.max(want, k * (c.y + ROOF - pos.y));
+    }
+    // Up at once, down gently.
+    this.lift = want > this.lift ? want : this.lift + (want - this.lift) * Math.min(1, dt * 5);
+    pos.y += this.lift;
   }
 
   /* ------------------------------------------------------------ overlay */
