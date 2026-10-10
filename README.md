@@ -4,6 +4,9 @@ An isometric arcade racer in the spirit of *Rock'n Roll Racing* and *Super Off R
 built from Kenney's CC0 3D kits. Plain ES modules and a vendored Three.js — no build
 step, no dependencies to install.
 
+**Trailer:** [`media/trailer.mp4`](media/trailer.mp4), the game's own opening titles (eight
+seconds, with the title song), filmed by `tools/intro_video.mjs`.
+
 Play it at **<https://martingrahn-cmd.github.io/chrome-circuit/>**, or serve the
 checkout yourself:
 
@@ -229,7 +232,8 @@ play for a ghost challenge link, with reduced motion asked for, or under a test 
 (`?intro` asks for them anyway). The race is filmed through a perspective camera of its
 own (`src/intro.js`); the last shot narrows its lens as it rises until it frames exactly
 what the orthographic camera does, so the handover does not jump.
-`tools/intro_video.mjs` films them frame by frame, with the song, to an MP4.
+`tools/intro_video.mjs` films them frame by frame, with the song, to an MP4; the trailer,
+`media/trailer.mp4`, is one of those.
 
 ### Music
 
