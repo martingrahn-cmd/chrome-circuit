@@ -9,6 +9,7 @@ const defaults = () => ({
   music: 0.75,     // the soundtrack, share of full
   sfx: 1,          // sound effects, share of full
   engine: 1,       // the engine note and tyre squeal
+  intro: true,     // the opening titles at start
   units: 'kmh',    // or 'mph'
   ghost: true,     // show the time trial ghost
   vibration: true, // pad rumble and phone vibration
@@ -24,6 +25,7 @@ export function load() {
       music: VOLUMES.includes(raw.music) ? raw.music : d.music,
       sfx: VOLUMES.includes(raw.sfx) ? raw.sfx : d.sfx,
       engine: VOLUMES.includes(raw.engine) ? raw.engine : d.engine,
+      intro: typeof raw.intro === 'boolean' ? raw.intro : d.intro,
       units: raw.units === 'mph' ? 'mph' : 'kmh',
       ghost: typeof raw.ghost === 'boolean' ? raw.ghost : d.ghost,
       vibration: typeof raw.vibration === 'boolean' ? raw.vibration : d.vibration,

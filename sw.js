@@ -43,6 +43,7 @@ const SHELL_FILES = [
   './src/engine.js',
   './src/fx.js',
   './src/hud.js',
+  './src/intro.js',
   './src/input.js',
   './src/items.js',
   './src/main.js',

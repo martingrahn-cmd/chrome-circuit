@@ -10,6 +10,7 @@ import { Hud, formatTime } from './hud.js';
 import { Input } from './input.js';
 import * as audio from './audio.js';
 import * as music from './music.js';
+import { Intro, LENGTH as INTRO_LENGTH } from './intro.js';
 import * as progress from './progress.js';
 import * as settings from './settings.js';
 import * as champ from './champ.js';
@@ -48,6 +49,8 @@ const state = {
   settings: settings.load(),
   settingsFrom: 'menu',
   resultsSong: 'race-results',   // what the results screen plays, by how it went
+  intro: null,          // the opening titles, while they run
+  onStart: null,        // waiting on "press start"
 };
 
 const isTouch = matchMedia('(hover: none) and (pointer: coarse)').matches;
@@ -117,6 +120,7 @@ const screens = {
   settings: document.getElementById('screen-settings'),
   trophies: document.getElementById('screen-trophies'),
   challenge: document.getElementById('screen-challenge'),
+  intro: document.getElementById('screen-intro'),
   ending: document.getElementById('screen-ending'),
 };
 
@@ -1149,6 +1153,7 @@ const SETTING_ROWS = [
   { key: 'music', label: 'Music', options: settings.VOLUMES.map((v) => [v, v ? `${v * 100}%` : 'Off']) },
   { key: 'sfx', label: 'Sound effects', options: settings.VOLUMES.map((v) => [v, v ? `${v * 100}%` : 'Off']) },
   { key: 'engine', label: 'Engine', options: settings.VOLUMES.map((v) => [v, v ? `${v * 100}%` : 'Off']) },
+  { key: 'intro', label: 'Opening titles', options: [[true, 'On'], [false, 'Off']] },
   { key: 'units', label: 'Speed', options: [['kmh', 'km/h'], ['mph', 'mph']] },
   { key: 'ghost', label: 'Time trial ghost', options: [[true, 'On'], [false, 'Off']] },
   { key: 'vibration', label: 'Vibration', options: [[true, 'On'], [false, 'Off']] },
@@ -1307,6 +1312,61 @@ async function openChallenge() {
 }
 addEventListener('hashchange', () => { if (payloadFromHash() && state.screen !== 'race') openChallenge(); });
 
+/* ------------------------------------------------------ the opening titles */
+
+const INTRO_TRACK = 'neon';
+
+/** The titles play on every visit unless switched off — not for a challenge
+ *  link, which goes straight to its ghost, nor for reduced motion or a test
+ *  browser (?intro asks for them anyway). */
+function introWanted() {
+  if (new URLSearchParams(location.search).has('intro')) return true;
+  return state.settings.intro && !payloadFromHash() && !navigator.webdriver
+    && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+/** "Press start", then the titles. The press is also what lets the browser
+ *  play sound, so the song starts on it and the cuts can follow the song. */
+async function playIntro() {
+  const race = buildRace(trackById(INTRO_TRACK), { attract: true });
+  // Under way before the first shot: the pack strung out and at speed.
+  for (let i = 0; i < 7 * 60; i++) race.update(1 / 60, NEUTRAL);
+  music.prepare('karts');
+  const loading = screens.loading;
+  loading.classList.add('ready');
+  document.getElementById('loading-text').textContent = isTouch ? 'Tap to start' : 'Press start';
+  await new Promise((resolve) => { state.onStart = resolve; });
+  loading.classList.remove('ready');
+  state.intro = new Intro(engine, race, screens.intro);
+  show('intro');
+}
+
+function pressedAny() {
+  if (state.onStart) {
+    const go = state.onStart;
+    state.onStart = null;
+    audio.unlock();
+    go();
+  } else if (state.intro && state.intro.age > 0.4) {
+    endIntro();
+  }
+}
+for (const type of ['pointerdown', 'keydown']) {
+  addEventListener(type, (e) => {
+    if (e.repeat || (state.screen !== 'loading' && state.screen !== 'intro')) return;
+    // F still goes full screen on the way in.
+    if (type === 'keydown' && e.key.toLowerCase() === 'f') return;
+    pressedAny();
+  });
+}
+
+function endIntro() {
+  if (!state.intro) return;
+  state.intro.finish();
+  state.intro = null;
+  show('menu');
+}
+
 /* -------------------------------------------------------------- the loop */
 
 let last = performance.now();
@@ -1326,7 +1386,12 @@ function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
 
-  if (state.screen !== 'race') {
+  if (state.screen === 'loading' || state.screen === 'intro') {
+    // Any button: past "press start", or past the titles.
+    for (const action of input.menuActions(dt)) {
+      if (action === 'confirm' || action === 'start' || action === 'back') pressedAny();
+    }
+  } else if (state.screen !== 'race') {
     for (const action of input.menuActions(dt)) {
       if (action === 'confirm' || action === 'start') activateFocused();
       else if (action === 'back') backOut();
@@ -1342,14 +1407,20 @@ function frame(now) {
     const race = state.race;
     if (state.attract) {
       step(race, dt, NEUTRAL);
-      if (race.isOver) startAttract();
+      if (race.isOver && !state.intro) startAttract();
     } else if (state.screen === 'race') {
       step(race, dt, input.read());
       hud.update(race);
       if (race.isOver) finishRace();
     }
   }
-  engine.render();
+  if (state.intro) {
+    state.intro.tick(dt);
+    engine.render(state.intro.camera);
+    if (state.intro.done) endIntro();
+  } else {
+    engine.render();
+  }
 }
 
 /* ----------------------------------------------------------------- boot */
@@ -1372,13 +1443,17 @@ function frame(now) {
   showLevel(document.getElementById('difficulty'), state.difficulty);
   renderTracks();
   renderCars();
-  startAttract();
   padHint();
-  show('menu');
   watchVersion(document.getElementById('version-badge'), document.getElementById('update-chip'));
   watchInstall(document.getElementById('install-btn'));
-  openChallenge();
   requestAnimationFrame(frame);
+  if (introWanted()) {
+    await playIntro();
+  } else {
+    startAttract();
+    show('menu');
+  }
+  openChallenge();
 })();
 // Debug hook: advance the simulation at a fixed step without waiting on rAF.
 function sim(seconds, control = {}) {
@@ -1392,4 +1467,4 @@ function sim(seconds, control = {}) {
   return { phase: race.phase, lap: race.player.lap, pos: race.player.racePosition };
 }
 
-window.__cc = { state, engine, TRACKS, sim, input, navigate, music };
+window.__cc = { state, engine, TRACKS, sim, input, navigate, music, introLength: INTRO_LENGTH };

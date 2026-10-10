@@ -154,6 +154,7 @@ export class Race {
     this.autopilot = null;
     this.onRumble = null;
     this.onFinalLap = null;  // the soundtrack picks up the pace
+    this.filming = false;    // the opening titles: no marker over the player
   }
 
   /** Haptics for whatever just happened to the player's car. */
@@ -572,7 +573,7 @@ export class Race {
       const ground = this.track.line.heightAt(p.lineIndex) + 0.25;
       this.markerRing.position.y = (p.airborne ? ground : p.y + 0.25) - this.marker.position.y;
       this.marker.rotation.y = this.raceTime * 1.6;
-      this.marker.visible = true;
+      this.marker.visible = !this.filming;
     }
 
     // Camera and engine note.

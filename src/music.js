@@ -79,6 +79,7 @@ function begin(v, buffer) {
   if (!src.loop) src.onended = () => { if (current === v) play(THEN[v.id]); };
   src.start();
   v.src = src;
+  v.startedAt = c.currentTime;
   level(v, MIX * duck);
 }
 
@@ -107,6 +108,19 @@ export function play(id) {
 /** The song on now, and whether it is sounding yet (it may still be loading). */
 export function nowPlaying() {
   return current && { id: current.id, started: !!current.src, rate: current.rate };
+}
+
+/** Seconds into the song on now, by the audio clock; null while it is still
+ *  loading or the browser has not let sound out yet. */
+export function elapsed() {
+  const c = audio.context();
+  if (!current?.src || c.state !== 'running') return null;
+  return (c.currentTime - current.startedAt) * current.rate;
+}
+
+/** Fetch and decode a song ahead of time, so it starts on cue. */
+export function prepare(id) {
+  if (SONGS[id]) load(id).catch(() => {});
 }
 
 /** Quieter under the pause menu; back up when racing on. */
