@@ -24,7 +24,7 @@
     { id:'chrome-circuit-gold_medal', icon:'🌟', name:'Gold Standard', desc:'Earn a gold medal in time trial', tier:'silver' },
     { id:'chrome-circuit-medal_every', icon:'🗺️', name:'Full Set', desc:'Earn a medal on every circuit', tier:'silver' },
     { id:'chrome-circuit-full_garage', icon:'🚗', name:'Full Garage', desc:'Unlock every car', tier:'silver' },
-    { id:'chrome-circuit-open_road', icon:'🛣️', name:'Open Road', desc:'Unlock every circuit in the career', tier:'silver' },
+    { id:'chrome-circuit-open_road', icon:'🛣️', name:'Open Road', desc:'Open every world in the career', tier:'silver' },
     { id:'chrome-circuit-drift_king', icon:'👑', name:'Drift King', desc:'Earn 100 drift boosts', tier:'silver' },
     { id:'chrome-circuit-grand_champion', icon:'🏆', name:'Grand Champion', desc:'Win every world\'s championship on Pro or harder', tier:'gold' },
     { id:'chrome-circuit-clean_sweep', icon:'🧹', name:'Clean Sweep', desc:'Win every round of a championship on Pro or harder', tier:'gold' },

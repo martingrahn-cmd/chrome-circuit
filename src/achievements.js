@@ -36,7 +36,7 @@ export const TROPHIES = [
   { id: 'gold_medal', form: 'medal', name: 'Gold Standard', desc: 'Earn a gold medal in time trial', icon: '🌟', tier: 'silver', cond: (s, f) => f.goldTracks >= 1 },
   { id: 'medal_every', form: 'medal', name: 'Full Set', desc: 'Earn a medal on every circuit', icon: '🗺️', tier: 'silver', cond: (s, f) => f.medalTracks >= f.tracks },
   { id: 'full_garage', form: 'wheel', name: 'Full Garage', desc: 'Unlock every car', icon: '🚗', tier: 'silver', cond: (s, f) => f.allCars },
-  { id: 'open_road', form: 'flag', name: 'Open Road', desc: 'Unlock every circuit in the career', icon: '🛣️', tier: 'silver', cond: (s, f) => f.allTracks },
+  { id: 'open_road', form: 'flag', name: 'Open Road', desc: 'Open every world in the career', icon: '🛣️', tier: 'silver', cond: (s, f) => f.allTracks },
   { id: 'drift_king', form: 'flame', name: 'Drift King', desc: 'Earn 100 drift boosts', icon: '👑', tier: 'silver', cond: (s) => s.drift_boosts >= 100 },
   // ---- gold (5): for the hardcore ----
   { id: 'grand_champion', form: 'cup', name: 'Grand Champion', desc: "Win every world's championship on Pro or harder", icon: '🏆', tier: 'gold', cond: (s, f) => f.complete },

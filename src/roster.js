@@ -8,8 +8,8 @@ export const RACERS = [
   { id: 'meter',   name: 'Meter',    model: 'taxi',              engine: 16.4, topSpeed: 27.0, handling: 2.66, mass: 1.15, colour: '#facc15', blurb: 'Knows every shortcut.' },
   { id: 'boulder', name: 'Boulder',  model: 'suv',               engine: 15.2, topSpeed: 27.6, handling: 2.34, mass: 1.5,  colour: '#22c55e', blurb: 'Shrugs off contact.' },
   { id: 'hauler',  name: 'Hauler',   model: 'van',               engine: 14.6, topSpeed: 27.8, handling: 2.28, mass: 1.62, colour: '#c084fc', blurb: 'A wall with wheels.' },
-  { id: 'oobi',    name: 'Oobi',     model: 'kart-oobi',         engine: 19.8, topSpeed: 25.6, handling: 3.16, mass: 0.8,  colour: '#fb7185', blurb: 'Tiny. Furious.', unlock: 'sakura' },
-  { id: 'oozi',    name: 'Oozi',     model: 'kart-oozi',         engine: 18.6, topSpeed: 26.8, handling: 3.06, mass: 0.82, colour: '#2dd4bf', blurb: 'Kart physics, race pace.', unlock: 'neon' },
+  { id: 'oobi',    name: 'Oobi',     model: 'kart-oobi',         engine: 19.8, topSpeed: 25.6, handling: 3.16, mass: 0.8,  colour: '#fb7185', blurb: 'Tiny. Furious.', unlock: 'country' },
+  { id: 'oozi',    name: 'Oozi',     model: 'kart-oozi',         engine: 18.6, topSpeed: 26.8, handling: 3.06, mass: 0.82, colour: '#2dd4bf', blurb: 'Kart physics, race pace.', unlock: 'city' },
 ];
 
 export function racerById(id) {

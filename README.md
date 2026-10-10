@@ -136,8 +136,14 @@ halves, and a podium it won still opens what comes next (`progress.js`).
 
   Off the road is soft sand.
 
-A world opens with a podium on the last circuit of the one before it, and the
-unlock card says so.
+A world opens whole, all three circuits at once, when the cup before it ends on the
+podium (see Career below), and the results screen says so.
+
+Each circuit has an aerial preview, `assets/previews/{id}.jpg`. It is rendered from the
+game itself by `tools/track_previews.mjs`, from high above with the fog and the snow
+off, and framed to fit the whole loop. The cards on the circuit screen and the career's
+rounds show it. So does the big picture above the cards, which follows the card under
+the pointer or the pad, with the circuit's name, laps, best lap and medal.
 
 Height on a climbing circuit is felt as well as seen: a climb takes speed off and a
 descent gives it back, and the car pitches with the road. Off the tarmac in the Alps
@@ -145,18 +151,26 @@ is deep snow — slower than dirt, about as slippery. Ice keeps full speed but h
 third of the grip, so a car goes on the way it was going; the rivals see it coming
 and ease off for the bends on it.
 
-### Championship
+### Career
 
-Every circuit of one world in turn, against the same five rivals, with points for every
-place: 10, 7, 5, 3, 2, 1. Pick a difficulty and a car, and the table after each
-round shows every driver's finish so far. Ties go to more wins, then more
-seconds, then to whoever was ahead in the latest round. A championship in
-progress is saved with the rest of your progress, so the menu offers to continue
-it after a reload; quitting mid-round leaves that round to race again, and
-abandoning one takes a second press. Your best final place is kept per
-world and difficulty. A new championship offers the furthest world you have
-reached. Championship rounds still set best laps and unlock circuits and cars
-the same way single races do.
+The career is the cups, one world after another. A cup is the world's three circuits in
+turn, against the same five rivals, with points for every place: 10, 7, 5, 3, 2, 1. Pick
+the world, a difficulty and a car, and the table after each round shows every driver's
+finish so far. Ties go to more wins, then more seconds, then to whoever was ahead in
+the latest round.
+
+Finish a cup in the top three, at any level, and the next world opens, all its circuits
+at once. A car comes with each of the first two cups: Oozi with City Lights, Oobi with
+Country Roads. The last round's results show what opened, and the champion's screen
+goes on to the next world's cup. Your best final place is kept per world and level:
+those are the sixteen cups under Trophies → Records. A cup in progress is saved with the
+rest of your progress, so the menu offers to continue it after a reload. Quitting
+mid-round leaves that round to race again, and abandoning a cup takes a second press.
+The career offers the furthest world you have reached.
+
+What a save has earned is worked out again on load from what it has won (`progress.js`).
+A save from when circuits opened one at a time, with a podium each, keeps every world it
+had reached, opened whole.
 
 ### Time trial and medals
 
@@ -226,20 +240,18 @@ completes it puts **You won it all** on the champion's screen, and that rolls th
 over the race running behind. After that the menu reads Grand Champion, and the credits
 can be watched again from Trophies (`endingSeen` in the progress).
 
-### Career and single race
+### Single race and the difficulty
 
-**Career** is the way through the game: podium on a circuit to unlock the next one,
-and two cars unlock the same way. **Single race** opens every circuit in every world
-from the start. A single race on a circuit the career has reached counts in full. On
-one it has not reached yet, it keeps your best lap but opens nothing — not the next
-circuit, not a car — and the car screen says so before you start. Cars in a single
-race are the ones you have unlocked.
+**Single race** and **Time trial** open every circuit in every world from the start.
+A single race on a circuit the career has reached keeps its place and best lap. On one
+it has not reached yet, it keeps only the best lap. Cars in a single race are the ones
+you have unlocked.
 
 You start last on a six-car grid every race. Progress lives in `localStorage`, and so does the
 difficulty, which starts at Rookie.
 
 The difficulty is picked from four coloured buttons at the top of the circuit screen
-(and the championship setup), each with a one-line promise. The level stays in sight
+(and the career's cup setup), each with a one-line promise. The level stays in sight
 afterwards: it sits beside your position in the HUD for the whole race and under the
 title on the results screen.
 

@@ -126,17 +126,17 @@
       <h1 class="title">Chrome<span>Circuit</span></h1>
       <p class="tagline">Six cars. Three laps. Rockets optional.</p>
       <div class="menu-buttons">
+        <!-- The career is the cups, one world after another. -->
+        <button class="btn btn--primary" data-action="champ" id="menu-champ">Career</button>
         <div class="menu-row">
-          <button class="btn btn--primary" data-action="race">Career</button>
           <button class="btn" data-action="single">Single race</button>
-        </div>
-        <button class="btn" data-action="champ" id="menu-champ">Championship</button>
-        <div class="menu-row">
           <button class="btn" data-action="trial">Time trial</button>
-          <button class="btn" data-action="garage">Garage</button>
         </div>
-        <div class="menu-row menu-row--3">
+        <div class="menu-row">
+          <button class="btn" data-action="garage">Garage</button>
           <button class="btn" data-action="trophies">Trophies</button>
+        </div>
+        <div class="menu-row">
           <button class="btn" data-action="howto">How to play</button>
           <button class="btn" data-action="settings">Settings</button>
         </div>
@@ -155,6 +155,8 @@
         <button class="btn btn--ghost" data-action="back-menu">Back</button>
       </header>
       <div class="levels" id="difficulty" data-group="race" role="group" aria-label="Difficulty"></div>
+      <!-- The circuit under the cursor or the pad, from the air. -->
+      <div class="track-hero" id="track-hero" aria-hidden="true"></div>
       <div class="card-grid" id="track-list"></div>
       <footer class="panel-foot">
         <button class="btn btn--primary" data-action="to-cars">Next: pick a car</button>
@@ -180,7 +182,7 @@
     <div class="panel">
       <header class="panel-head">
         <div>
-          <h2 id="champ-title">Championship</h2>
+          <h2 id="champ-title">Career</h2>
           <p class="champ-sub" id="champ-sub"></p>
         </div>
         <button class="btn btn--ghost" data-action="back-menu">Back</button>
@@ -233,6 +235,10 @@
         <p>A gamepad works too: left stick or d-pad to steer, <strong>RT</strong> or <strong>A</strong> for the loud pedal,
         <strong>LT</strong> to brake, <strong>X</strong> or <strong>Y</strong> to fire, <strong>RB</strong> for the handbrake
         and <strong>Start</strong> to pause. The menus take the d-pad, <strong>A</strong> to choose and <strong>B</strong> to go back.</p>
+        <h3>Career</h3>
+        <p>The career is a cup in each world: its three circuits in turn against the same five rivals, points
+        for every place. Finish the cup in the top three and the next world opens, and so do new cars. Win every
+        world's cup on Pro or harder and you have beaten the game. Single race and time trial open every circuit.</p>
         <h3>Drift boost</h3>
         <p>Hold the handbrake into a corner with the wheel turned and the car commits to the slide: steering now only
         tightens or widens the arc. Sparks at the back wheels turn <b style="color:#5cb8ff">blue</b>, then
