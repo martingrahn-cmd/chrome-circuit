@@ -102,5 +102,5 @@ export class Engine {
 
   decayShake(dt) { this.camShake = Math.max(0, this.camShake - dt * 4); }
 
-  render() { this.renderer.render(this.scene, this.camera); }
+  render(camera = this.camera) { this.renderer.render(this.scene, camera); }
 }

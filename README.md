@@ -45,6 +45,7 @@ Reached from the main menu or the pause screen:
 
 - **Music**, **Sound effects** and **Engine** volume, each in five steps from off to
   full, under the ♪ toggle that mutes everything.
+- **Opening titles** on or off.
 - **Speed** in km/h or mph.
 - **Time trial ghost** on or off. With it off, the ghost is still recorded and the
   delta still shown; you just do not see the car.
@@ -212,6 +213,23 @@ stored as differences that mostly fit a byte, and deflated. Lap distance is left
 worked out again from the track. A 25-second lap comes to about 700 characters of link,
 short enough for any chat. A link that does not decode, or names a circuit or car the game
 does not have, is refused with a toast.
+
+### Opening titles
+
+Once loaded, the game waits on **Press start** (on a phone, *Tap to start*), the way the old
+consoles did. That press is also what lets the browser play sound, so the title song starts
+on it, and eight seconds of titles follow, cut to its beat (about 175 bpm): a camera at the
+roadside as the pack goes by, alongside the leader, ahead of it, four one-beat close-ups,
+then *Chrome Circuit* slams in and the camera cranes up the isometric axis into the game's
+own view, and the menu comes up over the same race. Letterbox, scanlines, colour fringing
+on the type and a white flash on every cut do the 1990s; the pictures are the game's own.
+
+Any button skips them, and **Opening titles** in the settings turns them off. They do not
+play for a ghost challenge link, with reduced motion asked for, or under a test browser
+(`?intro` asks for them anyway). The race is filmed through a perspective camera of its
+own (`src/intro.js`); the last shot narrows its lens as it rises until it frames exactly
+what the orthographic camera does, so the handover does not jump.
+`tools/intro_video.mjs` films them frame by frame, with the song, to an MP4.
 
 ### Music
 
@@ -395,6 +413,7 @@ src/
   fx.js               pooled particles and skid marks
   audio.js            synthesised engine note and sound effects, the volume buses
   music.js            the soundtrack: which song plays where, cross-fades, loops
+  intro.js            the opening titles, filmed from the race behind the menu
   hud.js              readouts and minimap
   input.js            keyboard, gamepad and touch
   thumbs.js           car and circuit previews for the menus
@@ -411,6 +430,7 @@ assets/               the Kenney models actually used, by kit; canyon/ is our ow
 tools/blender/        Blender scripts that build the models in assets/canyon and assets/alpine
 tools/share_image.mjs renders icons/share.jpg, the picture a shared link shows
 tools/encode_music.py the soundtrack's WAV masters to assets/music, at one loudness
+tools/intro_video.mjs films the opening titles, with the song, to an MP4
 tools/gamevolt/       the trophies as GameVolt's database and profile page want them
 ```
 
