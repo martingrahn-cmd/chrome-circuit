@@ -29,6 +29,10 @@ const TITLE = 16;            // the beat the title lands on
 const RISE = [16, 22];       // the crane up into the game's view
 const OPEN = 21;             // the letterbox opens
 const UP = new THREE.Vector3(0, 1, 0);
+// How far inside the road's edge a low camera keeps, and how high it must be
+// to look over what stands beside the road instead.
+const EDGE = 0.35;
+const CLEAR = 4;
 
 const smooth = (u) => u * u * u * (u * (u * 6 - 15) + 10);
 const clamp01 = (u) => Math.max(0, Math.min(1, u));
@@ -101,13 +105,13 @@ export class Intro {
     const crowd = race.cars.reduce((n, c) => n + Math.sign(c.lateral || 0), 0);
     this.side = crowd > 0 ? -1 : 1;
     if (shot === 0) {
-      // Stand just off the road a second or so ahead, and let the pack go by.
+      // Stand at the edge of the road a second or so ahead, and let the pack go by.
       const line = race.track.line, here = line.locate(lead.x, lead.z).index;
       const ahead = Math.max(14, Math.min(40, Math.abs(lead.vLong) * 1.15));
       const i = here + Math.round(ahead / line.spacing);
       const p = line.point(i), tg = line.tangent(i);
-      const off = this.side * (race.track.roadHalf + 0.5);
-      this.anchor.set(p.x + tg.z * off, line.heightOf(i) + 0.7, p.z - tg.x * off);
+      const off = this.side * (race.track.roadHalf - EDGE);
+      this.anchor.set(p.x + tg.z * off, line.heightOf(i) + 0.8, p.z - tg.x * off);
     }
     if (shot > 0) this.flash(shot === 7 ? 'big' : '');
     if (shot === 7) audio.thump({ dur: 0.9, gain: 0.55, cutoff: 1300 });
@@ -170,11 +174,24 @@ export class Intro {
       cam.far = dist + 600;
     }
     if (shot < 7) { cam.near = 0.1; cam.far = 600; }
+    this.keepOnRoad(pos, car);
     cam.fov = fov;
     cam.aspect = this.engine.aspect;
     cam.position.copy(pos);
     cam.lookAt(at);
     cam.updateProjectionMatrix();
+  }
+
+  /** Low down, the camera stays between the barriers: past them it would be
+   *  inside the armco, the fences and the kerbside clutter. */
+  keepOnRoad(pos, car) {
+    const track = this.race.track, line = track.line;
+    const loc = line.locate(pos.x, pos.z, car.lineIndex, 40);
+    const room = track.roadHalf - EDGE;
+    if (Math.abs(loc.lateral) <= room || pos.y - line.heightOf(loc.index) > CLEAR) return;
+    const pull = loc.lateral - Math.sign(loc.lateral) * room;
+    pos.x -= loc.tangent.z * pull;
+    pos.z += loc.tangent.x * pull;
   }
 
   /* ------------------------------------------------------------ overlay */
