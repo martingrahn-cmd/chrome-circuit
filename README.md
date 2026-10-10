@@ -551,6 +551,7 @@ Racing Kit. The log cabins in the Alps are assembled from the Holiday Kit's wall
 roof pieces. The Nature and Racing kits colour their models by named materials
 rather than a texture atlas. Those colours are baked into the vertices on load, so
 each kit still merges into one mesh. The Nature Kit is recoloured for the desert as
-it loads: grass tops to sand, leaves to sage, rock to sun-baked red. The stone
+it loads: grass tops to sand, leaves to sage, rock to sun-baked red. The Suburban Kit's green roofs are
+painted red in its atlas by `tools/recolour_roofs.py`, and the trees keep their green. The stone
 bridge, the river props and the landmarks in `assets/canyon`, and the chairlift in
 `assets/alpine`, are our own, built in Blender from `tools/blender`. Three.js is MIT.
