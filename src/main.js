@@ -97,6 +97,8 @@ async function preload() {
 
 let carArt = new Map();
 const trackArt = new Map();
+/** The circuit from the air, rendered by tools/track_previews.mjs. */
+const trackPreview = (def) => `assets/previews/${def.id}.jpg`;
 
 /* -------------------------------------------------------------- screens */
 
@@ -223,7 +225,7 @@ function renderWorlds(el, current, anyWorld = false) {
     b.setAttribute('aria-pressed', String(w.id === current));
     const prev = i > 0 ? worldTracks(WORLDS[i - 1].id).at(-1) : null;
     b.innerHTML = `<span class="world-name">${w.name}</span>`
-      + `<span class="world-sub">${open ? `${worldTracks(w.id).length} circuits` : `Podium ${prev?.name ?? ''} to open`}</span>`;
+      + `<span class="world-sub">${open ? `${worldTracks(w.id).length} circuits` : `Podium the ${WORLDS[i - 1]?.name ?? ''} cup`}</span>`;
     return b;
   }));
 }
@@ -235,14 +237,38 @@ function medalTag(i, title = '') {
     : '<i class="medal medal--none"></i>';
 }
 
+/** The big picture above the circuit cards: the circuit from the air, its
+ *  name, and what you have done there. */
+function showHero(def) {
+  const hero = document.getElementById('track-hero');
+  if (hero.dataset.id === def.id) return;
+  hero.dataset.id = def.id;
+  const best = state.progress.best[def.id], trial = state.progress.trials[def.id]?.time;
+  const medal = medalFor(def, trial);
+  hero.innerHTML = `
+    <img src="${trackPreview(def)}" alt="">
+    <div class="hero-text">
+      <span class="hero-world">${WORLDS.find((w) => w.id === def.world)?.name ?? ''}</span>
+      <h3>${def.name}</h3>
+      <p>${def.blurb}</p>
+      <div class="hero-meta">
+        <span>${def.laps} laps</span><span>${'★'.repeat(def.difficulty)}${'·'.repeat(5 - def.difficulty)}</span>
+        ${best ? `<span>best ${formatTime(best)}</span>` : ''}
+        ${medal >= 0 ? `<span>${medalTag(medal)} ${formatTime(trial)}</span>` : `<span>gold ${medalTimes(def)[0].toFixed(1)}</span>`}
+      </div>
+    </div>`;
+}
+
 function renderTracks() {
   const list = document.getElementById('track-list');
   list.replaceChildren();
-  document.getElementById('tracks-title').textContent = state.trial ? 'Time trial' : state.single ? 'Single race' : 'Career';
+  document.getElementById('tracks-title').textContent = state.trial ? 'Time trial' : 'Single race';
   // A time trial has no rivals to set a level for.
   document.getElementById('difficulty').classList.toggle('hidden', state.trial);
   renderWorlds(document.getElementById('track-worlds'), state.world, state.single);
-  for (const def of worldTracks(state.world)) {
+  const shown = worldTracks(state.world);
+  showHero(shown.find((d) => d.id === state.trackId) || shown[0]);
+  for (const def of shown) {
     const unlocked = trackOpen(def.id);
     const card = document.createElement('button');
     card.className = 'card';
@@ -254,8 +280,8 @@ function renderTracks() {
     const trialBest = state.progress.trials[def.id]?.time;
     const medal = medalFor(def, trialBest);
     card.innerHTML = `
-      <div class="card-art" style="background:${swatch(def)}">
-        <img src="${trackArt.get(def.id) || ''}" alt="" ${unlocked ? '' : 'style="opacity:.25"'}>
+      <div class="card-art card-art--photo" style="background:${swatch(def)}">
+        <img src="${trackPreview(def)}" alt="" loading="lazy" ${unlocked ? '' : 'style="opacity:.25"'}>
       </div>
       <p class="card-name">${unlocked ? def.name : 'Locked'}</p>
       <p class="card-blurb">${unlocked ? def.blurb : 'Finish the previous circuit in the top three.'}</p>
@@ -267,6 +293,8 @@ function renderTracks() {
         ${best ? `<span>best ${formatTime(best)}</span>` : ''}
         ${place ? `<span>P${place}</span>` : ''}`}
       </div>`;
+    card.addEventListener('focus', () => showHero(def));
+    card.addEventListener('mouseenter', () => showHero(def));
     // Picking a circuit is the choice; do not make people walk to a button.
     card.addEventListener('click', () => {
       state.trackId = def.id;
@@ -336,7 +364,7 @@ function renderCars() {
         <img src="${carArt.get(car.id) || ''}" alt="" ${unlocked ? '' : 'style="filter:grayscale(1);opacity:.3"'}>
       </div>
       <p class="card-name">${unlocked ? car.name : 'Locked'}</p>
-      <p class="card-blurb">${unlocked ? car.blurb : `Podium on ${trackById(car.unlock).name}.`}</p>
+      <p class="card-blurb">${unlocked ? car.blurb : `Podium the ${WORLDS.find((w) => w.id === car.unlock)?.name ?? ''} cup.`}</p>
       <div class="bars">
         ${bar('Speed', car.topSpeed / STAT_MAX.topSpeed)}
         ${bar('Accel', car.engine / STAT_MAX.engine)}
@@ -487,12 +515,7 @@ function recordFinishedRace() {
   const mine = all.find((r) => r.isPlayer);
   scoreChampRace(race, all);
   progress.record(state.progress, {
-    trackId: state.trackId,
-    place: mine.place,
-    bestLap: mine.best,
-    tracks: TRACKS,
-    cars: RACERS,
-    single: state.single && !state.inChamp,
+    trackId: state.trackId, place: mine.place, bestLap: mine.best, single: !state.inChamp,
   });
   bookTrophies(race, all);
 }
@@ -549,14 +572,11 @@ function finishRace() {
   const results = race.results();
   const mine = results.find((r) => r.isPlayer);
   const gained = scoreChampRace(race, results);
-  const unlocked = progress.record(state.progress, {
-    trackId: state.trackId,
-    place: mine.place,
-    bestLap: mine.best,
-    tracks: TRACKS,
-    cars: RACERS,
-    single: state.single && !state.inChamp,
+  progress.record(state.progress, {
+    trackId: state.trackId, place: mine.place, bestLap: mine.best, single: !state.inChamp,
   });
+  // What the cup's last round opened: the next world, a car.
+  const unlocked = race.cupUnlocks ?? [];
   bookTrophies(race, results);
 
   document.getElementById('results-sub').innerHTML =
@@ -589,14 +609,14 @@ function finishRace() {
   for (const u of unlocked) {
     const el = document.createElement('div');
     el.className = 'unlock';
-    const isTrack = u.kind === 'track';
-    const newWorld = isTrack && trackById(u.id).world !== trackById(state.trackId).world;
-    const art = isTrack ? trackArt.get(u.id) : carArt.get(u.id);
-    const bg = isTrack ? `background:${swatch(trackById(u.id))}`
+    const isWorld = u.kind === 'world';
+    const first = isWorld ? worldTracks(u.id)[0] : null;
+    const art = isWorld ? trackPreview(first) : carArt.get(u.id);
+    const bg = isWorld ? `background:${swatch(first)}`
       : `background:radial-gradient(70% 90% at 50% 118%, ${racerById(u.id).colour}88, transparent 70%), rgba(255,255,255,0.06)`;
     el.innerHTML = `
-      <div class="unlock-art" style="${bg}"><img src="${art || ''}" alt=""></div>
-      <div><span class="unlock-kind">${newWorld ? `New world — ${WORLDS.find((w) => w.id === trackById(u.id).world).name}` : isTrack ? 'New circuit' : 'New car'}</span><span class="unlock-name">${u.name}</span></div>`;
+      <div class="unlock-art${isWorld ? ' unlock-art--world' : ''}" style="${bg}"><img src="${art || ''}" alt=""></div>
+      <div><span class="unlock-kind">${isWorld ? 'New world' : 'New car'}</span><span class="unlock-name">${u.name}</span></div>`;
     box.appendChild(el);
   }
 
@@ -619,8 +639,8 @@ function updateMenu() {
     ? '★ Grand Champion ★' : 'Isometric arcade racing';
   const c = state.progress.champ;
   document.getElementById('menu-champ').textContent = c && !champ.isOver(c)
-    ? `Continue championship · round ${c.round + 1}/${c.rounds.length}`
-    : 'Championship';
+    ? `Continue · ${WORLDS.find((w) => w.id === trackById(c.rounds[0]).world)?.name} ${c.round + 1}/${c.rounds.length}`
+    : 'Career';
 }
 
 /** Round one: pick five rivals from the cars on offer and go. */
@@ -662,7 +682,7 @@ function scoreChampRace(race, results) {
     const key = `${trackById(c.rounds[0]).world}:${c.difficulty}`;
     const prev = state.progress.champBest[key];
     if (!prev || place < prev) state.progress.champBest[key] = place;
-    progress.save(state.progress);
+    race.cupUnlocks = progress.recordCup(state.progress);
     trophies.event('champ', {
       place, difficulty: c.difficulty, sweep: c.places[c.racerId].every((p) => p === 1),
     }, trophyFacts(state.progress));
@@ -684,12 +704,14 @@ function renderChamp() {
   const myPlace = rows.findIndex((r) => r.isPlayer) + 1;
 
   if (!c) {
-    title.textContent = 'Championship';
+    title.textContent = 'Career';
     const best = Object.entries(state.progress.champBest)
       .filter(([k]) => k.startsWith(`${world.id}:`))
       .map(([k, place]) => [Number(k.split(':')[1]), place])
       .sort((a, b) => a[1] - b[1] || b[0] - a[0])[0];
-    sub.innerHTML = `Every circuit of ${world.name} in turn, the same five rivals, points for every place: <span class="nowrap">${champ.POINTS.join(' · ')}</span>.`
+    const nextWorld = WORLDS[WORLDS.findIndex((w) => w.id === world.id) + 1];
+    sub.innerHTML = `The ${world.name} cup: its three circuits in turn against the same five rivals, points for every place, <span class="nowrap">${champ.POINTS.join(' · ')}</span>.`
+      + (nextWorld && !worldOpen(nextWorld.id) ? ` Finish in the top three to open ${nextWorld.name}.` : '')
       + (best ? ` Your best: ${ordinal(best[1])} on ${DIFFICULTY[best[0]]}.` : '');
     next.textContent = 'Pick your car';
   } else if (active) {
@@ -699,10 +721,11 @@ function renderChamp() {
       : `Round 1 of ${c.rounds.length}: ${rounds[0].name}.`;
     next.textContent = `Race round ${c.round + 1}: ${rounds[c.round].name}`;
   } else {
-    title.textContent = myPlace === 1 ? 'Champion!' : `Championship — ${ordinal(myPlace)}`;
+    title.textContent = myPlace === 1 ? 'Champion!' : `${world.name} cup — ${ordinal(myPlace)}`;
     sub.textContent = `${DIFFICULTY[c.difficulty]} · ${rows[myPlace - 1].points} points`
-      + (myPlace === 1 ? ' · the title is yours.' : myPlace <= 3 ? ' · on the podium.' : '.');
-    next.textContent = 'New championship';
+      + (myPlace === 1 ? ' · the title is yours.' : myPlace <= 3 ? ' · on the podium.' : ' · the top three go through.');
+    const after = WORLDS[WORLDS.findIndex((w) => w.id === world.id) + 1];
+    next.textContent = myPlace <= 3 && after && worldOpen(after.id) ? `On to ${after.name}` : 'Race the cup again';
   }
   screens.champ.classList.toggle('is-champion', !!c && !active && myPlace === 1);
   // The title that wins it all rolls the credits, the first time.
@@ -725,7 +748,7 @@ function renderChamp() {
     const place = done ? c.places[c.racerId][i] : null;
     li.className = `round${done ? ' is-done' : ''}${active && i === c.round ? ' is-next' : ''}`;
     li.innerHTML = `
-      <div class="round-art" style="background:${swatch(def)}"><img src="${trackArt.get(def.id) || ''}" alt=""></div>
+      <div class="round-art" style="background:${swatch(def)}"><img src="${trackPreview(def)}" alt=""></div>
       <span class="round-no">Round ${i + 1}</span>
       <span class="round-name">${def.name}</span>
       ${place ? `<span class="round-place p${place}">${ordinal(place)}</span>` : ''}`;
@@ -874,13 +897,12 @@ document.addEventListener('click', (e) => {
   const action = btn.dataset.action;
   audio.unlock();
   switch (action) {
-    case 'race':
     case 'single':
     case 'trial':
       audio.sfx.select();
       state.inChamp = false;
-      // A time trial, like a single race, opens every circuit.
-      state.single = action !== 'race';
+      // Single races and time trials open every circuit; the career is the cups.
+      state.single = true;
       state.trial = action === 'trial';
       // Career picks up where you were; a single race from anything you
       // left selected, if the career has not reached it.
@@ -916,7 +938,10 @@ document.addEventListener('click', (e) => {
       audio.sfx.select();
       const c = state.progress.champ;
       if (c && !champ.isOver(c)) { startChampRound(); break; }
-      if (c) {                                   // finished: clear it for a fresh one
+      if (c) {                                   // finished: clear it, and move on if it opened the next world
+        const here = WORLDS.findIndex((w) => w.id === trackById(c.rounds[0]).world);
+        const myPlace = champ.standings(c).findIndex((row) => row.isPlayer) + 1;
+        if (myPlace <= 3 && WORLDS[here + 1] && worldOpen(WORLDS[here + 1].id)) state.champWorld = WORLDS[here + 1].id;
         state.progress.champ = null;
         progress.save(state.progress);
         renderChamp();

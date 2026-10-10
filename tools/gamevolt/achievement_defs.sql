@@ -28,7 +28,7 @@ INSERT INTO achievement_defs (id, game_id, title, description, icon, tier, sort_
   ('chrome-circuit-gold_medal', 'chrome-circuit', 'Gold Standard', 'Earn a gold medal in time trial', '🌟', 'silver', 21),
   ('chrome-circuit-medal_every', 'chrome-circuit', 'Full Set', 'Earn a medal on every circuit', '🗺️', 'silver', 22),
   ('chrome-circuit-full_garage', 'chrome-circuit', 'Full Garage', 'Unlock every car', '🚗', 'silver', 23),
-  ('chrome-circuit-open_road', 'chrome-circuit', 'Open Road', 'Unlock every circuit in the career', '🛣️', 'silver', 24),
+  ('chrome-circuit-open_road', 'chrome-circuit', 'Open Road', 'Open every world in the career', '🛣️', 'silver', 24),
   ('chrome-circuit-drift_king', 'chrome-circuit', 'Drift King', 'Earn 100 drift boosts', '👑', 'silver', 25),
   ('chrome-circuit-grand_champion', 'chrome-circuit', 'Grand Champion', 'Win every world''s championship on Pro or harder', '🏆', 'gold', 26),
   ('chrome-circuit-clean_sweep', 'chrome-circuit', 'Clean Sweep', 'Win every round of a championship on Pro or harder', '🧹', 'gold', 27),

@@ -1,13 +1,17 @@
 // Persisted progression: unlocked circuits, unlocked cars, best lap times,
 // and a championship in progress.
 import { RACERS } from './roster.js';
-import { TRACKS } from './tracks.js';
+import { TRACKS, WORLDS } from './tracks.js';
 import { validate as validateChamp } from './champ.js';
 
 const KEY = 'chrome-circuit-progress-v1';
 
+// The career is a run of cups, one per world. A world opens whole: all its
+// circuits at once, when the cup before it ends on the podium.
+const worldTrackIds = (id) => TRACKS.filter((t) => t.world === id).map((t) => t.id);
+
 const blank = () => ({
-  unlockedTracks: ['downtown'], unlockedCars: [], best: {}, places: {}, difficulty: 0,
+  unlockedTracks: worldTrackIds(WORLDS[0].id), unlockedCars: [], best: {}, places: {}, difficulty: 0,
   champ: null,      // the championship in progress (or just finished)
   champBest: {},    // best final championship place, by `world:difficulty`
   trials: {},       // time trial best lap per circuit, with its ghost
@@ -37,16 +41,27 @@ export function load() {
       trials: validTrials(p.trials),
       endingSeen: p.endingSeen === true,
     };
-    // A podium opens the next circuit. Re-derive that from the places on
-    // record, so a circuit added after the podium was won is open too — a
-    // Pinecrest podium from before Alpine Winter existed opens Frostvale.
-    TRACKS.forEach((t, i) => {
-      const next = TRACKS[i + 1];
-      if (next && out.places[t.id] <= 3 && !out.unlockedTracks.includes(next.id)) out.unlockedTracks.push(next.id);
-    });
+    derive(out);
     return out;
   } catch {
     return blank();
+  }
+}
+
+/** What a save has earned, worked out again from what it has won, so a
+ *  world or car added after the cup was won is open too. A world opens when
+ *  the cup before it ended on the podium, at any level; one with any circuit
+ *  open (a save from when circuits opened one by one) opens whole. A car
+ *  comes with a podium in its world's cup. */
+function derive(p) {
+  const podium = (worldId) => Object.entries(p.champBest).some(([k, v]) => k.startsWith(`${worldId}:`) && v <= 3);
+  WORLDS.forEach((w, i) => {
+    const ids = worldTrackIds(w.id);
+    const open = i === 0 || podium(WORLDS[i - 1].id) || ids.some((id) => p.unlockedTracks.includes(id));
+    if (open) for (const id of ids) if (!p.unlockedTracks.includes(id)) p.unlockedTracks.push(id);
+  });
+  for (const car of RACERS) {
+    if (car.unlock && podium(car.unlock) && !p.unlockedCars.includes(car.id)) p.unlockedCars.push(car.id);
   }
 }
 
@@ -98,35 +113,32 @@ export function recordTrial(state, trackId, ghost) {
   return true;
 }
 
-/** Record a finished race and return what it unlocked. A single race on a
- *  circuit the career has not reached yet keeps its best lap, but its place
- *  opens nothing — not the next circuit, not a car. */
-export function record(state, { trackId, place, bestLap, tracks, cars, single = false }) {
-  const unlocked = [];
-  if (single && !state.unlockedTracks.includes(trackId)) {
-    if (bestLap != null && (state.best[trackId] == null || bestLap < state.best[trackId])) state.best[trackId] = bestLap;
-    save(state);
-    return unlocked;
+/** Record a finished race: its place and best lap. Unlocking is the cups'
+ *  job (recordCup). A single race on a circuit the career has not reached
+ *  keeps its best lap but not its place. */
+export function record(state, { trackId, place, bestLap, single = false }) {
+  const open = state.unlockedTracks.includes(trackId);
+  if (open || !single) {
+    const prev = state.places[trackId];
+    if (prev == null || place < prev) state.places[trackId] = place;
   }
-  const prevPlace = state.places[trackId];
-  if (prevPlace == null || place < prevPlace) state.places[trackId] = place;
-  if (bestLap != null && (state.best[trackId] == null || bestLap < state.best[trackId])) {
-    state.best[trackId] = bestLap;
-  }
-  if (place <= 3) {
-    const i = tracks.findIndex((t) => t.id === trackId);
-    const next = tracks[i + 1];
-    if (next && !state.unlockedTracks.includes(next.id)) {
-      state.unlockedTracks.push(next.id);
-      unlocked.push({ kind: 'track', id: next.id, name: next.name });
-    }
-  }
-  for (const car of cars) {
-    if (car.unlock === trackId && place <= 3 && !state.unlockedCars.includes(car.id)) {
-      state.unlockedCars.push(car.id);
-      unlocked.push({ kind: 'car', id: car.id, name: car.name });
-    }
-  }
+  if (bestLap != null && (state.best[trackId] == null || bestLap < state.best[trackId])) state.best[trackId] = bestLap;
   save(state);
-  return unlocked;
+}
+
+/** A cup is over: on the podium it opens the next world, whole, and its car.
+ *  Returns what it opened, for the results screen. */
+export function recordCup(state) {
+  const before = { tracks: [...state.unlockedTracks], cars: [...state.unlockedCars] };
+  derive(state);
+  save(state);
+  const opened = [];
+  for (const w of WORLDS) {
+    const first = worldTrackIds(w.id)[0];
+    if (!before.tracks.includes(first) && state.unlockedTracks.includes(first)) opened.push({ kind: 'world', id: w.id, name: w.name });
+  }
+  for (const id of state.unlockedCars) {
+    if (!before.cars.includes(id)) opened.push({ kind: 'car', id, name: RACERS.find((r) => r.id === id)?.name ?? id });
+  }
+  return opened;
 }
