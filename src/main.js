@@ -15,6 +15,7 @@ import * as champ from './champ.js';
 import { carThumbnails, trackThumbnail } from './thumbs.js';
 import { summary as trophySummary, facts as trophyFacts, LEVEL_NAMES, ENDING_LEVEL } from './trophies.js';
 import * as trophies from './achievements.js';
+import { encodeGhost, decodeGhost, ghostLink, payloadFromHash } from './ghostlink.js';
 import { watchVersion } from './version.js';
 import { registerServiceWorker, cacheAssets, watchInstall, promptInstall } from './pwa.js';
 
@@ -113,6 +114,7 @@ const screens = {
   paused: document.getElementById('screen-paused'),
   settings: document.getElementById('screen-settings'),
   trophies: document.getElementById('screen-trophies'),
+  challenge: document.getElementById('screen-challenge'),
   ending: document.getElementById('screen-ending'),
 };
 
@@ -417,6 +419,8 @@ function disposeWorld() {
 const NEUTRAL = { throttle: 0, steer: 0, item: false, handbrake: false };
 
 /** Build a race on the given track. `attract` races run themselves. */
+const challengeOn = (def) => !!state.challenge && state.challenge.trackId === def.id;
+
 function buildRace(def, { attract = false } = {}) {
   if (state.race) state.race.dispose();
   disposeWorld();
@@ -436,7 +440,9 @@ function buildRace(def, { attract = false } = {}) {
     engine,
     track,
     trial,
-    ghost: trial ? state.progress.trials[def.id] : null,
+    // A friend's ghost from a link, on its circuit; otherwise your own best.
+    ghost: trial ? (challengeOn(def) ? state.challenge.ghost : state.progress.trials[def.id]) : null,
+    challenge: trial && challengeOn(def),
     playerSpec: attract ? RACERS[Math.floor(Math.random() * 4)] : racerById(c ? c.racerId : state.racerId),
     roster: roster.length >= 6 ? roster : RACERS,
     difficulty: attract ? 3 : c ? c.difficulty : state.difficulty,
@@ -531,6 +537,16 @@ function finishTrial(race) {
   const improved = before == null || record < before;
   document.getElementById('results-title').textContent = improved ? 'New best lap!' : 'Time trial';
   document.getElementById('results-sub').innerHTML = `${def.name} · best ${formatTime(record)} ${medalTag(medalFor(def, record))}`;
+  if (race.challenge) {
+    const theirs = race.ghost.time, gap = runBest - theirs;
+    document.getElementById('results-title').textContent = gap < 0 ? 'Ghost beaten!' : 'The ghost holds on';
+    document.getElementById('results-sub').innerHTML = `${def.name} · the ghost ${formatTime(theirs)} · you ${formatTime(runBest)}`
+      + ` (${gap < 0 ? '−' : '+'}${Math.abs(gap).toFixed(2)}s)`;
+  }
+  // Your best lap here can go to a friend as a link.
+  const share = document.getElementById('results-share');
+  share.classList.toggle('hidden', !state.progress.trials[def.id]);
+  share.textContent = race.challenge ? 'Challenge back' : 'Challenge a friend';
   const list = document.getElementById('results-list');
   list.replaceChildren();
   laps.forEach((t, i) => {
@@ -544,6 +560,9 @@ function finishTrial(race) {
   });
   document.getElementById('results-retry').classList.remove('hidden');
   document.getElementById('results-next').classList.remove('hidden');
+  // Against a friend's ghost the next thing is another go at it.
+  document.getElementById('results-next').classList.toggle('hidden', !!race.challenge);
+  document.getElementById('results-retry').classList.toggle('btn--primary', !!race.challenge);
   document.getElementById('results-standings').classList.add('hidden');
   // A better medal than before gets the card.
   const box = document.getElementById('results-unlocks');
@@ -595,6 +614,8 @@ function finishRace() {
       <span class="when">${r.time != null ? formatTime(r.time) : `still on lap ${r.lap}/${r.laps}`}${r.best != null ? ` · best ${formatTime(r.best)}` : ''}${gained ? ` <b class="pts">+${gained[r.id] ?? 0}</b>` : ''}</span>`;
     list.appendChild(li);
   }
+  document.getElementById('results-share').classList.add('hidden');
+  document.getElementById('results-retry').classList.remove('btn--primary');
   // A championship round moves on to the table, not to a rematch.
   const c = gained && state.progress.champ;
   document.getElementById('results-retry').classList.toggle('hidden', !!c);
@@ -1019,8 +1040,20 @@ document.addEventListener('click', (e) => {
       break;
     case 'install': audio.sfx.select(); promptInstall(); break;
     case 'difficulty': audio.sfx.select(); pickLevel(btn); break;
+    case 'share-ghost': audio.sfx.select(); shareGhost(state.trackId); break;
+    case 'challenge-go': {
+      audio.sfx.select();
+      const def = trackById(state.challenge.trackId);
+      Object.assign(state, { single: true, trial: true, inChamp: false, trackId: def.id, world: def.world, carsFrom: 'tracks' });
+      renderTracks();
+      renderCars();
+      show('cars');
+      break;
+    }
     case 'back-menu':
       audio.sfx.back();
+      // Back on the menu, a friend's ghost has had its go.
+      state.challenge = null;
       recordFinishedRace();
       state.paused = false;
       if (!state.attract) startAttract();
@@ -1124,6 +1157,25 @@ soundBtn.addEventListener('click', () => {
   soundBtn.dataset.muted = String(!on);
 });
 
+/* Full screen: a button by the sound toggle where the browser can do it
+   (not iPhone Safari) and the game is not already installed and full-screen.
+   On a phone it also tries to hold landscape. F does it from the keyboard. */
+const fsBtn = document.getElementById('fullscreen-toggle');
+const installed = matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches;
+fsBtn.classList.toggle('hidden', !document.fullscreenEnabled || installed);
+function toggleFullscreen() {
+  if (!document.fullscreenEnabled) return;
+  if (document.fullscreenElement) { document.exitFullscreen().catch(() => {}); return; }
+  document.documentElement.requestFullscreen({ navigationUI: 'hide' })
+    .then(() => { if (isTouch) screen.orientation?.lock?.('landscape').catch(() => {}); })
+    .catch(() => toast('Full screen is not available here'));
+}
+fsBtn.addEventListener('click', toggleFullscreen);
+document.addEventListener('fullscreenchange', () => {
+  fsBtn.dataset.on = String(!!document.fullscreenElement);
+  fsBtn.setAttribute('aria-label', document.fullscreenElement ? 'Leave full screen' : 'Full screen');
+});
+
 function togglePause() {
   if (state.screen !== 'race' && state.screen !== 'paused') return;
   state.paused = !state.paused;
@@ -1137,6 +1189,7 @@ addEventListener('keydown', (e) => {
   const k = e.key.toLowerCase();
   // Key auto-repeat must not flicker the pause; arrows may keep repeating.
   if (k === 'escape' || k === 'p') { if (!e.repeat) togglePause(); return; }
+  if (k === 'f' && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey) { toggleFullscreen(); return; }
   if (state.screen === 'race') return;
   if (ARROWS[k]) { e.preventDefault(); navigate(ARROWS[k]); }
 });
@@ -1168,6 +1221,55 @@ function toast(text) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
 }
+
+/* -------------------------------------------------------- ghost challenge */
+
+/** Send your best lap on a circuit as a link: the phone's share sheet where
+ *  there is one, the clipboard where not. */
+async function shareGhost(trackId) {
+  const ghost = state.progress.trials[trackId];
+  if (!ghost) return;
+  const def = trackById(trackId);
+  try {
+    const url = ghostLink(await encodeGhost(trackId, ghost));
+    const text = `Beat my ${formatTime(ghost.time)} on ${def.name} in Chrome Circuit.`;
+    if (navigator.share && isTouch) {
+      await navigator.share({ title: 'Chrome Circuit — ghost challenge', text, url });
+    } else {
+      await navigator.clipboard.writeText(`${text} ${url}`);
+      toast('Challenge link copied — send it to a friend');
+    }
+  } catch (e) {
+    if (e?.name !== 'AbortError') toast('Could not make the link here — try another browser');
+  }
+}
+
+/** A challenge link opened: show what is to beat, and offer the race. */
+async function openChallenge() {
+  const payload = payloadFromHash();
+  if (!payload) return;
+  // The link has done its job; a reload should not ask again.
+  history.replaceState(null, '', location.pathname + location.search);
+  try {
+    const { trackId, ghost } = await decodeGhost(payload, {
+      tracks: TRACKS.map((t) => t.id), cars: RACERS.map((r) => r.model),
+    });
+    state.challenge = { trackId, ghost };
+  } catch {
+    toast('That ghost link is broken or from a newer version');
+    return;
+  }
+  const def = trackById(state.challenge.trackId), g = state.challenge.ghost;
+  const car = RACERS.find((r) => r.model === g.car);
+  const medal = medalFor(def, g.time);
+  document.getElementById('challenge-body').innerHTML = `
+    <div class="challenge-art" style="background:${swatch(def)}"><img src="${trackPreview(def)}" alt=""></div>
+    <p class="challenge-lead">A friend set <b>${formatTime(g.time)}</b> ${medal >= 0 ? medalTag(medal) : ''} on
+      <b>${def.name}</b>${car ? ` in the ${car.name}` : ''}.</p>
+    <p class="muted">Their ghost drives the lap beside you, and the HUD keeps the gap. Beat it, then send yours back.</p>`;
+  if (!state.race || state.screen === 'menu' || state.screen === 'loading') show('challenge');
+}
+addEventListener('hashchange', () => { if (payloadFromHash() && state.screen !== 'race') openChallenge(); });
 
 /* -------------------------------------------------------------- the loop */
 
@@ -1239,6 +1341,7 @@ function frame(now) {
   show('menu');
   watchVersion(document.getElementById('version-badge'), document.getElementById('update-chip'));
   watchInstall(document.getElementById('install-btn'));
+  openChallenge();
   requestAnimationFrame(frame);
 })();
 // Debug hook: advance the simulation at a fixed step without waiting on rAF.

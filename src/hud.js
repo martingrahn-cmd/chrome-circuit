@@ -137,7 +137,8 @@ export class Hud {
       this.pos.classList.toggle('is-behind', d != null && d >= 0);
       const best = race.ghost?.time ?? Infinity;
       const next = this.trial.find((m) => best > m.time);
-      posLabel = next ? `${next.name} ${next.time.toFixed(1)}` : 'Gold ✓';
+      posLabel = race.challenge ? `Ghost ${race.ghost.time.toFixed(2)}`
+        : next ? `${next.name} ${next.time.toFixed(1)}` : 'Gold ✓';
     } else {
       this.pos.textContent = ORDINAL[p.racePosition] || `${p.racePosition}th`;
       posLabel = `of ${race.cars.length}${this.level ? ` · ${this.level}` : ''}`;

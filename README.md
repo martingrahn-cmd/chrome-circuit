@@ -195,6 +195,30 @@ cards in every mode. A better one is called out on the spot and gets the card on
 results screen. A ghost is stored as fifteen samples a second of time, position,
 heading and distance round the lap, about 11 KB a lap.
 
+### Ghost challenge
+
+Set a time trial lap, and the results offer **Challenge a friend**. That sends your best
+lap on the circuit as a link, through the share sheet on a phone or the clipboard
+elsewhere. Whoever opens it sees the time to beat, the circuit from the air and the car
+it was set in. **Race the ghost** gives them a time trial with your lap on the road beside
+them. The HUD keeps the gap to it, and each lap ends with how it went. Their own best
+lap still goes on their record, but the ghost stays yours. At the end comes **Challenge
+back**, with their best lap in a link of its own.
+
+There is no server. The lap travels in the link's `#fragment`, which browsers never send
+anywhere, and is read off and cleared when the game opens (`src/ghostlink.js`). The
+ghost is thinned to 7.5 samples a second, quantised to 10 cm, 1/50 rad and 1/120 s,
+stored as differences that mostly fit a byte, and deflated. Lap distance is left out and
+worked out again from the track. A 25-second lap comes to about 700 characters of link,
+short enough for any chat. A link that does not decode, or names a circuit or car the game
+does not have, is refused with a toast.
+
+### Full screen
+
+A button beside the sound toggle, or **F**, puts the game full screen. On a phone it also
+tries to hold landscape. The button only shows where the browser can do it (not iPhone
+Safari) and the game is not already running installed and full screen.
+
 ### Trophies and the ending
 
 Thirty-one trophies, to the GameVolt standard (`src/achievements.js`):
@@ -359,6 +383,7 @@ src/
   progress.js         unlocks, best laps, the championship in progress, trials
   settings.js         volumes, units and switches, kept apart from progress
   trophies.js         medals, titles and cars won, and whether the game is beaten
+  ghostlink.js        a time trial ghost in a link, and back
   achievements.js     the 31 trophies, and GameVolt's SDK when it is there
   champ.js            championship points, standings and save validation
   pwa.js              service-worker registration, updates, the install button

@@ -1023,6 +1023,17 @@ kbd {
 .sound-toggle[data-muted='true'] { color: #5a6274; text-decoration: line-through; }
 /* The speedo occupies the same corner during a race. */
 body.racing .sound-toggle { display: none; }
+.fullscreen-toggle { right: 60px; display: grid; place-items: center; padding: 0; }
+.fullscreen-toggle svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.fullscreen-toggle .fs-out { display: none; }
+.fullscreen-toggle[data-on='true'] .fs-in { display: none; }
+.fullscreen-toggle[data-on='true'] .fs-out { display: inline; }
+
+/* A friend's ghost to beat. */
+.challenge-art { position: relative; height: 200px; border-radius: 12px; overflow: hidden; margin-bottom: 12px; border: 1px solid var(--panel-edge); }
+.challenge-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.challenge-lead { font-size: 17px; line-height: 1.5; margin: 0 0 6px; }
+.challenge-lead b { color: var(--accent); }
 
 .version { opacity: 0.65; }
 
@@ -1088,8 +1099,8 @@ body.racing .update-chip { display: none; }
   .panel--narrow { width: min(760px, 100%); }
   .panel-head { margin-bottom: 10px; }
   .panel-head h2 { font-size: 19px; }
-  /* The sound toggle sits in the bottom-right corner; keep the buttons off it. */
-  .panel-foot { margin-top: 10px; gap: 8px; padding-right: 40px; }
+  /* The sound and full-screen toggles sit in the bottom-right corner; keep the buttons off them. */
+  .panel-foot { margin-top: 10px; gap: 8px; padding-right: 88px; }
   .panel-foot .btn { padding: 9px 18px; font-size: 14px; }
 
   .card-grid {
