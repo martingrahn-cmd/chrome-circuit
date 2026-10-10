@@ -215,7 +215,7 @@ does not have, is refused with a toast.
 
 ### Music
 
-Thirteen songs, each screen with its own. The menus play *KARTS!*; picking a circuit or a
+Thirteen songs from flowerhead's *Somewhat Good: Karts*, each screen with its own. The menus play *KARTS!*; picking a circuit or a
 car, *Choose Your Racer*. Every circuit has a song (`CIRCUIT_SONGS` in `src/music.js`),
 time trials and ghost challenges race to *Ghost Trials*, and the results play how it
 went: *You Won!* for a win or a new best lap, *Race Results* for a podium, *You Lost*
@@ -611,3 +611,7 @@ it loads: grass tops to sand, leaves to sage, rock to sun-baked red. The Suburba
 painted red in its atlas by `tools/recolour_roofs.py`, and the trees keep their green. The stone
 bridge, the river props and the landmarks in `assets/canyon`, and the chairlift in
 `assets/alpine`, are our own, built in Blender from `tools/blender`. Three.js is MIT.
+
+The soundtrack is *Somewhat Good: Karts* by
+[flowerhead](https://flowerheadmusic.itch.io/somewhat-good-karts), a royalty-free album
+of thirteen loopable songs, re-encoded to MP3 for the game.

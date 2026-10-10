@@ -934,7 +934,7 @@ function renderEnding() {
     ${section('On the grid', RACERS.map((r) => r.name))}
     ${section('Models', ['Kenney — Car Kit, City Kit Roads, City Kit, Suburban, Toy Car Kit, Holiday Kit, Nature Kit, Racing Kit (CC0)',
     'Stone bridge, dry river, mine, water stop and chairlift built in Blender'])}
-    ${section('Music', [Object.values(music.SONGS).join(' · ')])}
+    ${section('Music', ['flowerhead — Somewhat Good: Karts (royalty free)', Object.values(music.SONGS).join(' · ')])}
     ${section('Engine', ['Three.js'])}
     ${section('Made by', ['GameVolt', 'with Claude'])}
     <p class="ending-thanks">Thanks for playing.</p>`;
