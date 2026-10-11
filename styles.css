@@ -1115,56 +1115,12 @@ kbd {
 .control-list dd { margin: 0; font-size: 13px; color: #cbd3e3; line-height: 1.6; }
 #pause-controls { margin: 0 0 6px; padding: 14px 16px; border-radius: 14px; background: rgba(255, 255, 255, 0.04); }
 
-/* A pad's buttons, drawn as on the pad: round face buttons in their own
-   colours, pill-shaped shoulders and triggers. */
-.pb {
-  --c: #3a4152;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  min-width: 24px;
-  height: 24px;
-  padding: 0 6px;
-  border-radius: 12px;
-  font: 800 11px/24px var(--body);
-  color: #fff;
-  background: var(--c);
-  /* A soft shadow outside, nothing inside: an inner rim reads as a second,
-     misprinted circle on something this small. */
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-  vertical-align: middle;
-  white-space: nowrap;
-}
-/* Centred on the capitals, not on the line, where the browser can. */
-.pb > span { line-height: 1; text-box: trim-both cap alphabetic; }
-/* The round ones are SVG (controls.js): the circle is the element, the
-   letter or symbol is drawn in the middle of it. */
-svg.pb { display: inline-block; width: 24px; height: 24px; min-width: 0; padding: 0; overflow: visible; }
-svg.pb text { fill: currentColor; font: 800 12px var(--body); }
-svg.pb--stick text { font-size: 11px; }
-.pb-sym { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linejoin: round; stroke-linecap: round; }
-.pb-dpad { fill: currentColor; }
-.pb--face {
-  width: 24px;
-  padding: 0;
-  font-size: 12px;
-  background: radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--c) 72%, #fff), var(--c) 62%);
-}
-.pb--shoulder { border-radius: 6px 6px 9px 9px; min-width: 30px; --c: #2b303d; }
-.pb--menu { font-size: 10px; border-radius: 6px; --c: #2b303d; }
-.pb--stick { width: 24px; padding: 0; background: radial-gradient(circle at 50% 40%, #4b5366, #252a35); }
-.pb--dpad { --c: #2b303d; color: #cfd5e2; }
-.pb[data-fam="xbox"][data-btn="a"] { --c: #3fa32a; }
-.pb[data-fam="xbox"][data-btn="b"] { --c: #d1373a; }
-.pb[data-fam="xbox"][data-btn="x"] { --c: #2a6fd4; }
-.pb[data-fam="xbox"][data-btn="y"] { --c: #dcae0a; color: #1b1606; }
-.pb--face[data-fam="playstation"] { --c: #1d212b; font-size: 13px; }
-.pb[data-fam="playstation"][data-btn="a"] { color: #8fb4ff; }
-.pb[data-fam="playstation"][data-btn="b"] { color: #ff7b7b; }
-.pb[data-fam="playstation"][data-btn="x"] { color: #f19ad8; }
-.pb[data-fam="playstation"][data-btn="y"] { color: #49d9a6; }
-.pb--face[data-fam="nintendo"] { --c: #343a48; }
+/* A button or key, as Kenney's Input Prompts draw it (controls.js). The
+   icons leave an eighth of their square as margin, so they are drawn a
+   little larger than the text beside them. */
+.pb { width: 30px; height: 30px; margin: -3px 0; vertical-align: middle; -webkit-user-drag: none; }
+.pad-hints .pb { width: 28px; height: 28px; }
+.pb--wide { width: 46px; height: 46px; margin: -11px -4px; }
 
 /* The menus' button bar, with a pad in hand and not racing. */
 .pad-hints {
