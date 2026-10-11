@@ -1138,8 +1138,13 @@ kbd {
 }
 /* Centred on the capitals, not on the line, where the browser can. */
 .pb > span { line-height: 1; text-box: trim-both cap alphabetic; }
-/* PlayStation's symbols are not letters: they sit right on the line. */
-.pb--face[data-fam="playstation"] > span { text-box: normal; }
+/* The round ones are SVG (controls.js): the circle is the element, the
+   letter or symbol is drawn in the middle of it. */
+svg.pb { display: inline-block; width: 24px; height: 24px; min-width: 0; padding: 0; overflow: visible; }
+svg.pb text { fill: currentColor; font: 800 12px var(--body); }
+svg.pb--stick text { font-size: 11px; }
+.pb-sym { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linejoin: round; stroke-linecap: round; }
+.pb-dpad { fill: currentColor; }
 .pb--face {
   width: 24px;
   padding: 0;
@@ -1149,7 +1154,7 @@ kbd {
 .pb--shoulder { border-radius: 6px 6px 9px 9px; min-width: 30px; --c: #2b303d; }
 .pb--menu { font-size: 10px; border-radius: 6px; --c: #2b303d; }
 .pb--stick { width: 24px; padding: 0; background: radial-gradient(circle at 50% 40%, #4b5366, #252a35); }
-.pb--dpad { width: 24px; padding: 0; --c: #2b303d; font-size: 14px; }
+.pb--dpad { --c: #2b303d; color: #cfd5e2; }
 .pb[data-fam="xbox"][data-btn="a"] { --c: #3fa32a; }
 .pb[data-fam="xbox"][data-btn="b"] { --c: #d1373a; }
 .pb[data-fam="xbox"][data-btn="x"] { --c: #2a6fd4; }
@@ -1180,7 +1185,7 @@ kbd {
   color: var(--muted);
   pointer-events: none;
 }
-.pad-hints span { display: inline-flex; align-items: center; gap: 7px; }
+.pad-hints > span { display: inline-flex; align-items: center; gap: 7px; }
 body[data-input="pad"]:not(.racing) .pad-hints:not(:empty) { display: inline-flex; }
 /* Room to scroll the last of a long screen out from under the bar. */
 body[data-input="pad"] .screen { padding-bottom: 64px; }

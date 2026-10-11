@@ -24,19 +24,40 @@ const NAMES = {
 
 export const buttonName = (family, button) => NAMES[family][button];
 
+// PlayStation's symbols, drawn rather than typed, so they sit dead centre
+// whatever the font.
+const SYMBOLS = {
+  a: '<path d="M8.3 8.3l7.4 7.4M15.7 8.3l-7.4 7.4"/>',
+  b: '<circle cx="12" cy="12" r="4.7"/>',
+  x: '<rect x="7.7" y="7.7" width="8.6" height="8.6"/>',
+  y: '<path d="M12 7l5 8.7H7z"/>',
+};
+
+/** A round button: an SVG, its letter centred on the capitals by geometry
+ *  (half a cap height below the middle), not by a font's line metrics,
+ *  which differ from one system font to the next. */
+function round(cls, attrs, label, inner) {
+  return `<svg class="pb ${cls}" ${attrs} viewBox="0 0 24 24" role="img" aria-label="${label}">${inner
+    || `<text x="12" y="12" dy="0.36em" text-anchor="middle">${label}</text>`}</svg>`;
+}
+
 /** One button, drawn the way it looks on the pad. */
 export function glyph(family, button) {
-  const face = ['a', 'b', 'x', 'y'].includes(button);
-  const kind = face ? 'face' : button === 'start' || button === 'view' ? 'menu' : 'shoulder';
-  return `<span class="pb pb--${kind}" data-fam="${family}" data-btn="${button}"><span>${NAMES[family][button]}</span></span>`;
+  const name = NAMES[family][button];
+  if (['a', 'b', 'x', 'y'].includes(button)) {
+    const inner = family === 'playstation' ? `<g class="pb-sym">${SYMBOLS[button]}</g>` : '';
+    return round('pb--face', `data-fam="${family}" data-btn="${button}"`, name, inner);
+  }
+  const kind = button === 'start' || button === 'view' ? 'menu' : 'shoulder';
+  return `<span class="pb pb--${kind}" data-fam="${family}" data-btn="${button}"><span>${name}</span></span>`;
 }
 
 const key = (k) => `<kbd>${k}</kbd>`;
-const stick = (side = 'L') => `<span class="pb pb--stick"><span>${side}</span></span>`;
-const dpad = '<span class="pb pb--dpad" aria-label="d-pad"><span>✚</span></span>';
+const stick = (side = 'L') => round('pb--stick', '', side);
+const dpad = round('pb--dpad', '', 'd-pad', '<path class="pb-dpad" d="M10 6h4v4h4v4h-4v4h-4v-4H6v-4h4z"/>');
 
 /** The driving controls, as rows of [what, how] in HTML. */
-export function controlRows(source, family = 'xbox') {
+export function controlRows(source, family = 'xbox', { fullscreen = true } = {}) {
   if (source === 'pad') {
     const g = (b) => glyph(family, b);
     return [
@@ -46,7 +67,7 @@ export function controlRows(source, family = 'xbox') {
       ['Drift', `${g('rb')} — hold into a corner, let go on the way out`],
       ['Use item', `${g('x')} or ${g('y')}`],
       ['Pause', g('start')],
-      ['Full screen', g('view')],
+      ...(fullscreen ? [['Full screen', g('view')]] : []),
     ];
   }
   if (source === 'touch') {
@@ -67,8 +88,8 @@ export function controlRows(source, family = 'xbox') {
 }
 
 /** The controls as a definition list's inner HTML. */
-export function controlList(source, family) {
-  return controlRows(source, family).map(([what, how]) => `<dt>${what}</dt><dd>${how}</dd>`).join('');
+export function controlList(source, family, opts) {
+  return controlRows(source, family, opts).map(([what, how]) => `<dt>${what}</dt><dd>${how}</dd>`).join('');
 }
 
 /** The menus' button bar: what the face buttons do here. */
