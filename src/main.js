@@ -1079,6 +1079,7 @@ document.addEventListener('click', (e) => {
       }
       break;
     case 'install': audio.sfx.select(); promptInstall(); break;
+    case 'fullscreen': audio.sfx.select(); toggleFullscreen(); break;
     case 'difficulty': audio.sfx.select(); pickLevel(btn); break;
     case 'share-ghost': audio.sfx.select(); shareGhost(state.trackId); break;
     case 'challenge-go': {
@@ -1204,19 +1205,27 @@ soundBtn.addEventListener('click', () => {
    (not iPhone Safari) and the game is not already installed and full-screen.
    On a phone it also tries to hold landscape. F does it from the keyboard. */
 const fsBtn = document.getElementById('fullscreen-toggle');
+const fsMenu = document.getElementById('menu-fullscreen');
 const installed = matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches;
-fsBtn.classList.toggle('hidden', !document.fullscreenEnabled || installed);
+const canFullscreen = document.fullscreenEnabled && !installed;
+fsBtn.classList.toggle('hidden', !canFullscreen);
+fsMenu.classList.toggle('hidden', !canFullscreen);
 function toggleFullscreen() {
   if (!document.fullscreenEnabled) return;
   if (document.fullscreenElement) { document.exitFullscreen().catch(() => {}); return; }
   document.documentElement.requestFullscreen({ navigationUI: 'hide' })
     .then(() => { if (isTouch) screen.orientation?.lock?.('landscape').catch(() => {}); })
-    .catch(() => toast('Full screen is not available here'));
+    // Some browsers will not take a pad's button as the press it needs.
+    .catch(() => toast(input.source === 'pad'
+      ? 'This browser wants a key or a click for full screen — press F'
+      : 'Full screen is not available here'));
 }
 fsBtn.addEventListener('click', toggleFullscreen);
 document.addEventListener('fullscreenchange', () => {
-  fsBtn.dataset.on = String(!!document.fullscreenElement);
-  fsBtn.setAttribute('aria-label', document.fullscreenElement ? 'Leave full screen' : 'Full screen');
+  const on = !!document.fullscreenElement;
+  fsBtn.dataset.on = String(on);
+  fsBtn.setAttribute('aria-label', on ? 'Leave full screen' : 'Full screen');
+  fsMenu.textContent = on ? 'Leave full screen' : 'Full screen';
 });
 
 function togglePause() {
@@ -1262,7 +1271,7 @@ function updatePadHints() {
   const el = document.getElementById('pad-hints');
   const s = state.screen;
   el.innerHTML = input.source !== 'pad' || ['loading', 'intro', 'race'].includes(s) ? ''
-    : menuHints(family(), { back: s !== 'menu' });
+    : menuHints(family(), { back: s !== 'menu', fullscreen: canFullscreen });
 }
 
 input.onSourceChange = applyControls;
@@ -1417,13 +1426,15 @@ function frame(now) {
     }
   } else if (state.screen !== 'race') {
     for (const action of input.menuActions(dt)) {
-      if (action === 'confirm' || action === 'start') activateFocused();
+      if (action === 'fullscreen') toggleFullscreen();
+      else if (action === 'confirm' || action === 'start') activateFocused();
       else if (action === 'back') backOut();
       else navigate(action);
     }
   } else {
     for (const action of input.menuActions(dt)) {
       if (action === 'start' || action === 'back') togglePause();
+      else if (action === 'fullscreen') toggleFullscreen();
     }
   }
 

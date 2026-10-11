@@ -17,9 +17,9 @@ export function padFamily(id = '') {
 // The names on the buttons, by the standard mapping's position: `a` is the
 // bottom face button, `b` the right, `x` the left and `y` the top.
 const NAMES = {
-  xbox: { a: 'A', b: 'B', x: 'X', y: 'Y', lb: 'LB', rb: 'RB', lt: 'LT', rt: 'RT', start: 'Menu' },
-  playstation: { a: '✕', b: '○', x: '□', y: '△', lb: 'L1', rb: 'R1', lt: 'L2', rt: 'R2', start: 'Options' },
-  nintendo: { a: 'B', b: 'A', x: 'Y', y: 'X', lb: 'L', rb: 'R', lt: 'ZL', rt: 'ZR', start: '+' },
+  xbox: { a: 'A', b: 'B', x: 'X', y: 'Y', lb: 'LB', rb: 'RB', lt: 'LT', rt: 'RT', start: 'Menu', view: 'View' },
+  playstation: { a: '✕', b: '○', x: '□', y: '△', lb: 'L1', rb: 'R1', lt: 'L2', rt: 'R2', start: 'Options', view: 'Create' },
+  nintendo: { a: 'B', b: 'A', x: 'Y', y: 'X', lb: 'L', rb: 'R', lt: 'ZL', rt: 'ZR', start: '+', view: '−' },
 };
 
 export const buttonName = (family, button) => NAMES[family][button];
@@ -27,13 +27,13 @@ export const buttonName = (family, button) => NAMES[family][button];
 /** One button, drawn the way it looks on the pad. */
 export function glyph(family, button) {
   const face = ['a', 'b', 'x', 'y'].includes(button);
-  const kind = face ? 'face' : button === 'start' ? 'menu' : 'shoulder';
-  return `<span class="pb pb--${kind}" data-fam="${family}" data-btn="${button}">${NAMES[family][button]}</span>`;
+  const kind = face ? 'face' : button === 'start' || button === 'view' ? 'menu' : 'shoulder';
+  return `<span class="pb pb--${kind}" data-fam="${family}" data-btn="${button}"><span>${NAMES[family][button]}</span></span>`;
 }
 
 const key = (k) => `<kbd>${k}</kbd>`;
-const stick = (side = 'L') => `<span class="pb pb--stick">${side}</span>`;
-const dpad = '<span class="pb pb--dpad" aria-label="d-pad">✚</span>';
+const stick = (side = 'L') => `<span class="pb pb--stick"><span>${side}</span></span>`;
+const dpad = '<span class="pb pb--dpad" aria-label="d-pad"><span>✚</span></span>';
 
 /** The driving controls, as rows of [what, how] in HTML. */
 export function controlRows(source, family = 'xbox') {
@@ -46,6 +46,7 @@ export function controlRows(source, family = 'xbox') {
       ['Drift', `${g('rb')} — hold into a corner, let go on the way out`],
       ['Use item', `${g('x')} or ${g('y')}`],
       ['Pause', g('start')],
+      ['Full screen', g('view')],
     ];
   }
   if (source === 'touch') {
@@ -71,6 +72,7 @@ export function controlList(source, family) {
 }
 
 /** The menus' button bar: what the face buttons do here. */
-export function menuHints(family, { back = true } = {}) {
-  return `<span>${glyph(family, 'a')} Select</span>${back ? `<span>${glyph(family, 'b')} Back</span>` : ''}`;
+export function menuHints(family, { back = true, fullscreen = false } = {}) {
+  return `<span>${glyph(family, 'a')} Select</span>${back ? `<span>${glyph(family, 'b')} Back</span>` : ''}`
+    + (fullscreen ? `<span>${glyph(family, 'view')} Full screen</span>` : '');
 }

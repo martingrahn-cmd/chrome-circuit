@@ -5,7 +5,7 @@ const REPEAT_FIRST = 0.42;
 const REPEAT_NEXT = 0.13;
 
 // Standard gamepad mapping.
-const BTN = { confirm: 0, back: 1, item: 2, itemAlt: 3, handbrake: 5, brake: 6, gas: 7, start: 9 };
+const BTN = { confirm: 0, back: 1, item: 2, itemAlt: 3, handbrake: 5, brake: 6, gas: 7, view: 8, start: 9 };
 const DPAD = { up: 12, down: 13, left: 14, right: 15 };
 
 /** Deadzone plus a mild curve, so small stick movements steer gently. */
@@ -156,6 +156,7 @@ export class Input {
     edge('confirm', !!p.buttons[BTN.confirm]?.pressed, false);
     edge('back', !!p.buttons[BTN.back]?.pressed, false);
     edge('start', !!p.buttons[BTN.start]?.pressed, false);
+    edge('fullscreen', !!p.buttons[BTN.view]?.pressed, false);
     return out;
   }
 

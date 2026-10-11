@@ -262,7 +262,9 @@ two before it stay decoded in memory.
 
 ### Full screen
 
-A button beside the sound toggle, or **F**, puts the game full screen. On a phone it also
+A button beside the sound toggle, **Full screen** on the main menu, **F** on the keyboard
+or a pad's **View** button (*Create* on PlayStation, **−** on Nintendo) puts the game full
+screen — from anywhere, mid-race too. On a phone it also
 tries to hold landscape. The button only shows where the browser can do it (not iPhone
 Safari) and the game is not already running installed and full screen.
 
