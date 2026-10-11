@@ -1206,27 +1206,43 @@ soundBtn.addEventListener('click', () => {
    On a phone it also tries to hold landscape. F does it from the keyboard. */
 const fsBtn = document.getElementById('fullscreen-toggle');
 const fsMenu = document.getElementById('menu-fullscreen');
-const installed = matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches;
-const canFullscreen = document.fullscreenEnabled && !installed;
-fsBtn.classList.toggle('hidden', !canFullscreen);
-fsMenu.classList.toggle('hidden', !canFullscreen);
-function toggleFullscreen() {
-  if (!document.fullscreenEnabled) return;
-  if (document.fullscreenElement) { document.exitFullscreen().catch(() => {}); return; }
-  document.documentElement.requestFullscreen({ navigationUI: 'hide' })
-    .then(() => { if (isTouch) screen.orientation?.lock?.('landscape').catch(() => {}); })
-    // Some browsers will not take a pad's button as the press it needs.
-    .catch(() => toast(input.source === 'pad'
-      ? 'This browser wants a key or a click for full screen — press F'
-      : 'Full screen is not available here'));
-}
-fsBtn.addEventListener('click', toggleFullscreen);
-document.addEventListener('fullscreenchange', () => {
+// Already the whole screen without asking — installed and opened full screen —
+// leaves nothing to offer. A browser window that is full screen still shows
+// its tabs, so that does not count.
+const coveringScreen = () => !document.fullscreenElement
+  && innerWidth >= screen.width - 1 && innerHeight >= screen.height - 1;
+let canFullscreen = false;
+// Safari will not take a pad's button as the press full screen needs (only
+// a key or a click), so a pad there is not offered the View button for it.
+const padCanFullscreen = !/^((?!chrome|chromium|android|crios|fxios|edg).)*safari/i.test(navigator.userAgent);
+let padFullscreenRefused = false;
+function updateFullscreen() {
+  canFullscreen = !!document.fullscreenEnabled && !coveringScreen();
   const on = !!document.fullscreenElement;
+  fsBtn.classList.toggle('hidden', !canFullscreen);
+  fsMenu.classList.toggle('hidden', !canFullscreen);
   fsBtn.dataset.on = String(on);
   fsBtn.setAttribute('aria-label', on ? 'Leave full screen' : 'Full screen');
   fsMenu.textContent = on ? 'Leave full screen' : 'Full screen';
-});
+  applyControls();
+}
+const padFullscreen = () => canFullscreen && padCanFullscreen && !padFullscreenRefused;
+function toggleFullscreen(fromPad = false) {
+  if (!document.fullscreenEnabled) return;
+  if (document.fullscreenElement) { document.exitFullscreen().catch(() => {}); return; }
+  if (fromPad === true && !padFullscreen()) { toast('This browser takes full screen from a key or a click — press F'); return; }
+  document.documentElement.requestFullscreen({ navigationUI: 'hide' })
+    .then(() => { if (isTouch) screen.orientation?.lock?.('landscape').catch(() => {}); })
+    .catch(() => {
+      // Refused for want of a real key or click: stop offering the pad's button.
+      if (fromPad === true || input.source === 'pad') { padFullscreenRefused = true; applyControls(); }
+      toast(input.source === 'pad' ? 'This browser takes full screen from a key or a click — press F'
+        : 'Full screen is not available here');
+    });
+}
+fsBtn.addEventListener('click', () => toggleFullscreen());
+document.addEventListener('fullscreenchange', updateFullscreen);
+addEventListener('resize', updateFullscreen);
 
 function togglePause() {
   if (state.screen !== 'race' && state.screen !== 'paused') return;
@@ -1258,7 +1274,8 @@ function applyControls() {
   const src = input.source, fam = family();
   document.body.dataset.input = src;
   document.body.dataset.pad = input.hasPad() ? '1' : '';
-  for (const id of ['pause-controls', 'howto-controls']) document.getElementById(id).innerHTML = controlList(src, fam);
+  const opts = { fullscreen: padFullscreen() };
+  for (const id of ['pause-controls', 'howto-controls']) document.getElementById(id).innerHTML = controlList(src, fam, opts);
   document.getElementById('howto-other').textContent = src === 'pad'
     ? 'The keyboard works too, and so does a phone\'s screen. The menus take the d-pad or the stick.'
     : 'A gamepad works too: plug one in and press any button, and these controls switch to its buttons.';
@@ -1271,7 +1288,7 @@ function updatePadHints() {
   const el = document.getElementById('pad-hints');
   const s = state.screen;
   el.innerHTML = input.source !== 'pad' || ['loading', 'intro', 'race'].includes(s) ? ''
-    : menuHints(family(), { back: s !== 'menu', fullscreen: canFullscreen });
+    : menuHints(family(), { back: s !== 'menu', fullscreen: padFullscreen() });
 }
 
 input.onSourceChange = applyControls;
@@ -1426,7 +1443,7 @@ function frame(now) {
     }
   } else if (state.screen !== 'race') {
     for (const action of input.menuActions(dt)) {
-      if (action === 'fullscreen') toggleFullscreen();
+      if (action === 'fullscreen') toggleFullscreen(true);
       else if (action === 'confirm' || action === 'start') activateFocused();
       else if (action === 'back') backOut();
       else navigate(action);
@@ -1434,7 +1451,7 @@ function frame(now) {
   } else {
     for (const action of input.menuActions(dt)) {
       if (action === 'start' || action === 'back') togglePause();
-      else if (action === 'fullscreen') toggleFullscreen();
+      else if (action === 'fullscreen') toggleFullscreen(true);
     }
   }
 
@@ -1478,7 +1495,7 @@ function frame(now) {
   showLevel(document.getElementById('difficulty'), state.difficulty);
   renderTracks();
   renderCars();
-  applyControls();
+  updateFullscreen();   // and with it the controls in hand
   watchVersion(document.getElementById('version-badge'), document.getElementById('update-chip'));
   watchInstall(document.getElementById('install-btn'));
   requestAnimationFrame(frame);

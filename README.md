@@ -264,7 +264,11 @@ two before it stay decoded in memory.
 
 A button beside the sound toggle, **Full screen** on the main menu, **F** on the keyboard
 or a pad's **View** button (*Create* on PlayStation, **−** on Nintendo) puts the game full
-screen — from anywhere, mid-race too. On a phone it also
+screen — from anywhere, mid-race too. Safari will not take a pad's button as the press full
+screen needs (only a key or a click), so there the pad is not offered View for it; F and the
+menu button with a mouse still work. The buttons hide when the game already covers the screen
+(installed and opened full screen); a browser window that is full screen still shows its tabs,
+so it keeps them. On a phone it also
 tries to hold landscape. The button only shows where the browser can do it (not iPhone
 Safari) and the game is not already running installed and full screen.
 
