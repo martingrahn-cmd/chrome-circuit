@@ -107,6 +107,14 @@ rather than a fixed list, so moving right across the car grid does what you expe
 The same movement keys work on the keyboard, and everything routes through real DOM
 focus, so tabbing through the menus works too.
 
+The game names the controls in your hands: whatever you last used — pad, keyboard
+or a phone's screen — decides what the pause screen's control guide, How to play and the
+HUD's item hint show (`src/controls.js`). With a pad, its own buttons are drawn, in their
+own colours: A/B/X/Y and LT/RT on an Xbox pad, ✕ ○ □ △ and L2/R2 on a PlayStation pad,
+B/A/Y/X and ZL/ZR on a Nintendo one, told apart by the id the browser gives the pad. A
+button bar under the menus says what the face buttons do there. Pausing silences the
+engine as well as the race.
+
 Pads with haptics rumble on the countdown lights, contact, barrier scrapes, taking a
 rocket and lighting the turbo.
 
@@ -417,6 +425,7 @@ src/
   fx.js               pooled particles and skid marks
   audio.js            synthesised engine note and sound effects, the volume buses
   music.js            the soundtrack: which song plays where, cross-fades, loops
+  controls.js         the controls in hand, named for that pad, keyboard or phone
   intro.js            the opening titles, filmed from the race behind the menu
   hud.js              readouts and minimap
   input.js            keyboard, gamepad and touch

@@ -230,6 +230,14 @@ export class EngineSound {
     this.started = true;
   }
 
+  /** Silent while the race is paused; the next update brings it back. */
+  hush() {
+    if (!this.started) return;
+    const t = ac().currentTime;
+    this.gain.gain.setTargetAtTime(0, t, 0.03);
+    this.skidGain.gain.setTargetAtTime(0, t, 0.03);
+  }
+
   stop() {
     if (!this.started) return;
     try { this.osc.stop(); this.osc2.stop(); this.skidSrc.stop(); } catch { /* already stopped */ }

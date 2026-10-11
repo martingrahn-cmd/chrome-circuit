@@ -226,16 +226,9 @@
         <button class="btn btn--ghost" data-action="back-menu">Back</button>
       </header>
       <div class="howto">
-        <dl>
-          <dt>Accelerate / brake</dt><dd><kbd>W</kbd> <kbd>S</kbd> or <kbd>↑</kbd> <kbd>↓</kbd></dd>
-          <dt>Steer</dt><dd><kbd>A</kbd> <kbd>D</kbd> or <kbd>←</kbd> <kbd>→</kbd></dd>
-          <dt>Use item</dt><dd><kbd>Space</kbd></dd>
-          <dt>Drift</dt><dd><kbd>Shift</kbd> — hold it into a corner, steering, and let go on the way out</dd>
-          <dt>Pause</dt><dd><kbd>Esc</kbd> or <kbd>P</kbd></dd>
-        </dl>
-        <p>A gamepad works too: left stick or d-pad to steer, <strong>RT</strong> or <strong>A</strong> for the loud pedal,
-        <strong>LT</strong> to brake, <strong>X</strong> or <strong>Y</strong> to fire, <strong>RB</strong> for the handbrake
-        and <strong>Start</strong> to pause. The menus take the d-pad, <strong>A</strong> to choose and <strong>B</strong> to go back.</p>
+        <!-- Filled in for whatever is in the player's hands (controls.js). -->
+        <dl class="control-list" id="howto-controls"></dl>
+        <p id="howto-other"></p>
         <h3>Career</h3>
         <p>The career is a cup in each world: its three circuits in turn against the same five rivals, points
         for every place. Finish the cup in the top three and the next world opens, and so do new cars. Win every
@@ -327,6 +320,7 @@
   <section class="screen" id="screen-paused">
     <div class="panel panel--narrow">
       <header class="panel-head"><h2>Paused</h2></header>
+      <dl class="control-list" id="pause-controls"></dl>
       <footer class="panel-foot">
         <button class="btn" data-action="back-menu">Quit to menu</button>
         <button class="btn" data-action="settings">Settings</button>
@@ -342,6 +336,9 @@
 </svg>
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<!-- With a pad in hand: what its buttons do in the menus. -->
+<div id="pad-hints" class="pad-hints" aria-hidden="true"></div>
 
 <!-- Trophy unlocked: GameVolt's own toast when the SDK is there, this one when not. -->
 <div id="trophy-toast" role="status" aria-live="polite">
