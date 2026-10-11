@@ -25,6 +25,10 @@ export class Input {
     this.held = new Map();      // menu direction/button -> seconds held
     this.padId = null;
     this.onPadChange = null;
+    // What the player last touched — 'keys', 'pad' or 'touch' — so the game
+    // can name the controls in their hands.
+    this.source = matchMedia('(hover: none) and (pointer: coarse)').matches ? 'touch' : 'keys';
+    this.onSourceChange = null;
 
     addEventListener('keydown', (e) => {
       if (e.repeat) return;
@@ -32,22 +36,39 @@ export class Input {
       // A focused menu button keeps its native Space activation.
       if (k === ' ' && document.activeElement?.tagName === 'BUTTON') return;
       this.keys.add(k);
+      this.setSource('keys');
       if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) e.preventDefault();
     });
     addEventListener('keyup', (e) => this.keys.delete(e.key.toLowerCase()));
     addEventListener('blur', () => this.keys.clear());
 
+    addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch') this.setSource('touch'); });
     addEventListener('gamepadconnected', (e) => {
       this.padId = e.gamepad.id;
+      this.setSource('pad');
       this.onPadChange?.(true, e.gamepad.id);
     });
     addEventListener('gamepaddisconnected', () => {
       this.padId = null;
+      if (this.source === 'pad') this.setSource(matchMedia('(hover: none) and (pointer: coarse)').matches ? 'touch' : 'keys');
       this.onPadChange?.(false, null);
     });
   }
 
   has(...names) { return names.some((n) => this.keys.has(n)); }
+
+  setSource(source) {
+    if (source === this.source) return;
+    this.source = source;
+    this.onSourceChange?.(source);
+  }
+
+  /** Once a frame: a pad in use takes over from the keyboard or the screen. */
+  watchPad() {
+    const p = this.pad();
+    if (!p || this.source === 'pad') return;
+    if (p.buttons.some((b) => b.pressed) || p.axes.some((a) => Math.abs(a) > 0.5)) this.setSource('pad');
+  }
 
   pad() {
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];

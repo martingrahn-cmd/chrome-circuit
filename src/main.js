@@ -11,6 +11,7 @@ import { Input } from './input.js';
 import * as audio from './audio.js';
 import * as music from './music.js';
 import { Intro, LENGTH as INTRO_LENGTH } from './intro.js';
+import { padFamily, buttonName, controlList, menuHints } from './controls.js';
 import * as progress from './progress.js';
 import * as settings from './settings.js';
 import * as champ from './champ.js';
@@ -136,6 +137,7 @@ function show(name) {
   document.body.classList.toggle('racing', name === 'race');
   document.getElementById('touch').classList.toggle('hidden', !(name === 'race' && isTouch));
   focusFirst(screens[name]);
+  updatePadHints();
   // On a phone the pickers are a sideways strip; bring the current choice in.
   const chosen = screens[name]?.querySelector('.card-grid .card[aria-pressed="true"]');
   const strip = chosen?.parentElement;
@@ -1220,6 +1222,8 @@ document.addEventListener('fullscreenchange', () => {
 function togglePause() {
   if (state.screen !== 'race' && state.screen !== 'paused') return;
   state.paused = !state.paused;
+  // The race stands still, so the engine must too, not drone on under the menu.
+  if (state.paused) state.race?.engineSound.hush();
   show(state.paused ? 'paused' : 'race');
   audio.sfx.back();
 }
@@ -1237,14 +1241,33 @@ addEventListener('keydown', (e) => {
 
 /* --------------------------------------------------------- pad presence */
 
-function padHint() {
-  const on = input.hasPad();
-  document.body.dataset.pad = on ? '1' : '';
-  hud.setControlHint(on ? 'Ⓧ / Ⓨ' : isTouch ? '★ button' : 'Space');
+/* The controls in hand: whatever was last used names the buttons — on the
+   pause screen, in How to play, in the HUD and on the menus' button bar. */
+const family = () => padFamily(input.padId || input.pad()?.id || '');
+
+function applyControls() {
+  const src = input.source, fam = family();
+  document.body.dataset.input = src;
+  document.body.dataset.pad = input.hasPad() ? '1' : '';
+  for (const id of ['pause-controls', 'howto-controls']) document.getElementById(id).innerHTML = controlList(src, fam);
+  document.getElementById('howto-other').textContent = src === 'pad'
+    ? 'The keyboard works too, and so does a phone\'s screen. The menus take the d-pad or the stick.'
+    : 'A gamepad works too: plug one in and press any button, and these controls switch to its buttons.';
+  hud.setControlHint(src === 'pad' ? `${buttonName(fam, 'x')} / ${buttonName(fam, 'y')}` : src === 'touch' ? '★ button' : 'Space');
+  updatePadHints();
 }
 
+/** The button bar under the menus, with a pad in hand. */
+function updatePadHints() {
+  const el = document.getElementById('pad-hints');
+  const s = state.screen;
+  el.innerHTML = input.source !== 'pad' || ['loading', 'intro', 'race'].includes(s) ? ''
+    : menuHints(family(), { back: s !== 'menu' });
+}
+
+input.onSourceChange = applyControls;
 input.onPadChange = (connected, id) => {
-  padHint();
+  applyControls();
   toast(connected ? `Gamepad connected — ${padName(id)}` : 'Gamepad disconnected');
 };
 
@@ -1383,6 +1406,7 @@ function step(race, dt, control) {
 
 function frame(now) {
   requestAnimationFrame(frame);
+  input.watchPad();
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
 
@@ -1443,7 +1467,7 @@ function frame(now) {
   showLevel(document.getElementById('difficulty'), state.difficulty);
   renderTracks();
   renderCars();
-  padHint();
+  applyControls();
   watchVersion(document.getElementById('version-badge'), document.getElementById('update-chip'));
   watchInstall(document.getElementById('install-btn'));
   requestAnimationFrame(frame);
