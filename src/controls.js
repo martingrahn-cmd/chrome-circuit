@@ -24,37 +24,45 @@ const NAMES = {
 
 export const buttonName = (family, button) => NAMES[family][button];
 
-// PlayStation's symbols, drawn rather than typed, so they sit dead centre
-// whatever the font.
-const SYMBOLS = {
-  a: '<path d="M8.3 8.3l7.4 7.4M15.7 8.3l-7.4 7.4"/>',
-  b: '<circle cx="12" cy="12" r="4.7"/>',
-  x: '<rect x="7.7" y="7.7" width="8.6" height="8.6"/>',
-  y: '<path d="M12 7l5 8.7H7z"/>',
+// The icons, from Kenney's Input Prompts (CC0, tools/input_prompts.py), by
+// button. The standard mapping is by position, so Nintendo's bottom button,
+// ‘a’ here, is the one printed B.
+const ICONS = {
+  xbox: {
+    a: 'xbox_button_color_a', b: 'xbox_button_color_b', x: 'xbox_button_color_x', y: 'xbox_button_color_y',
+    lb: 'xbox_lb', rb: 'xbox_rb', lt: 'xbox_lt', rt: 'xbox_rt',
+    start: 'xbox_button_menu', view: 'xbox_button_view', stick: 'xbox_stick_l', dpad: 'xbox_dpad',
+  },
+  playstation: {
+    a: 'playstation_button_color_cross', b: 'playstation_button_color_circle',
+    x: 'playstation_button_color_square', y: 'playstation_button_color_triangle',
+    lb: 'playstation_trigger_l1', rb: 'playstation_trigger_r1', lt: 'playstation_trigger_l2', rt: 'playstation_trigger_r2',
+    start: 'playstation4_button_options', view: 'playstation5_button_create',
+    stick: 'playstation_stick_l', dpad: 'playstation_dpad',
+  },
+  nintendo: {
+    a: 'switch_button_b', b: 'switch_button_a', x: 'switch_button_y', y: 'switch_button_x',
+    lb: 'switch_button_l', rb: 'switch_button_r', lt: 'switch_button_zl', rt: 'switch_button_zr',
+    start: 'switch_button_plus', view: 'switch_button_minus', stick: 'switch_stick_l', dpad: 'switch_dpad',
+  },
+};
+const KEYS = {
+  W: 'keyboard_w', A: 'keyboard_a', S: 'keyboard_s', D: 'keyboard_d',
+  '↑': 'keyboard_arrow_up', '↓': 'keyboard_arrow_down', '←': 'keyboard_arrow_left', '→': 'keyboard_arrow_right',
+  Shift: 'keyboard_shift', Space: 'keyboard_space', Esc: 'keyboard_escape', P: 'keyboard_p', F: 'keyboard_f',
 };
 
-/** A round button: an SVG, its letter centred on the capitals by geometry
- *  (half a cap height below the middle), not by a font's line metrics,
- *  which differ from one system font to the next. */
-function round(cls, attrs, label, inner) {
-  return `<svg class="pb ${cls}" ${attrs} viewBox="0 0 24 24" role="img" aria-label="${label}">${inner
-    || `<text x="12" y="12" dy="0.36em" text-anchor="middle">${label}</text>`}</svg>`;
-}
+const icon = (file, label, cls = '') => `<img class="pb${cls}" src="assets/prompts/${file}.svg" alt="${label}" title="${label}" draggable="false">`;
 
-/** One button, drawn the way it looks on the pad. */
+/** One button, as it looks on the pad. */
 export function glyph(family, button) {
-  const name = NAMES[family][button];
-  if (['a', 'b', 'x', 'y'].includes(button)) {
-    const inner = family === 'playstation' ? `<g class="pb-sym">${SYMBOLS[button]}</g>` : '';
-    return round('pb--face', `data-fam="${family}" data-btn="${button}"`, name, inner);
-  }
-  const kind = button === 'start' || button === 'view' ? 'menu' : 'shoulder';
-  return `<span class="pb pb--${kind}" data-fam="${family}" data-btn="${button}"><span>${name}</span></span>`;
+  // PlayStation's small centre buttons are slim in a square icon: bigger.
+  const wide = family === 'playstation' && (button === 'start' || button === 'view') ? ' pb--wide' : '';
+  return icon(ICONS[family][button], NAMES[family][button] || { stick: 'Left stick', dpad: 'D-pad' }[button], wide);
 }
 
-const key = (k) => `<kbd>${k}</kbd>`;
-const stick = (side = 'L') => round('pb--stick', '', side);
-const dpad = round('pb--dpad', '', 'd-pad', '<path class="pb-dpad" d="M10 6h4v4h4v4h-4v4h-4v-4H6v-4h4z"/>');
+// Shift and Space are wide keys in a square icon: drawn bigger to read.
+const key = (k) => icon(KEYS[k], k, k === 'Shift' || k === 'Space' ? ' pb--wide' : '');
 
 /** The driving controls, as rows of [what, how] in HTML. */
 export function controlRows(source, family = 'xbox', { fullscreen = true } = {}) {
@@ -63,7 +71,7 @@ export function controlRows(source, family = 'xbox', { fullscreen = true } = {})
     return [
       ['Accelerate', `${g('rt')} or ${g('a')}`],
       ['Brake / reverse', g('lt')],
-      ['Steer', `${stick()} or ${dpad}`],
+      ['Steer', `${g('stick')} or ${g('dpad')}`],
       ['Drift', `${g('rb')} — hold into a corner, let go on the way out`],
       ['Use item', `${g('x')} or ${g('y')}`],
       ['Pause', g('start')],

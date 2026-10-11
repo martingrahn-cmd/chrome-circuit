@@ -109,8 +109,8 @@ focus, so tabbing through the menus works too.
 
 The game names the controls in your hands: whatever you last used — pad, keyboard
 or a phone's screen — decides what the pause screen's control guide, How to play and the
-HUD's item hint show (`src/controls.js`). With a pad, its own buttons are drawn, in their
-own colours: A/B/X/Y and LT/RT on an Xbox pad, ✕ ○ □ △ and L2/R2 on a PlayStation pad,
+HUD's item hint show (`src/controls.js`). With a pad, its own buttons are drawn — Kenney's
+Input Prompts, in their own colours: A/B/X/Y and LT/RT on an Xbox pad, ✕ ○ □ △ and L2/R2 on a PlayStation pad,
 B/A/Y/X and ZL/ZR on a Nintendo one, told apart by the id the browser gives the pad. A
 button bar under the menus says what the face buttons do there. Pausing silences the
 engine as well as the race.
@@ -450,6 +450,7 @@ tools/blender/        Blender scripts that build the models in assets/canyon and
 tools/share_image.mjs renders icons/share.jpg, the picture a shared link shows
 tools/encode_music.py the soundtrack's WAV masters to assets/music, at one loudness
 tools/intro_video.mjs films the opening titles, with the song, to an MP4
+tools/input_prompts.py the button and key icons, out of Kenney's Input Prompts pack
 tools/gamevolt/       the trophies as GameVolt's database and profile page want them
 ```
 
@@ -639,6 +640,9 @@ and the effects layer is two pooled draw calls, so a full scene runs in roughly 
 draw calls.
 
 ## Credits
+
+The button and key icons are Kenney's [Input Prompts](https://kenney.nl/assets/input-prompts)
+(CC0), copied into `assets/prompts` by `tools/input_prompts.py`.
 
 All 3D models by [Kenney](https://kenney.nl) under CC0: Car Kit, City Kit (Roads),
 City Kit (Commercial), City Kit (Suburban), Toy Car Kit, Holiday Kit, Nature Kit and
