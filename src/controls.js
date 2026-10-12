@@ -50,6 +50,7 @@ const KEYS = {
   W: 'keyboard_w', A: 'keyboard_a', S: 'keyboard_s', D: 'keyboard_d',
   '↑': 'keyboard_arrow_up', '↓': 'keyboard_arrow_down', '←': 'keyboard_arrow_left', '→': 'keyboard_arrow_right',
   Shift: 'keyboard_shift', Space: 'keyboard_space', Esc: 'keyboard_escape', P: 'keyboard_p', F: 'keyboard_f',
+  Backspace: 'keyboard_backspace_icon',
 };
 
 const icon = (file, label, cls = '') => `<img class="pb${cls}" src="assets/prompts/${file}.svg" alt="${label}" title="${label}" draggable="false">`;
@@ -103,7 +104,8 @@ export function menuNote(source, family = 'xbox') {
       + `${glyph(family, 'b')} to go back. Any button on a pad switches the game's prompts to it.`;
   }
   if (source === 'touch') return 'Tap the menus. A gamepad plugged in takes over from the screen.';
-  return `Menus: ${key('↑')} ${key('↓')} ${key('←')} ${key('→')} to move, Enter or ${key('Space')} to choose, ${key('Esc')} to go back.`;
+  return `Menus: ${key('↑')} ${key('↓')} ${key('←')} ${key('→')} to move, Enter or ${key('Space')} to choose, `
+    + `${key('Backspace')} or ${key('Esc')} to go back.`;
 }
 
 /** The controls as a definition list's inner HTML. */

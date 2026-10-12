@@ -103,7 +103,10 @@ there is nothing to configure, and a notice tells you which pad connected. The
 stick has a deadzone and a mild response curve, and the triggers are analog, so
 part-throttle and trailing the brake into a corner both work.
 
-`Esc` goes back in the menus as `B` does on a pad (mid-race it pauses).
+`Backspace` or `Esc` goes back in the menus, as `B` does on a pad (mid-race `Esc` pauses).
+Browsers leave full screen on `Esc`; Chrome and Edge let the game keep it while full screen
+(Keyboard Lock), so a tap goes back or pauses and holding it leaves. Elsewhere `Backspace`
+goes back without leaving full screen.
 The menus are fully navigable from the pad: d-pad or stick to move, `A` to choose,
 `B` to go back, `Start` to confirm or to pause mid-race. Navigation is spatial
 rather than a fixed list, so moving right across the car grid does what you expect.

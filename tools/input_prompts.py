@@ -32,6 +32,7 @@ ICONS = {
         'keyboard_w', 'keyboard_a', 'keyboard_s', 'keyboard_d',
         'keyboard_arrow_up', 'keyboard_arrow_down', 'keyboard_arrow_left', 'keyboard_arrow_right',
         'keyboard_shift', 'keyboard_space', 'keyboard_escape', 'keyboard_p', 'keyboard_f',
+        'keyboard_backspace_icon',
     ],
 }
 

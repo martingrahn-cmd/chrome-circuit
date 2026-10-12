@@ -1256,7 +1256,13 @@ function toggleFullscreen(fromPad = false) {
   if (document.fullscreenElement) { document.exitFullscreen().catch(() => {}); return; }
   if (fromPad === true && !padFullscreen()) { toast('This browser takes full screen from a key or a click — press F'); return; }
   document.documentElement.requestFullscreen({ navigationUI: 'hide' })
-    .then(() => { if (isTouch) screen.orientation?.lock?.('landscape').catch(() => {}); })
+    .then(() => {
+      if (isTouch) screen.orientation?.lock?.('landscape').catch(() => {});
+      // Chrome and Edge let a full-screen page keep Esc: a tap then goes back
+      // or pauses as it does in a window, and holding it leaves full screen
+      // (the browser says so). Elsewhere a tap of Esc leaves full screen.
+      navigator.keyboard?.lock?.(['Escape']).catch(() => {});
+    })
     .catch(() => {
       // Refused for want of a real key or click: stop offering the pad's button.
       if (fromPad === true || input.source === 'pad') { padFullscreenRefused = true; applyControls(); }
@@ -1265,7 +1271,10 @@ function toggleFullscreen(fromPad = false) {
     });
 }
 fsBtn.addEventListener('click', () => toggleFullscreen());
-document.addEventListener('fullscreenchange', updateFullscreen);
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement) navigator.keyboard?.unlock?.();
+  updateFullscreen();
+});
 addEventListener('resize', updateFullscreen);
 
 function togglePause() {
@@ -1287,6 +1296,13 @@ addEventListener('keydown', (e) => {
     // Mid-race it pauses; in the menus Esc goes back, as B does on a pad.
     if (state.screen === 'race' || state.screen === 'paused') togglePause();
     else if (k === 'escape' && !['loading', 'intro', 'menu'].includes(state.screen)) backOut();
+    return;
+  }
+  // Backspace goes back too, and never touches full screen (Esc does, in
+  // browsers that cannot hold it for the game; see toggleFullscreen).
+  if (k === 'backspace') {
+    e.preventDefault();
+    if (!e.repeat && !['loading', 'intro', 'menu', 'race'].includes(state.screen)) backOut();
     return;
   }
   if (k === 'f' && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey) { toggleFullscreen(); return; }
