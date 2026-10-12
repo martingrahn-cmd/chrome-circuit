@@ -92,7 +92,18 @@ export function controlRows(source, family = 'xbox', { fullscreen = true } = {})
     ['Drift', `${key('Shift')} — hold into a corner, let go on the way out`],
     ['Use item', key('Space')],
     ['Pause', `${key('Esc')} or ${key('P')}`],
+    ...(fullscreen ? [['Full screen', key('F')]] : []),
   ];
+}
+
+/** How the menus are worked, for the Controls screen. */
+export function menuNote(source, family = 'xbox') {
+  if (source === 'pad') {
+    return `Menus: ${glyph(family, 'dpad')} or ${glyph(family, 'stick')} to move, ${glyph(family, 'a')} to choose, `
+      + `${glyph(family, 'b')} to go back. Any button on a pad switches the game's prompts to it.`;
+  }
+  if (source === 'touch') return 'Tap the menus. A gamepad plugged in takes over from the screen.';
+  return `Menus: ${key('↑')} ${key('↓')} ${key('←')} ${key('→')} to move, Enter or ${key('Space')} to choose, ${key('Esc')} to go back.`;
 }
 
 /** The controls as a definition list's inner HTML. */
