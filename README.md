@@ -4,6 +4,11 @@ An isometric arcade racer in the spirit of *Rock'n Roll Racing* and *Super Off R
 built from Kenney's CC0 3D kits. Plain ES modules and a vendored Three.js — no build
 step, no dependencies to install.
 
+**For GameVolt:** key art in [`media/gamevolt/`](media/gamevolt/) — `hero` (1920×1080),
+`tall` (800×1200, Big Picture), `square` (1080×1080), the card thumbnail `chrome-circuit.webp`
+(1200×675) and a silent 10-second gameplay `preview.mp4` (720p), all rendered from the game
+by `tools/key_art.mjs` and `tools/preview_video.mjs`.
+
 **Trailer:** [`media/trailer.mp4`](media/trailer.mp4), the game's own opening titles (eight
 seconds, with the title song), filmed by `tools/intro_video.mjs`.
 
@@ -457,6 +462,8 @@ tools/share_image.mjs renders icons/share.jpg, the picture a shared link shows
 tools/encode_music.py the soundtrack's WAV masters to assets/music, at one loudness
 tools/intro_video.mjs films the opening titles, with the song, to an MP4
 tools/input_prompts.py the button and key icons, out of Kenney's Input Prompts pack
+tools/key_art.mjs     the key art in media/gamevolt: hero, tall, square, from a real race
+tools/preview_video.mjs  the silent gameplay preview, media/gamevolt/preview.mp4
 tools/gamevolt/       the trophies as GameVolt's database and profile page want them
 ```
 
