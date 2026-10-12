@@ -11,7 +11,7 @@ import { Input } from './input.js';
 import * as audio from './audio.js';
 import * as music from './music.js';
 import { Intro, LENGTH as INTRO_LENGTH } from './intro.js';
-import { padFamily, buttonName, controlList, menuHints } from './controls.js';
+import { padFamily, buttonName, controlList, menuHints, menuNote } from './controls.js';
 import * as progress from './progress.js';
 import * as settings from './settings.js';
 import * as champ from './champ.js';
@@ -121,6 +121,7 @@ const screens = {
   settings: document.getElementById('screen-settings'),
   trophies: document.getElementById('screen-trophies'),
   challenge: document.getElementById('screen-challenge'),
+  controls: document.getElementById('screen-controls'),
   intro: document.getElementById('screen-intro'),
   ending: document.getElementById('screen-ending'),
 };
@@ -130,7 +131,7 @@ function show(name) {
   state.screen = name;
   const song = songFor(name, from);
   if (song !== undefined) music.play(song);
-  music.setDucked(name === 'paused' || (name === 'settings' && state.settingsFrom === 'paused'));
+  music.setDucked(name === 'paused' || (underPause(name)));
   if (name === 'menu') updateMenu();
   for (const [key, el] of Object.entries(screens)) el.classList.toggle('show', key === name);
   document.getElementById('hud').classList.toggle('hidden', name !== 'race');
@@ -146,9 +147,12 @@ function show(name) {
   }
 }
 
+/** Settings (and its Controls page) opened from the pause screen. */
+const underPause = (name) => (name === 'settings' || name === 'controls') && state.settingsFrom === 'paused';
+
 /** The song a screen plays, coming from another; undefined keeps the one on. */
 function songFor(name, from) {
-  const racing = name === 'race' || name === 'paused' || (name === 'settings' && state.settingsFrom === 'paused');
+  const racing = name === 'race' || name === 'paused' || underPause(name);
   if (racing) {
     if (!state.race || state.attract) return undefined;
     return state.race.trial ? 'ghost-trials' : music.circuitSong(state.trackId);
@@ -1046,6 +1050,22 @@ document.addEventListener('click', (e) => {
       show('settings');
       break;
     case 'back-settings': audio.sfx.back(); show(state.settingsFrom); break;
+    case 'controls':
+      audio.sfx.select();
+      // Open on what is in hand.
+      showControlsTab(input.source === 'pad' ? family() : input.source);
+      show('controls');
+      document.querySelector('.controls-tabs [aria-pressed="true"]')?.focus();
+      break;
+    case 'controls-tab':
+      audio.sfx.select();
+      showControlsTab(btn.dataset.tab);
+      break;
+    case 'back-controls':
+      audio.sfx.back();
+      show('settings');
+      document.querySelector('#settings-list [data-action="controls"]')?.focus();
+      break;
     case 'setting': {
       const { key } = btn.dataset;
       state.settings[key] = JSON.parse(btn.dataset.value);
@@ -1185,7 +1205,11 @@ function renderSettings() {
           data-value='${JSON.stringify(v)}' aria-pressed="${state.settings[key] === v}">${text}</button>`).join('')}
       </div>
     </div>`).join('');
-  list.innerHTML = `${rows}
+  list.innerHTML = `
+    <div class="setting">
+      <span class="setting-name">Controls<small>Keyboard, gamepads and touch</small></span>
+      <button type="button" class="btn" data-action="controls">Show controls</button>
+    </div>${rows}
     <div class="setting setting--reset">
       <span class="setting-name">Progress<small>Circuits, cars, times, medals, championships. Settings stay.</small></span>
       <button type="button" class="btn btn--danger" data-action="reset-progress">Reset all progress</button>
@@ -1258,7 +1282,13 @@ const ARROWS = { arrowup: 'up', arrowdown: 'down', arrowleft: 'left', arrowright
 addEventListener('keydown', (e) => {
   const k = e.key.toLowerCase();
   // Key auto-repeat must not flicker the pause; arrows may keep repeating.
-  if (k === 'escape' || k === 'p') { if (!e.repeat) togglePause(); return; }
+  if (k === 'escape' || k === 'p') {
+    if (e.repeat) return;
+    // Mid-race it pauses; in the menus Esc goes back, as B does on a pad.
+    if (state.screen === 'race' || state.screen === 'paused') togglePause();
+    else if (k === 'escape' && !['loading', 'intro', 'menu'].includes(state.screen)) backOut();
+    return;
+  }
   if (k === 'f' && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey) { toggleFullscreen(); return; }
   if (state.screen === 'race') return;
   if (ARROWS[k]) { e.preventDefault(); navigate(ARROWS[k]); }
@@ -1274,13 +1304,24 @@ function applyControls() {
   const src = input.source, fam = family();
   document.body.dataset.input = src;
   document.body.dataset.pad = input.hasPad() ? '1' : '';
-  const opts = { fullscreen: padFullscreen() };
+  const opts = { fullscreen: src === 'pad' ? padFullscreen() : canFullscreen };
   for (const id of ['pause-controls', 'howto-controls']) document.getElementById(id).innerHTML = controlList(src, fam, opts);
   document.getElementById('howto-other').textContent = src === 'pad'
     ? 'The keyboard works too, and so does a phone\'s screen. The menus take the d-pad or the stick.'
     : 'A gamepad works too: plug one in and press any button, and these controls switch to its buttons.';
   hud.setControlHint(src === 'pad' ? `${buttonName(fam, 'x')} / ${buttonName(fam, 'y')}` : src === 'touch' ? '★ button' : 'Space');
   updatePadHints();
+}
+
+/** The Controls screen on one way of playing: keys, touch or a pad's family. */
+function showControlsTab(tab) {
+  const pad = !['keys', 'touch'].includes(tab);
+  const src = pad ? 'pad' : tab;
+  document.getElementById('controls-list').innerHTML = controlList(src, tab, {
+    fullscreen: pad ? padFullscreen() : canFullscreen && src === 'keys',
+  });
+  document.getElementById('controls-note').innerHTML = menuNote(src, tab);
+  for (const b of document.querySelectorAll('.controls-tabs [data-tab]')) b.setAttribute('aria-pressed', String(b.dataset.tab === tab));
 }
 
 /** The button bar under the menus, with a pad in hand. */

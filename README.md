@@ -46,6 +46,8 @@ columns and the touch buttons shrink to fit.
 
 Reached from the main menu or the pause screen:
 
+- **Controls**: every way to play, not only the one in hand — a tab each for the
+  keyboard, Xbox, PlayStation and Switch pads, and touch, opening on what you last used.
 - **Music**, **Sound effects** and **Engine** volume, each in five steps from off to
   full, under the ♪ toggle that mutes everything.
 - **Opening titles** on or off.
@@ -101,6 +103,7 @@ there is nothing to configure, and a notice tells you which pad connected. The
 stick has a deadzone and a mild response curve, and the triggers are analog, so
 part-throttle and trailing the brake into a corner both work.
 
+`Esc` goes back in the menus as `B` does on a pad (mid-race it pauses).
 The menus are fully navigable from the pad: d-pad or stick to move, `A` to choose,
 `B` to go back, `Start` to confirm or to pause mid-race. Navigation is spatial
 rather than a fixed list, so moving right across the car grid does what you expect.

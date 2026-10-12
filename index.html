@@ -268,6 +268,25 @@
     </div>
   </section>
 
+  <!-- Every way to play, not only the one in hand: reached from Settings. -->
+  <section class="screen" id="screen-controls">
+    <div class="panel panel--narrow">
+      <header class="panel-head">
+        <h2>Controls</h2>
+        <button class="btn btn--ghost" data-action="back-controls">Back</button>
+      </header>
+      <div class="trophy-tabs controls-tabs" role="tablist">
+        <button type="button" class="choice" role="tab" data-action="controls-tab" data-tab="keys">Keyboard</button>
+        <button type="button" class="choice" role="tab" data-action="controls-tab" data-tab="xbox">Xbox</button>
+        <button type="button" class="choice" role="tab" data-action="controls-tab" data-tab="playstation">PlayStation</button>
+        <button type="button" class="choice" role="tab" data-action="controls-tab" data-tab="nintendo">Switch</button>
+        <button type="button" class="choice" role="tab" data-action="controls-tab" data-tab="touch">Touch</button>
+      </div>
+      <dl class="control-list" id="controls-list"></dl>
+      <p class="controls-note" id="controls-note"></p>
+    </div>
+  </section>
+
   <section class="screen" id="screen-trophies">
     <div class="panel">
       <header class="panel-head">
